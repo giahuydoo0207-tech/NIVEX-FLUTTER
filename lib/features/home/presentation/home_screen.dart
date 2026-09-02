@@ -11,6 +11,7 @@ class HomeScreen extends StatefulWidget {
     required this.onHistory,
     required this.onQuote,
     required this.onHelp,
+    required this.onProfile,
     super.key,
   });
 
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onHistory;
   final VoidCallback onQuote;
   final VoidCallback onHelp;
+  final VoidCallback onProfile;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -45,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onToggleBalance: () =>
                   setState(() => _balanceVisible = !_balanceVisible),
               onNotifications: _showNotifications,
+              onProfile: widget.onProfile,
             ),
             _QuickActionsBar(
               onReceive: widget.onReceive,
@@ -76,11 +79,13 @@ class _HomeHero extends StatelessWidget {
     required this.balanceVisible,
     required this.onToggleBalance,
     required this.onNotifications,
+    required this.onProfile,
   });
 
   final bool balanceVisible;
   final VoidCallback onToggleBalance;
   final VoidCallback onNotifications;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -130,28 +135,49 @@ class _HomeHero extends StatelessWidget {
                       _NotificationBell(onTap: onNotifications),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // User Profile Row: Avatar + Name
-                  Row(
-                    children: const [
-                      Icon(
-                        Icons.account_circle_outlined,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Minh Anh',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0,
+                  const SizedBox(height: 12),
+                  // User Profile Row: Avatar + Name (Tappable with min 48dp target)
+                  Semantics(
+                    button: true,
+                    label: 'Hồ sơ người dùng Minh Anh',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onProfile,
+                        borderRadius: BorderRadius.circular(8),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 6,
+                              horizontal: 4,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.account_circle_outlined,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Minh Anh',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   // Balance Label + Visibility Eye
                   Row(
                     children: [

@@ -4,6 +4,7 @@ import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart'
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
+import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
 import 'package:nivex_flutter/features/transactions/presentation/transactions_screen.dart';
@@ -46,6 +47,7 @@ class _AppShellState extends State<AppShell> {
         onHistory: () => _selectTab(2),
         onQuote: _openQuickQuote,
         onHelp: _openHelp,
+        onProfile: _openProfile,
       ),
       WalletScreen(onReceive: _openReceive, onCashout: _openCashout),
       const TransactionsScreen(),
@@ -121,5 +123,10 @@ class _AppShellState extends State<AppShell> {
   Future<void> _openHelp() {
     return Navigator.of(context)
         .push<void>(MaterialPageRoute(builder: (_) => const HelpScreen()));
+  }
+
+  Future<void> _openProfile() {
+    return Navigator.of(context)
+        .push<void>(MaterialPageRoute(builder: (_) => const ProfileScreen()));
   }
 }
