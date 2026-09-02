@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_colors.dart';
 import 'package:nivex_flutter/features/home/domain/wallet_transaction.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
+import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -61,6 +62,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final visible = _filter == null
         ? _items
         : _items.where((item) => item.kind == _filter).toList();
+
     return NivexPage(
       title: 'Giao dịch',
       subtitle: 'Lịch sử hoạt động của ví',
@@ -71,6 +73,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             key: const PageStorageKey('transactions-scroll'),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             children: [
+              // 1. Filter Chips Row
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -104,14 +107,34 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
-              for (final item in visible) ...[
-                _TransactionTile(
-                  transaction: item,
-                  onTap: () => _showDetails(context, item),
+              const SizedBox(height: 16),
+
+              // 2. Flat Transaction List with Thin Dividers
+              Container(
+                decoration: BoxDecoration(
+                  color: NivexColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: NivexColors.border),
                 ),
-                const SizedBox(height: 10),
-              ],
+                child: Column(
+                  children: [
+                    for (var i = 0; i < visible.length; i++) ...[
+                      _TransactionRow(
+                        transaction: visible[i],
+                        onTap: () => _showDetails(context, visible[i]),
+                      ),
+                      if (i < visible.length - 1)
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: NivexColors.border,
+                          indent: 68,
+                          endIndent: 16,
+                        ),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -129,23 +152,52 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircleAvatar(
-              radius: 28,
-              backgroundColor: NivexColors.greenSoft,
-              child: Icon(Icons.check_rounded, color: NivexColors.green),
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                color: NivexColors.greenSoft,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_rounded,
+                color: NivexColors.green,
+                size: 28,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               transaction.title,
-              style: Theme.of(context).textTheme.titleLarge,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: NivexColors.navy,
+                letterSpacing: 0,
+              ),
             ),
             const SizedBox(height: 4),
-            Text(transaction.amount),
-            const SizedBox(height: 20),
-            NivexCard(
+            Text(
+              transaction.amount,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: transaction.kind == TransactionKind.incoming
+                    ? NivexColors.green
+                    : NivexColors.navy,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: NivexColors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: NivexColors.border),
+              ),
               child: Column(
                 children: [
-                  _DetailRow(label: 'Trạng thái', value: 'Hoàn tất'),
+                  const _DetailRow(label: 'Trạng thái', value: 'Hoàn tất'),
                   const SizedBox(height: 12),
                   _DetailRow(
                     label: 'Thời gian',
@@ -163,6 +215,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               onPressed: () => Navigator.of(sheetContext).pop(),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Đóng'),
             ),
@@ -186,24 +241,35 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        showCheckmark: false,
-        selectedColor: NivexColors.blueSoft,
-        side: BorderSide(
-          color: selected ? NivexColors.blue : NivexColors.border,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? NivexColors.blueSoft : NivexColors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? NivexColors.blue : NivexColors.border,
+            width: selected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? NivexColors.blue : NivexColors.textSecondary,
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            letterSpacing: 0,
+          ),
         ),
       ),
     );
   }
 }
 
-class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.transaction, required this.onTap});
+class _TransactionRow extends StatelessWidget {
+  const _TransactionRow({required this.transaction, required this.onTap});
 
   final WalletTransaction transaction;
   final VoidCallback onTap;
@@ -211,50 +277,73 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final incoming = transaction.kind == TransactionKind.incoming;
-    return Material(
-      color: NivexColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: const BorderSide(color: NivexColors.border),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        minTileHeight: 72,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-        leading: CircleAvatar(
-          backgroundColor: incoming
-              ? NivexColors.greenSoft
-              : NivexColors.blueSoft,
-          child: Icon(
-            transaction.icon,
-            color: incoming ? NivexColors.green : NivexColors.blue,
-          ),
-        ),
-        title: Text(transaction.title),
-        subtitle: Text(
-          transaction.subtitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+    final iconBg = incoming ? NivexColors.greenSoft : NivexColors.blueSoft;
+    final iconColor = incoming ? NivexColors.green : NivexColors.blue;
+    final amountColor = incoming ? NivexColors.green : NivexColors.navy;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
           children: [
-            Text(
-              transaction.amount,
-              style: TextStyle(
-                color: incoming ? NivexColors.green : NivexColors.navy,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+              child: Icon(transaction.icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    transaction.title,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: NivexColors.navy,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    transaction.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: NivexColors.textSecondary,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 3),
-            Text(
-              transaction.amountDetail,
-              style: const TextStyle(
-                color: NivexColors.textSecondary,
-                fontSize: 10,
-              ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  transaction.amount,
+                  style: TextStyle(
+                    color: amountColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  transaction.amountDetail,
+                  style: const TextStyle(
+                    color: NivexColors.textSecondary,
+                    fontSize: 11.5,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -276,14 +365,32 @@ class _DetailRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(color: NivexColors.textSecondary),
+            style: const TextStyle(
+              color: NivexColors.textSecondary,
+              fontSize: 13.5,
+              letterSpacing: 0,
+            ),
           ),
         ),
         Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (value == 'Solana Devnet') ...[
+                const SolanaMark(width: 14),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                value,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.5,
+                  color: NivexColors.navy,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
           ),
         ),
       ],

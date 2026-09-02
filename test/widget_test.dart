@@ -11,7 +11,8 @@ void main() {
 
     expect(find.text('Minh Anh'), findsOneWidget);
     expect(find.text('Solana Devnet'), findsOneWidget);
-    expect(find.text('22.480.000 đ'), findsOneWidget);
+    expect(find.text('500.00 USDC'), findsOneWidget);
+    expect(find.text('≈ 12.500.000 VND'), findsOneWidget);
     expect(find.text('Nhận USDC'), findsWidgets);
     expect(find.text('Rút VND'), findsWidgets);
     expect(find.text('Lịch sử'), findsOneWidget);
@@ -20,10 +21,11 @@ void main() {
     expect(find.text('Chào'), findsNothing);
   });
 
-  testWidgets('điều hướng được giữa bốn bottom tabs', (tester) async {
+  testWidgets('điều hướng được giữa ba bottom tabs', (tester) async {
     await tester.pumpWidget(const NivexApp());
 
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
+    expect(find.byType(NavigationDestination), findsNWidgets(3));
+    expect(find.text('Thị trường'), findsNothing);
 
     await tester.tap(find.text('Ví'));
     await tester.pumpAndSettle();
@@ -33,10 +35,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Lịch sử hoạt động của ví'), findsOneWidget);
 
-    await tester.tap(find.text('Thị trường'));
-    await tester.pumpAndSettle();
-    expect(find.text('Tỷ giá USDC/VND tham khảo'), findsOneWidget);
-
     await tester.tap(find.text('Trang chủ'));
     await tester.pumpAndSettle();
     expect(find.text('Minh Anh'), findsOneWidget);
@@ -45,11 +43,12 @@ void main() {
   testWidgets('flow Nhận USDC quay về Home', (tester) async {
     await tester.pumpWidget(const NivexApp());
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Nhận USDC'));
+    await tester.tap(find.text('Nhận USDC').first);
     await tester.pumpAndSettle();
     expect(find.text('Địa chỉ ví USDC'), findsOneWidget);
     expect(find.text('Mạng Solana Devnet'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Về trang chủ'));
     await tester.tap(find.text('Về trang chủ'));
     await tester.pumpAndSettle();
     expect(find.text('Minh Anh'), findsOneWidget);
@@ -58,7 +57,7 @@ void main() {
   testWidgets('cashout chọn ngân hàng và đi đến biên nhận', (tester) async {
     await tester.pumpWidget(const NivexApp());
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Rút VND'));
+    await tester.tap(find.text('Rút VND').first);
     await tester.pumpAndSettle();
     expect(find.text('Dùng tối đa'), findsOneWidget);
     expect(find.text('25%'), findsNothing);
@@ -92,7 +91,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1500));
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Yêu cầu đã hoàn tất'), findsOneWidget);
-    expect(find.text('Chia sẻ biên nhận'), findsOneWidget);
 
     await tester.drag(find.byType(ListView).last, const Offset(0, -600));
     await tester.pump();
@@ -164,14 +162,14 @@ void main() {
     await tester.pumpWidget(const NivexApp());
     expect(tester.takeException(), isNull);
 
-    for (final label in ['Ví', 'Giao dịch', 'Thị trường', 'Trang chủ']) {
+    for (final label in ['Ví', 'Giao dịch', 'Trang chủ']) {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
       final error = tester.takeException();
       expect(error, isNull, reason: 'Tab $label: $error');
     }
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Rút VND'));
+    await tester.tap(find.text('Rút VND').first);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 

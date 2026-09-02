@@ -4,14 +4,15 @@ import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart'
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
-import 'package:nivex_flutter/features/market/presentation/market_screen.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
 import 'package:nivex_flutter/features/transactions/presentation/transactions_screen.dart';
 import 'package:nivex_flutter/features/wallet/presentation/wallet_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({this.initialTab = 0, super.key});
+
+  final int initialTab;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -23,7 +24,10 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = AppTabController.index.value;
+    _selectedIndex = widget.initialTab != 0
+        ? widget.initialTab
+        : AppTabController.index.value;
+    AppTabController.index.value = _selectedIndex;
     AppTabController.index.addListener(_handleExternalTabChange);
   }
 
@@ -45,7 +49,6 @@ class _AppShellState extends State<AppShell> {
       ),
       WalletScreen(onReceive: _openReceive, onCashout: _openCashout),
       const TransactionsScreen(),
-      MarketScreen(onCreateQuote: _openQuickQuote),
     ];
 
     return PopScope(
@@ -70,13 +73,9 @@ class _AppShellState extends State<AppShell> {
               label: 'Ví',
             ),
             NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long_rounded),
+              icon: Icon(Icons.swap_horiz_rounded),
+              selectedIcon: Icon(Icons.swap_horiz_rounded),
               label: 'Giao dịch',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.show_chart_rounded),
-              label: 'Thị trường',
             ),
           ],
         ),

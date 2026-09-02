@@ -2,43 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_colors.dart';
 
 class NivexLogo extends StatelessWidget {
-  const NivexLogo({super.key, this.height = 28});
+  const NivexLogo({super.key, this.height = 24, this.isLight = false});
 
   final double height;
+  final bool isLight;
 
   @override
   Widget build(BuildContext context) {
+    final markColor = isLight ? NivexColors.white : NivexColors.blue;
+    final textColor = isLight ? NivexColors.white : NivexColors.navy;
     return Semantics(
       label: 'NIVEX',
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: height,
-            height: height,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: NivexColors.blue,
-              borderRadius: BorderRadius.circular(height * .3),
-            ),
-            child: Text(
-              'N',
-              style: TextStyle(
-                color: NivexColors.white,
-                fontSize: height * .58,
-                fontWeight: FontWeight.w800,
-                height: 1,
-              ),
-            ),
+          CustomPaint(
+            size: Size(height * 0.95, height),
+            painter: _NivexMarkPainter(color: markColor),
           ),
-          SizedBox(width: height * .3),
+          SizedBox(width: height * 0.35),
           Text(
             'NIVEX',
             style: TextStyle(
-              color: NivexColors.navy,
-              fontSize: height * .62,
+              color: textColor,
+              fontSize: height * 0.85,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
+              letterSpacing: 0,
               height: 1,
             ),
           ),
@@ -46,4 +36,36 @@ class NivexLogo extends StatelessWidget {
       ),
     );
   }
+}
+
+class _NivexMarkPainter extends CustomPainter {
+  const _NivexMarkPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final strokeWidth = w * 0.24;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final path = Path()
+      ..moveTo(strokeWidth / 2, h - strokeWidth / 2)
+      ..lineTo(strokeWidth / 2, strokeWidth / 2)
+      ..lineTo(w - strokeWidth / 2, h - strokeWidth / 2)
+      ..lineTo(w - strokeWidth / 2, strokeWidth / 2);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NivexMarkPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

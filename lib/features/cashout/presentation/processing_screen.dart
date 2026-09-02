@@ -44,47 +44,60 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(
-                  width: 64,
-                  height: 64,
+                  width: 56,
+                  height: 56,
                   child: CircularProgressIndicator(
-                    strokeWidth: 5,
+                    strokeWidth: 4,
                     color: NivexColors.blue,
                     backgroundColor: NivexColors.blueSoft,
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text(
+                const Text(
                   'Đang gửi yêu cầu rút VND',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: NivexColors.navy,
+                    letterSpacing: 0,
+                  ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 const Text(
-                  'NIVEX đang mô phỏng kiểm tra báo giá và thông tin ngân hàng.',
+                  'NIVEX đang mô phỏng kiểm tra báo giá và thông tin tài khoản nhận.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: NivexColors.textSecondary,
+                    fontSize: 13,
                     height: 1.45,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 28),
-                const NivexCard(
-                  child: Column(
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: NivexColors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: NivexColors.border),
+                  ),
+                  child: const Column(
                     children: [
                       _ProcessingStep(
-                        label: 'Khóa báo giá',
+                        label: 'Khóa tỷ giá quy đổi',
                         icon: Icons.check_circle_rounded,
                         done: true,
                       ),
                       SizedBox(height: 14),
                       _ProcessingStep(
-                        label: 'Kiểm tra yêu cầu',
+                        label: 'Kiểm tra thông tin giao dịch',
                         icon: Icons.sync_rounded,
                         done: false,
                       ),
                       SizedBox(height: 14),
                       _ProcessingStep(
-                        label: 'Tạo biên nhận',
+                        label: 'Tạo biên nhận chuyển tiền',
                         icon: Icons.radio_button_unchecked_rounded,
                         done: false,
                       ),
@@ -125,10 +138,20 @@ class _ProcessingStep extends StatelessWidget {
         Icon(
           icon,
           color: done ? NivexColors.green : NivexColors.blue,
-          size: 22,
+          size: 20,
         ),
         const SizedBox(width: 12),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13.5,
+              color: NivexColors.navy,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
       ],
     );
   }
