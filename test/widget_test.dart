@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nivex_flutter/app/nivex_app.dart';
+import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 void main() {
   setUp(() => AppTabController.index.value = 0);
@@ -40,18 +43,99 @@ void main() {
     expect(find.text('Minh Anh'), findsOneWidget);
   });
 
-  testWidgets('flow Nhận USDC quay về Home', (tester) async {
+  testWidgets(
+    'flow Nhận USDC hiển thị QR thật, nhãn Demo Mode và lưu ý bảo mật',
+    (tester) async {
+      String? copiedText;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (MethodCall methodCall) async {
+          if (methodCall.method == 'Clipboard.setData') {
+            copiedText = (methodCall.arguments as Map)['text'] as String?;
+            return null;
+          }
+          return null;
+        },
+      );
+
+      await tester.pumpWidget(const NivexApp());
+
+      await tester.tap(find.text('Nhận USDC').first);
+      await tester.pumpAndSettle();
+
+      // Verify badge and titles
+      expect(find.text('Demo Mode • Solana Devnet'), findsOneWidget);
+      expect(find.text('Địa chỉ ví USDC'), findsOneWidget);
+      expect(find.text('Mạng Solana Devnet'), findsOneWidget);
+      expect(
+        find.text('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'),
+        findsOneWidget,
+      );
+
+      // Verify scannable QR Code widget and payload
+      expect(find.byType(QrImageView), findsOneWidget);
+      final qrValidation = QrValidator.validate(
+        data: ReceiveUsdcScreen.address,
+        version: QrVersions.auto,
+      );
+      expect(qrValidation.status, equals(QrValidationStatus.valid));
+      expect(qrValidation.qrCode, isNotNull);
+
+      // Verify all 3 required security and network warnings
+      expect(find.text('Chỉ gửi USDC qua mạng Solana.'), findsOneWidget);
+      expect(
+        find.text(
+          'Gửi token qua mạng khác có thể khiến tài sản không thể khôi phục.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Bản demo sử dụng dữ liệu mô phỏng hoặc Solana Devnet. Không gửi tài sản thật.',
+        ),
+        findsOneWidget,
+      );
+
+      // Verify Copy button copies the exact full 44-character Solana address
+      await tester.tap(find.text('Sao chép'));
+      await tester.pump();
+      expect(
+        copiedText,
+        equals('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'),
+      );
+
+      await tester.ensureVisible(find.text('Về trang chủ'));
+      await tester.tap(find.text('Về trang chủ'));
+      await tester.pumpAndSettle();
+      expect(find.text('Minh Anh'), findsOneWidget);
+    },
+  );
+
+  testWidgets('sao chép địa chỉ ví từ màn Ví trả đúng địa chỉ Solana đầy đủ', (
+    tester,
+  ) async {
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall methodCall) async {
+        if (methodCall.method == 'Clipboard.setData') {
+          copiedText = (methodCall.arguments as Map)['text'] as String?;
+          return null;
+        }
+        return null;
+      },
+    );
+
     await tester.pumpWidget(const NivexApp());
 
-    await tester.tap(find.text('Nhận USDC').first);
+    await tester.tap(find.text('Ví'));
     await tester.pumpAndSettle();
-    expect(find.text('Địa chỉ ví USDC'), findsOneWidget);
-    expect(find.text('Mạng Solana Devnet'), findsOneWidget);
+    expect(find.text('Demo Mode • Solana Devnet'), findsOneWidget);
+    expect(find.text('7xKXtg...sgAsU'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Về trang chủ'));
-    await tester.tap(find.text('Về trang chủ'));
-    await tester.pumpAndSettle();
-    expect(find.text('Minh Anh'), findsOneWidget);
+    await tester.tap(find.byTooltip('Sao chép địa chỉ'));
+    await tester.pump();
+    expect(copiedText, equals('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'));
   });
 
   testWidgets('cashout chọn ngân hàng và đi đến biên nhận', (tester) async {

@@ -19,7 +19,7 @@ class WalletScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return NivexPage(
       title: 'Ví của bạn',
-      subtitle: 'Solana Devnet • Dữ liệu mô phỏng',
+      subtitle: 'Demo Mode • Solana Devnet',
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
@@ -267,7 +267,7 @@ class WalletScreen extends StatelessWidget {
                         ),
                       ),
                       subtitle: const Text(
-                        '7xKm4h...1aQp9',
+                        '7xKXtg...sgAsU',
                         style: TextStyle(
                           fontSize: 12,
                           color: NivexColors.textSecondary,

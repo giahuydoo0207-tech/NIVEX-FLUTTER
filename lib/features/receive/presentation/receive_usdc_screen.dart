@@ -3,11 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_colors.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class ReceiveUsdcScreen extends StatelessWidget {
   const ReceiveUsdcScreen({super.key});
 
-  static const address = '7xKm4hVfN8fK2WmC9Dq3PzL6sT1aQp9';
+  static const address = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +33,7 @@ class ReceiveUsdcScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      // Solana Devnet Badge
+                      // Demo Mode • Solana Devnet Badge
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -48,7 +49,7 @@ class ReceiveUsdcScreen extends StatelessWidget {
                             SolanaMark(width: 18),
                             SizedBox(width: 6),
                             Text(
-                              'Solana Devnet',
+                              'Demo Mode • Solana Devnet',
                               style: TextStyle(
                                 color: NivexColors.navy,
                                 fontSize: 12,
@@ -87,7 +88,7 @@ class ReceiveUsdcScreen extends StatelessWidget {
                           style: TextStyle(
                             color: NivexColors.navy,
                             fontWeight: FontWeight.w700,
-                            fontSize: 13.5,
+                            fontSize: 12.5,
                             letterSpacing: 0,
                           ),
                         ),
@@ -134,32 +135,45 @@ class ReceiveUsdcScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
 
-                // 2. Short Info Banner
+                // 2. Security & Warning Rules Card
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: NivexColors.blueSoft,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: NivexColors.border),
                   ),
-                  child: const Row(
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        color: NivexColors.blue,
-                        size: 20,
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Chỉ gửi USDC trên mạng Solana Devnet. Đây là môi trường thử nghiệm mô phỏng, không gửi tài sản thật.',
-                          style: TextStyle(
-                            color: NivexColors.navy,
-                            fontSize: 12.5,
-                            height: 1.4,
-                            letterSpacing: 0,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.shield_outlined,
+                            color: NivexColors.blue,
+                            size: 18,
                           ),
-                        ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Lưu ý quan trọng',
+                            style: TextStyle(
+                              color: NivexColors.navy,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 10),
+                      _WarningItem(text: 'Chỉ gửi USDC qua mạng Solana.'),
+                      SizedBox(height: 6),
+                      _WarningItem(
+                        text: 'Gửi token qua mạng khác có thể khiến tài sản không thể khôi phục.',
+                      ),
+                      SizedBox(height: 6),
+                      _WarningItem(
+                        text: 'Bản demo sử dụng dữ liệu mô phỏng hoặc Solana Devnet. Không gửi tài sản thật.',
                       ),
                     ],
                   ),
@@ -307,6 +321,42 @@ class ReceiveUsdcScreen extends StatelessWidget {
   }
 }
 
+class _WarningItem extends StatelessWidget {
+  const _WarningItem({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          width: 5,
+          height: 5,
+          decoration: const BoxDecoration(
+            color: NivexColors.blue,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: NivexColors.navy,
+              fontSize: 12.5,
+              height: 1.4,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _QrPreview extends StatelessWidget {
   const _QrPreview();
 
@@ -316,42 +366,30 @@ class _QrPreview extends StatelessWidget {
       label: 'Mã QR nhận USDC trên Solana Devnet',
       image: true,
       child: Container(
-        width: 170,
-        height: 170,
-        padding: const EdgeInsets.all(12),
+        width: 176,
+        height: 176,
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: NivexColors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: NivexColors.border),
         ),
-        child: CustomPaint(painter: _QrPainter()),
+        alignment: Alignment.center,
+        child: QrImageView(
+          data: ReceiveUsdcScreen.address,
+          version: QrVersions.auto,
+          size: 156,
+          padding: EdgeInsets.zero,
+          eyeStyle: const QrEyeStyle(
+            eyeShape: QrEyeShape.square,
+            color: NivexColors.navy,
+          ),
+          dataModuleStyle: const QrDataModuleStyle(
+            dataModuleShape: QrDataModuleShape.square,
+            color: NivexColors.navy,
+          ),
+        ),
       ),
     );
   }
-}
-
-class _QrPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cell = size.width / 13;
-    final paint = Paint()..color = NivexColors.navy;
-    for (var row = 0; row < 13; row++) {
-      for (var column = 0; column < 13; column++) {
-        final finder =
-            (row < 4 && column < 4) ||
-            (row < 4 && column > 8) ||
-            (row > 8 && column < 4);
-        final data = ((row * 7 + column * 5 + row * column) % 4) < 2;
-        if (finder || data) {
-          canvas.drawRect(
-            Rect.fromLTWH(column * cell, row * cell, cell * .82, cell * .82),
-            paint,
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

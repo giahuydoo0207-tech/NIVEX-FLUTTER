@@ -33,7 +33,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       title: 'Chuyển USDC',
       subtitle: '29/08/2026, 11:08 • Hoàn tất',
       amount: '-25,00 USDC',
-      amountDetail: 'Ví 7xKm...2Qp9',
+      amountDetail: 'Ví 7xKX...sgAsU',
       icon: Icons.north_east_rounded,
       kind: TransactionKind.outgoing,
     ),
