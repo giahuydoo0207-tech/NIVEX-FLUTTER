@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
+import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 
@@ -17,6 +18,7 @@ class WalletScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Ví của bạn',
       subtitle: 'Demo Mode • Solana Devnet',
@@ -31,8 +33,9 @@ class WalletScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: NivexColors.navy,
+                  color: theme.isDark ? theme.surface : const Color(0xFF0F2439),
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,7 +53,7 @@ class WalletScreen extends StatelessWidget {
                     const Text(
                       '880,00 USDC',
                       style: TextStyle(
-                        color: NivexColors.white,
+                        color: Colors.white,
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0,
@@ -74,8 +77,10 @@ class WalletScreen extends StatelessWidget {
                             onPressed: onReceive,
                             style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(44),
-                              backgroundColor: NivexColors.white,
-                              foregroundColor: NivexColors.navy,
+                              backgroundColor: theme.primary,
+                              foregroundColor: theme.isDark
+                                  ? const Color(0xFF0F172A)
+                                  : Colors.white,
                               textStyle: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 14,
@@ -94,7 +99,7 @@ class WalletScreen extends StatelessWidget {
                             onPressed: onCashout,
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(44),
-                              foregroundColor: NivexColors.white,
+                              foregroundColor: Colors.white,
                               side: const BorderSide(color: Color(0xFF8DA5B8)),
                               textStyle: const TextStyle(
                                 fontWeight: FontWeight.w700,
@@ -113,219 +118,150 @@ class WalletScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
-
-              // 2. Assets Section: Flat List
-              const Text(
-                'Tài sản',
+              const SizedBox(height: 24),
+              // 2. Token Asset List
+              Text(
+                'TÀI SẢN',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: NivexColors.navy,
+                  color: theme.textSecondary,
                   letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
                 decoration: BoxDecoration(
-                  color: NivexColors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: NivexColors.border),
+                  color: theme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.border),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: NivexColors.blueSoft,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        r'$',
-                        style: TextStyle(
-                          color: NivexColors.blue,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
+                    _TokenRow(
+                      icon: SolanaMark(width: 20),
+                      title: 'USD Coin',
+                      symbol: 'USDC (Solana Devnet)',
+                      amount: '880,00 USDC',
+                      fiatAmount: '≈ 22.480.000 VND',
+                      onTap: onReceive,
+                    ),
+                    Divider(height: 1, thickness: 1, color: theme.divider),
+                    _TokenRow(
+                      icon: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFDC2626),
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'USD Coin',
-                            style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                              color: NivexColors.navy,
-                              letterSpacing: 0,
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          Row(
-                            children: [
-                              SolanaMark(width: 13),
-                              SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  'Solana Devnet',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: NivexColors.textSecondary,
-                                    letterSpacing: 0,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '880,00',
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'đ',
                           style: TextStyle(
-                            fontSize: 14.5,
+                            color: Colors.white,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: NivexColors.navy,
                             letterSpacing: 0,
                           ),
                         ),
-                        SizedBox(height: 2),
+                      ),
+                      title: 'Việt Nam Đồng',
+                      symbol: 'VND (Mô phỏng ngân hàng)',
+                      amount: '0 VND',
+                      fiatAmount: 'Sẵn sàng rút',
+                      onTap: onCashout,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // 3. Solana Devnet Public Address Card
+              Text(
+                'ĐỊA CHỈ VÍ SOLANA DEVNET',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textSecondary,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const SolanaMark(width: 16),
+                        const SizedBox(width: 8),
                         Text(
-                          '22.480.000 đ',
+                          DemoData.solanaAddressShort,
                           style: TextStyle(
-                            fontSize: 12,
-                            color: NivexColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: theme.textPrimary,
                             letterSpacing: 0,
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
-
-              // 3. Wallet Information: Clean List Group
-              const Text(
-                'Thông tin ví',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: NivexColors.navy,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Material(
-                color: NivexColors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: const BorderSide(color: NivexColors.border),
-                ),
-                child: Column(
-                  children: [
-                    ListTile(
-                      minTileHeight: 56,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 2,
-                      ),
-                      leading: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: NivexColors.blueSoft,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.key_outlined,
-                          color: NivexColors.blue,
-                          size: 19,
-                        ),
-                      ),
-                      title: const Text(
-                        'Địa chỉ ví',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: NivexColors.navy,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        '7xKXtg...sgAsU',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: NivexColors.textSecondary,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.copy_rounded,
-                          color: NivexColors.blue,
-                          size: 19,
-                        ),
-                        tooltip: 'Sao chép địa chỉ',
-                        onPressed: () => _copyAddress(context),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Địa chỉ ví dùng để nhận test USDC trên Solana Devnet.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: theme.textSecondary,
+                        letterSpacing: 0,
                       ),
                     ),
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: NivexColors.border,
-                      indent: 68,
-                    ),
-                    ListTile(
-                      minTileHeight: 56,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 2,
-                      ),
-                      leading: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: NivexColors.blueSoft,
-                          borderRadius: BorderRadius.circular(8),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Clipboard.setData(
+                              const ClipboardData(
+                                text: ReceiveUsdcScreen.address,
+                              ),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Đã sao chép địa chỉ ví Solana'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          label: const Text('Sao chép'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.primary,
+                            side: BorderSide(color: theme.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.account_balance_outlined,
-                          color: NivexColors.blue,
-                          size: 19,
+                        const SizedBox(width: 10),
+                        FilledButton.tonalIcon(
+                          onPressed: onReceive,
+                          icon: const Icon(Icons.qr_code_rounded, size: 16),
+                          label: const Text('Mã QR'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: theme.surfaceSubtle,
+                            foregroundColor: theme.textPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
-                      ),
-                      title: const Text(
-                        'Tài khoản nhận VND',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: NivexColors.navy,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'Vietcombank •••• 2868',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: NivexColors.textSecondary,
-                          letterSpacing: 0,
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -336,16 +272,96 @@ class WalletScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Future<void> _copyAddress(BuildContext context) async {
-    await Clipboard.setData(
-      const ClipboardData(text: ReceiveUsdcScreen.address),
-    );
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã sao chép địa chỉ ví.'),
-        behavior: SnackBarBehavior.floating,
+class _TokenRow extends StatelessWidget {
+  const _TokenRow({
+    required this.icon,
+    required this.title,
+    required this.symbol,
+    required this.amount,
+    required this.fiatAmount,
+    required this.onTap,
+  });
+
+  final Widget icon;
+  final String title;
+  final String symbol;
+  final String amount;
+  final String fiatAmount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: theme.surfaceSubtle,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: icon,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textPrimary,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    symbol,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textSecondary,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  amount,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: theme.textPrimary,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  fiatAmount,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.textSecondary,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

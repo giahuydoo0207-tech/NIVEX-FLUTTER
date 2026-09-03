@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 
 class ProfileRow extends StatelessWidget {
   const ProfileRow({
@@ -23,11 +23,10 @@ class ProfileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = isDanger ? NivexColors.danger : NivexColors.navy;
-    final iconColor = isDanger ? NivexColors.danger : NivexColors.blue;
-    final iconBgColor = isDanger
-        ? const Color(0xFFFEE2E2)
-        : NivexColors.blueSoft;
+    final theme = context.nivexTheme;
+    final titleColor = isDanger ? theme.danger : theme.textPrimary;
+    final iconColor = isDanger ? theme.danger : theme.primary;
+    final iconBgColor = isDanger ? theme.dangerSoft : theme.surfaceSubtle;
 
     return Material(
       color: Colors.transparent,
@@ -56,6 +55,8 @@ class ProfileRow extends StatelessWidget {
                     children: [
                       Text(
                         title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -67,9 +68,11 @@ class ProfileRow extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           subtitle!,
-                          style: const TextStyle(
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
                             fontSize: 12,
-                            color: NivexColors.textSecondary,
+                            color: theme.textSecondary,
                             letterSpacing: 0,
                           ),
                         ),
@@ -83,10 +86,10 @@ class ProfileRow extends StatelessWidget {
                 ],
                 if (showChevron && onTap != null) ...[
                   const SizedBox(width: 4),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
                     size: 20,
-                    color: NivexColors.textSecondary,
+                    color: theme.textSecondary,
                   ),
                 ],
               ],

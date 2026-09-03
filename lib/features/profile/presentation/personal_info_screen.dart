@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
@@ -8,6 +8,7 @@ class PersonalInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Thông tin cá nhân',
       subtitle: 'Hồ sơ người dùng demo',
@@ -22,43 +23,31 @@ class PersonalInfoScreen extends StatelessWidget {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: NivexColors.white,
+                    color: theme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: NivexColors.border),
+                    border: Border.all(color: theme.border),
                   ),
                   child: Column(
-                    children: const [
-                      _InfoRow(
+                    children: [
+                      const _InfoRow(
                         label: 'Họ và tên',
                         value: 'Minh Anh',
                         icon: Icons.person_outline_rounded,
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      _InfoRow(
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      const _InfoRow(
                         label: 'Email',
                         value: 'minh.anh@nivex.demo',
                         icon: Icons.email_outlined,
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      _InfoRow(
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      const _InfoRow(
                         label: 'Quốc gia/khu vực',
                         value: 'Việt Nam',
                         icon: Icons.public_rounded,
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      _InfoRow(
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      const _InfoRow(
                         label: 'Ngôn ngữ',
                         value: 'Tiếng Việt',
                         icon: Icons.language_rounded,
@@ -92,6 +81,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -100,18 +90,18 @@ class _InfoRow extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: NivexColors.blueSoft,
+              color: theme.surfaceSubtle,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: NivexColors.blue, size: 19),
+            child: Icon(icon, color: theme.primary, size: 19),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: NivexColors.textSecondary,
+                color: theme.textSecondary,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 0,
               ),
@@ -123,10 +113,10 @@ class _InfoRow extends StatelessWidget {
               value,
               textAlign: TextAlign.end,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: NivexColors.navy,
+                color: theme.textPrimary,
                 letterSpacing: 0,
               ),
             ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/home/domain/wallet_transaction.dart';
+import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
-import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -33,7 +33,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       title: 'Chuyển USDC',
       subtitle: '29/08/2026, 11:08 • Hoàn tất',
       amount: '-25,00 USDC',
-      amountDetail: 'Ví 7xKX...sgAsU',
+      amountDetail: 'Ví ${DemoData.solanaAddressShort}',
       icon: Icons.north_east_rounded,
       kind: TransactionKind.outgoing,
     ),
@@ -59,6 +59,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     final visible = _filter == null
         ? _items
         : _items.where((item) => item.kind == _filter).toList();
@@ -108,120 +109,148 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // 2. Flat Transaction List with Thin Dividers
+              // 2. Transaction List Card
               Container(
                 decoration: BoxDecoration(
-                  color: NivexColors.white,
+                  color: theme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: NivexColors.border),
+                  border: Border.all(color: theme.border),
                 ),
-                child: Column(
-                  children: [
-                    for (var i = 0; i < visible.length; i++) ...[
-                      _TransactionRow(
-                        transaction: visible[i],
-                        onTap: () => _showDetails(context, visible[i]),
-                      ),
-                      if (i < visible.length - 1)
-                        const Divider(
+                child: visible.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Text(
+                            'Không có giao dịch nào',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 14,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemCount: visible.length,
+                        separatorBuilder: (_, _) => Divider(
                           height: 1,
                           thickness: 1,
-                          color: NivexColors.border,
-                          indent: 68,
-                          endIndent: 16,
+                          color: theme.divider,
                         ),
-                    ],
-                  ],
-                ),
+                        itemBuilder: (context, index) {
+                          final item = visible[index];
+                          final isPositive =
+                              item.kind == TransactionKind.incoming;
+                          final amountColor = isPositive
+                              ? theme.success
+                              : (item.kind == TransactionKind.outgoing
+                                    ? theme.danger
+                                    : theme.textPrimary);
+
+                          final iconBg = isPositive
+                              ? theme.successSoft
+                              : (item.kind == TransactionKind.outgoing
+                                    ? theme.dangerSoft
+                                    : theme.surfaceSubtle);
+
+                          final iconColor = isPositive
+                              ? theme.success
+                              : (item.kind == TransactionKind.outgoing
+                                    ? theme.danger
+                                    : theme.primary);
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: iconBg,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    item.icon,
+                                    color: iconColor,
+                                    size: 19,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.textPrimary,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        item.subtitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.textSecondary,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        item.amount,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: amountColor,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        item.amountDetail,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.textSecondary,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showDetails(BuildContext context, WalletTransaction transaction) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: const BoxDecoration(
-                color: NivexColors.greenSoft,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                color: NivexColors.green,
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              transaction.title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: NivexColors.navy,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              transaction.amount,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: transaction.kind == TransactionKind.incoming
-                    ? NivexColors.green
-                    : NivexColors.navy,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: NivexColors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: NivexColors.border),
-              ),
-              child: Column(
-                children: [
-                  const _DetailRow(label: 'Trạng thái', value: 'Hoàn tất'),
-                  const SizedBox(height: 12),
-                  _DetailRow(
-                    label: 'Thời gian',
-                    value: transaction.subtitle.split(' •').first,
-                  ),
-                  const SizedBox(height: 12),
-                  const _DetailRow(label: 'Mạng', value: 'Solana Devnet'),
-                  const SizedBox(height: 12),
-                  const _DetailRow(label: 'Phí', value: '0 USDC'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            FilledButton(
-              onPressed: () => Navigator.of(sheetContext).pop(),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text('Đóng'),
-            ),
-          ],
         ),
       ),
     );
@@ -241,159 +270,29 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? NivexColors.blueSoft : NivexColors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? NivexColors.blue : NivexColors.border,
-            width: selected ? 1.5 : 1.0,
-          ),
+          color: selected ? theme.primary : theme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? theme.primary : theme.border),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? NivexColors.blue : NivexColors.textSecondary,
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? (theme.isDark ? const Color(0xFF0F172A) : Colors.white)
+                : theme.textSecondary,
             letterSpacing: 0,
           ),
         ),
       ),
-    );
-  }
-}
-
-class _TransactionRow extends StatelessWidget {
-  const _TransactionRow({required this.transaction, required this.onTap});
-
-  final WalletTransaction transaction;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final incoming = transaction.kind == TransactionKind.incoming;
-    final iconBg = incoming ? NivexColors.greenSoft : NivexColors.blueSoft;
-    final iconColor = incoming ? NivexColors.green : NivexColors.blue;
-    final amountColor = incoming ? NivexColors.green : NivexColors.navy;
-
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-              child: Icon(transaction.icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction.title,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: NivexColors.navy,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    transaction.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: NivexColors.textSecondary,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  transaction.amount,
-                  style: TextStyle(
-                    color: amountColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  transaction.amountDetail,
-                  style: const TextStyle(
-                    color: NivexColors.textSecondary,
-                    fontSize: 11.5,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: NivexColors.textSecondary,
-              fontSize: 13.5,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        Flexible(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (value == 'Solana Devnet') ...[
-                const SolanaMark(width: 14),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                value,
-                textAlign: TextAlign.end,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13.5,
-                  color: NivexColors.navy,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

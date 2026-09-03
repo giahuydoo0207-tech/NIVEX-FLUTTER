@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 
@@ -89,6 +90,7 @@ class _HomeHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final heroHeight = (screenHeight * 0.475).clamp(360.0, 460.0);
 
@@ -98,27 +100,19 @@ class _HomeHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Real Skyline Image
+          // 1. Theme Skyline Image with Fallback
           Image.asset(
-            'assets/images/nivex-home-skyline.jpg',
+            theme.heroImage,
             fit: BoxFit.cover,
             alignment: const Alignment(0.5, -0.15),
-          ),
-          // 2. Navy Gradient Overlay: deep navy on left, translucent on right
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Color(0xF2071A2E),
-                  Color(0xD00A2340),
-                  Color(0x2B0B2749),
-                ],
-                stops: [0.0, 0.55, 1.0],
-              ),
+            errorBuilder: (context, error, stackTrace) => Image.asset(
+              'assets/images/nivex-home-skyline.jpg',
+              fit: BoxFit.cover,
+              alignment: const Alignment(0.5, -0.15),
             ),
           ),
+          // 2. Thematic Gradient Overlay: dark on left, translucent on right
+          DecoratedBox(decoration: BoxDecoration(gradient: theme.heroGradient)),
           // 3. Content inside Safe Area
           SafeArea(
             bottom: false,
@@ -127,7 +121,7 @@ class _HomeHero extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Header: Logo + Bell with red dot
+                  // Top Header: Logo + Bell with indicator dot
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -275,7 +269,7 @@ class _NotificationBell extends StatelessWidget {
                 width: 7,
                 height: 7,
                 decoration: const BoxDecoration(
-                  color: NivexColors.danger,
+                  color: Color(0xFFEF4444),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -395,6 +389,7 @@ class _QuickActionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -409,11 +404,12 @@ class _QuickActionItem extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: NivexColors.blueSoft,
+                  color: theme.surfaceSubtle,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: theme.border),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, color: NivexColors.blue, size: 22),
+                child: Icon(icon, color: theme.primary, size: 22),
               ),
               const SizedBox(height: 6),
               Text(
@@ -421,10 +417,10 @@ class _QuickActionItem extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
-                  color: NivexColors.navy,
+                  color: theme.textPrimary,
                   letterSpacing: 0,
                 ),
               ),
@@ -460,7 +456,7 @@ class _RecentActivitiesSection extends StatelessWidget {
   static const _activities = [
     _ActivityData(
       title: 'Nhận USDC',
-      subtitle: '7xKp...9mQe',
+      subtitle: DemoData.solanaAddressShort,
       amount: '+200.00 USDC',
       time: 'Hôm nay, 09:21',
       isIncoming: true,
@@ -468,7 +464,7 @@ class _RecentActivitiesSection extends StatelessWidget {
     ),
     _ActivityData(
       title: 'Rút VND',
-      subtitle: 'Vietcombank •••• 1234',
+      subtitle: DemoData.bankAccountFull,
       amount: '-8.000.000 VND',
       time: 'Hôm qua, 16:45',
       isIncoming: false,
@@ -486,58 +482,72 @@ class _RecentActivitiesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(color: NivexColors.border, height: 1, thickness: 1),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 14, 20, 6),
+        Divider(color: theme.divider, height: 1, thickness: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
           child: Text(
             'Hoạt động gần đây',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: NivexColors.navy,
+              color: theme.textPrimary,
               letterSpacing: 0,
             ),
           ),
         ),
-        for (var i = 0; i < _activities.length; i++) ...[
-          _ActivityRow(data: _activities[i]),
-          if (i < _activities.length - 1)
-            const Divider(
-              color: NivexColors.border,
-              height: 1,
-              thickness: 1,
-              indent: 70,
-              endIndent: 20,
-            ),
-        ],
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: _activities.length,
+          separatorBuilder: (context, index) =>
+              Divider(color: theme.divider, height: 1, thickness: 1),
+          itemBuilder: (context, index) =>
+              _ActivityTile(activity: _activities[index]),
+        ),
       ],
     );
   }
 }
 
-class _ActivityRow extends StatelessWidget {
-  const _ActivityRow({required this.data});
+class _ActivityTile extends StatelessWidget {
+  const _ActivityTile({required this.activity});
 
-  final _ActivityData data;
+  final _ActivityData activity;
 
   @override
   Widget build(BuildContext context) {
-    final iconBg = data.isIncoming ? NivexColors.blue : NivexColors.blueSoft;
-    final iconColor = data.isIncoming ? Colors.white : NivexColors.navy;
-    final amountColor = data.isIncoming ? NivexColors.green : NivexColors.navy;
+    final theme = context.nivexTheme;
+    final amountColor = activity.isIncoming
+        ? theme.success
+        : (activity.amount.startsWith('-') ? theme.danger : theme.textPrimary);
+
+    final iconBgColor = activity.isIncoming
+        ? theme.successSoft
+        : (activity.amount.startsWith('-')
+              ? theme.dangerSoft
+              : theme.surfaceSubtle);
+
+    final iconColor = activity.isIncoming
+        ? theme.success
+        : (activity.amount.startsWith('-') ? theme.danger : theme.primary);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(data.icon, color: iconColor, size: 19),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(activity.icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -545,49 +555,34 @@ class _ActivityRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  data.title,
-                  style: const TextStyle(
+                  activity.title,
+                  style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
-                    color: NivexColors.navy,
+                    color: theme.textPrimary,
                     letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  data.subtitle,
-                  style: const TextStyle(
+                  '${activity.subtitle} • ${activity.time}',
+                  style: TextStyle(
                     fontSize: 12,
-                    color: NivexColors.textSecondary,
+                    color: theme.textSecondary,
                     letterSpacing: 0,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                data.amount,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: amountColor,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                data.time,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  color: NivexColors.textSecondary,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
+          Text(
+            activity.amount,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: amountColor,
+              letterSpacing: 0,
+            ),
           ),
         ],
       ),
@@ -600,41 +595,77 @@ class _NotificationsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Thông báo', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 14),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundColor: NivexColors.greenSoft,
-              child: Icon(Icons.check_rounded, color: NivexColors.green),
-            ),
-            title: Text('Giao dịch đã hoàn tất'),
-            subtitle: Text('Bạn đã nhận 200,00 USDC vào ví Devnet.'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Thông báo',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textPrimary,
+                  letterSpacing: 0,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                color: theme.textSecondary,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
-          const Divider(),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundColor: NivexColors.blueSoft,
-              child: Icon(Icons.shield_outlined, color: NivexColors.blue),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.surfaceSubtle,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.border),
             ),
-            title: Text('Mẹo bảo mật'),
-            subtitle: Text('Không chia sẻ cụm từ khôi phục với bất kỳ ai.'),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: theme.success,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nhận USDC thành công',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: theme.textPrimary,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '+200.00 USDC đã được nạp vào ví Solana Devnet của bạn.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.textSecondary,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-            ),
-            child: const Text('Đã hiểu'),
-          ),
         ],
       ),
     );

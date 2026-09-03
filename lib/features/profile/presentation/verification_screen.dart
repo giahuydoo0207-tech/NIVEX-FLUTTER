@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/features/profile/widgets/status_badge.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
@@ -9,9 +9,10 @@ class VerificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Trạng thái xác minh',
-      subtitle: 'Thông tin định danh tài khoản',
+      subtitle: 'Định danh điện tử (KYC Demo)',
       showBackButton: true,
       child: Center(
         child: ConstrainedBox(
@@ -21,88 +22,103 @@ class VerificationScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Status Banner Card
+                // 1. Current Status Banner
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: NivexColors.white,
+                    color: theme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: NivexColors.border),
+                    border: Border.all(color: theme.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: theme.successSoft,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.verified_user_rounded,
+                          color: theme.success,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                Text(
+                                  'Định danh Cấp 2',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.textPrimary,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                                const StatusBadge(label: 'Đã duyệt'),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Hạn mức giao dịch: 50.000 USDC / ngày',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: theme.textSecondary,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 2. Verification Steps Checklist
+                Container(
+                  decoration: BoxDecoration(
+                    color: theme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: theme.border),
                   ),
                   child: Column(
                     children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: const BoxDecoration(
-                          color: NivexColors.greenSoft,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.verified_rounded,
-                          color: NivexColors.green,
-                          size: 32,
-                        ),
+                      const _KycStepItem(
+                        title: 'Xác thực số điện thoại & Email',
+                        subtitle: 'Hoàn thành khi tạo tài khoản demo',
+                        isCompleted: true,
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Đã xác minh',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: NivexColors.navy,
-                          letterSpacing: 0,
-                        ),
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      const _KycStepItem(
+                        title: 'Giấy tờ tùy thân (CCCD / Hộ chiếu)',
+                        subtitle: 'Dữ liệu mô phỏng đã được phê duyệt',
+                        isCompleted: true,
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Tài khoản được xác minh trong môi trường demo.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: NivexColors.textSecondary,
-                          letterSpacing: 0,
-                        ),
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      const _KycStepItem(
+                        title: 'Nhận diện khuôn mặt sinh trắc học',
+                        subtitle: 'Mô phỏng xác thực tự động thành công',
+                        isCompleted: true,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // 2. Identity Info List
-                Container(
-                  decoration: BoxDecoration(
-                    color: NivexColors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: NivexColors.border),
-                  ),
-                  child: Column(
-                    children: const [
-                      _VerifRow(label: 'Họ và tên', value: 'Minh Anh'),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      _VerifRow(label: 'Quốc gia', value: 'Việt Nam'),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      _VerifRow(
-                        label: 'Trạng thái',
-                        value: 'Demo verified',
-                        trailingWidget: StatusBadge(label: 'Demo verified'),
-                      ),
-                    ],
-                  ),
+                // 3. Demo Notice
+                const DemoNotice(
+                  text: 'Toàn bộ quy trình xác minh danh tính đều là dữ liệu mô phỏng phục vụ đánh giá MVP. Ứng dụng không thu thập hình ảnh CCCD thật hoặc sinh trắc học cá nhân.',
                 ),
-                const SizedBox(height: 20),
-
-                // 3. KYC Warning Notice
-                const DemoNotice(text: 'NIVEX MVP không thực hiện KYC thật.'),
               ],
             ),
           ),
@@ -112,47 +128,57 @@ class VerificationScreen extends StatelessWidget {
   }
 }
 
-class _VerifRow extends StatelessWidget {
-  const _VerifRow({
-    required this.label,
-    required this.value,
-    this.trailingWidget,
+class _KycStepItem extends StatelessWidget {
+  const _KycStepItem({
+    required this.title,
+    required this.subtitle,
+    this.isCompleted = true,
   });
 
-  final String label;
-  final String value;
-  final Widget? trailingWidget;
+  final String title;
+  final String subtitle;
+  final bool isCompleted;
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
+          Icon(
+            isCompleted
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
+            color: isCompleted ? theme.success : theme.textSecondary,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                color: NivexColors.textSecondary,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.textPrimary,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.textSecondary,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          if (trailingWidget != null)
-            trailingWidget!
-          else
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: NivexColors.navy,
-                letterSpacing: 0,
-              ),
-            ),
         ],
       ),
     );

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_format.dart';
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
+import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class CashoutScreen extends StatefulWidget {
@@ -16,7 +17,12 @@ class CashoutScreen extends StatefulWidget {
 class _CashoutScreenState extends State<CashoutScreen> {
   static const _available = 880.0;
   static const _banks = [
-    _Bank('Vietcombank', 'VCB', Color(0xFF147D64), '•••• 2868'),
+    _Bank(
+      DemoData.bankName,
+      'VCB',
+      Color(0xFF147D64),
+      DemoData.bankAccountLast4,
+    ),
     _Bank('Techcombank', 'TCB', Color(0xFFC62828), '•••• 1092'),
     _Bank('ACB', 'ACB', Color(0xFF2563EB), '•••• 7741'),
     _Bank('MB Bank', 'MB', Color(0xFF123B73), '•••• 5530'),
@@ -37,6 +43,7 @@ class _CashoutScreenState extends State<CashoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Rút VND',
       subtitle: 'Quy đổi USDC về tài khoản ngân hàng',
@@ -50,13 +57,13 @@ class _CashoutScreenState extends State<CashoutScreen> {
               // 1. Amount Input Field
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Số USDC muốn đổi',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: NivexColors.navy,
+                        color: theme.textPrimary,
                         letterSpacing: 0,
                       ),
                     ),
@@ -67,7 +74,7 @@ class _CashoutScreenState extends State<CashoutScreen> {
                       setState(() {});
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: NivexColors.blue,
+                      foregroundColor: theme.primary,
                       textStyle: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
@@ -78,238 +85,291 @@ class _CashoutScreenState extends State<CashoutScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              TextField(
-                key: const Key('cashout-amount'),
-                controller: _amountController,
-                onChanged: (_) => setState(() {}),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                ],
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: NivexColors.navy,
-                  letterSpacing: 0,
-                ),
-                decoration: InputDecoration(
-                  suffixText: 'USDC',
-                  suffixStyle: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: NivexColors.navy,
-                  ),
-                  filled: true,
-                  fillColor: NivexColors.white,
-                  helperText: 'Khả dụng: 880,00 USDC',
-                  helperStyle: const TextStyle(
-                    color: NivexColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                  errorText: _amount > _available
-                      ? 'Số dư USDC không đủ'
-                      : (_amountController.text.isNotEmpty && _amount <= 0
-                            ? 'Nhập số USDC lớn hơn 0'
-                            : null),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NivexColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: NivexColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: NivexColors.blue,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // 2. Bank Selector
-              const Text(
-                'Ngân hàng nhận',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: NivexColors.navy,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Material(
-                color: NivexColors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: const BorderSide(color: NivexColors.border),
-                ),
-                child: ListTile(
-                  key: const Key('bank-selector'),
-                  minTileHeight: 62,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  onTap: _selectBank,
-                  leading: _BankLogo(bank: _selectedBank),
-                  title: Text(
-                    _selectedBank.name,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: NivexColors.navy,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Minh Anh • ${_selectedBank.accountNumber}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: NivexColors.textSecondary,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  trailing: const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: NivexColors.navy,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // 3. Summary Card
+              const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: NivexColors.greenSoft,
-                  borderRadius: BorderRadius.circular(14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-                child: Column(
+                decoration: BoxDecoration(
+                  color: theme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _valid ? theme.primary : theme.border,
+                    width: _valid ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
                   children: [
-                    const _SummaryRow(
-                      label: 'Tỷ giá tạm tính',
-                      value: '1 USDC = 25.545 VND',
+                    Expanded(
+                      child: TextField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*[\,\.]?\d{0,2}'),
+                          ),
+                        ],
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: theme.textPrimary,
+                          letterSpacing: 0,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: '0.00',
+                          hintStyle: TextStyle(
+                            color: theme.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    const _SummaryRow(label: 'Phí giao dịch', value: '0 VND'),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Divider(height: 1, color: Color(0xFFC7E6D7)),
-                    ),
-                    _SummaryRow(
-                      label: 'Dự kiến nhận',
-                      value: formatVnd(_amount * CashoutDraft.rate),
-                      emphasized: true,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.surfaceSubtle,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'USDC',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: theme.textPrimary,
+                          letterSpacing: 0,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Báo giá chính thức sẽ được giữ trong 30 giây ở bước tiếp theo.',
-                style: TextStyle(
-                  color: NivexColors.textSecondary,
-                  fontSize: 12,
-                  height: 1.4,
-                  letterSpacing: 0,
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Khả dụng: 880,00 USDC',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.textSecondary,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  if (_amount > _available)
+                    Text(
+                      'Vượt quá số dư',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.danger,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              // 2. Conversion Estimate
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.surfaceSubtle,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.border),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Tỷ giá ước tính',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.textSecondary,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        Text(
+                          '1 USDC = 25.545 VND',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textPrimary,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'VND thực nhận dự kiến',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.textSecondary,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        Text(
+                          CashoutFormat.vnd(CashoutFormat.estimateVnd(_amount)),
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: theme.success,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 22),
-
-              // 4. Submit CTA
+              // 3. Bank Account Selection
+              Text(
+                'TÀI KHOẢN NHẬN TIỀN',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textSecondary,
+                  letterSpacing: 0,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.border),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: _banks.length,
+                  separatorBuilder: (_, _) =>
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                  itemBuilder: (context, index) {
+                    final b = _banks[index];
+                    final isSel = b.name == _selectedBank.name;
+                    return InkWell(
+                      onTap: () => setState(() => _selectedBank = b),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: b.color,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                b.code,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    b.name,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.textPrimary,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'MINH ANH • ${b.account}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.textSecondary,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              isSel
+                                  ? Icons.radio_button_checked_rounded
+                                  : Icons.radio_button_off_rounded,
+                              color: isSel
+                                  ? theme.primary
+                                  : theme.textSecondary,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 28),
+              // 4. Submit Button
               FilledButton(
-                key: const Key('continue-to-quote'),
-                onPressed: _valid ? _continueToQuote : null,
+                onPressed: _valid
+                    ? () {
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => QuoteScreen(
+                              draft: CashoutDraft(
+                                usdcAmount: _amount,
+                                bankName: _selectedBank.name,
+                                accountNumber: _selectedBank.account,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    : null,
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
-                  backgroundColor: NivexColors.blue,
+                  backgroundColor: theme.primary,
+                  foregroundColor: theme.isDark
+                      ? const Color(0xFF0F172A)
+                      : Colors.white,
+                  disabledBackgroundColor: theme.disabled,
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    letterSpacing: 0,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Tiếp tục nhận báo giá'),
+                child: const Text('Xem báo giá quy đổi'),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _selectBank() async {
-    final selected = await showModalBottomSheet<_Bank>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Chọn ngân hàng nhận',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: NivexColors.navy,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 12),
-              for (final bank in _banks)
-                ListTile(
-                  minTileHeight: 58,
-                  contentPadding: EdgeInsets.zero,
-                  leading: _BankLogo(bank: bank),
-                  title: Text(
-                    bank.name,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                      color: NivexColors.navy,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Minh Anh • ${bank.accountNumber}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: NivexColors.textSecondary,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  trailing: bank == _selectedBank
-                      ? const Icon(
-                          Icons.check_circle_rounded,
-                          color: NivexColors.blue,
-                        )
-                      : null,
-                  onTap: () => Navigator.of(context).pop(bank),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (selected != null && mounted) setState(() => _selectedBank = selected);
-  }
-
-  void _continueToQuote() {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => QuoteScreen(
-          draft: CashoutDraft(
-            usdcAmount: _amount,
-            bankName: _selectedBank.name,
-            accountNumber: _selectedBank.accountNumber,
           ),
         ),
       ),
@@ -318,76 +378,9 @@ class _CashoutScreenState extends State<CashoutScreen> {
 }
 
 class _Bank {
-  const _Bank(this.name, this.code, this.color, this.accountNumber);
-
+  const _Bank(this.name, this.code, this.color, this.account);
   final String name;
   final String code;
   final Color color;
-  final String accountNumber;
-}
-
-class _BankLogo extends StatelessWidget {
-  const _BankLogo({required this.bank});
-
-  final _Bank bank;
-
-  @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      backgroundColor: bank.color,
-      radius: 18,
-      child: Text(
-        bank.code,
-        style: const TextStyle(
-          color: NivexColors.white,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0,
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.emphasized = false,
-  });
-
-  final String label;
-  final String value;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: emphasized ? NivexColors.navy : NivexColors.textSecondary,
-              fontWeight: emphasized ? FontWeight.w700 : FontWeight.w500,
-              fontSize: emphasized ? 14.5 : 13.5,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              color: emphasized ? NivexColors.green : NivexColors.navy,
-              fontWeight: FontWeight.w700,
-              fontSize: emphasized ? 17 : 13.5,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  final String account;
 }

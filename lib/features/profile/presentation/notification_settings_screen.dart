@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
@@ -13,15 +13,16 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
-  bool _transactionsEnabled = true;
-  bool _productUpdatesEnabled = true;
-  bool _quoteReminderEnabled = true;
+  bool _txAlerts = true;
+  bool _balanceAlerts = true;
+  bool _newsAlerts = false;
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Thông báo',
-      subtitle: 'Cài đặt thông báo ứng dụng',
+      subtitle: 'Tuỳ chỉnh kênh nhận thông báo',
       showBackButton: true,
       child: Center(
         child: ConstrainedBox(
@@ -32,99 +33,89 @@ class _NotificationSettingsScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Material(
-                  color: NivexColors.white,
+                  color: theme.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: NivexColors.border),
+                    side: BorderSide(color: theme.border),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      SwitchListTile(
-                        value: _transactionsEnabled,
-                        onChanged: (val) =>
-                            setState(() => _transactionsEnabled = val),
-                        activeTrackColor: NivexColors.blue,
-                        title: const Text(
-                          'Thông báo giao dịch',
+                      SwitchListTile.adaptive(
+                        value: _txAlerts,
+                        activeTrackColor: theme.primary,
+                        title: Text(
+                          'Giao dịch nạp/rút',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: NivexColors.navy,
+                            color: theme.textPrimary,
                             letterSpacing: 0,
                           ),
                         ),
-                        subtitle: const Text(
-                          'Nhận thông báo khi lệnh nạp hoặc rút tiền hoàn tất',
+                        subtitle: Text(
+                          'Thông báo tức thì khi nhận USDC hoặc rút VND',
                           style: TextStyle(
                             fontSize: 12,
-                            color: NivexColors.textSecondary,
+                            color: theme.textSecondary,
                             letterSpacing: 0,
                           ),
                         ),
+                        onChanged: (val) => setState(() => _txAlerts = val),
                       ),
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      SwitchListTile(
-                        value: _productUpdatesEnabled,
-                        onChanged: (val) =>
-                            setState(() => _productUpdatesEnabled = val),
-                        activeTrackColor: NivexColors.blue,
-                        title: const Text(
-                          'Cập nhật sản phẩm',
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      SwitchListTile.adaptive(
+                        value: _balanceAlerts,
+                        activeTrackColor: theme.primary,
+                        title: Text(
+                          'Biến động số dư',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: NivexColors.navy,
+                            color: theme.textPrimary,
                             letterSpacing: 0,
                           ),
                         ),
-                        subtitle: const Text(
-                          'Thông tin tính năng mới và chương trình thử nghiệm',
+                        subtitle: Text(
+                          'Cập nhật số dư sau mỗi lệnh thành công',
                           style: TextStyle(
                             fontSize: 12,
-                            color: NivexColors.textSecondary,
+                            color: theme.textSecondary,
                             letterSpacing: 0,
                           ),
                         ),
-                      ),
-                      const Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      SwitchListTile(
-                        value: _quoteReminderEnabled,
                         onChanged: (val) =>
-                            setState(() => _quoteReminderEnabled = val),
-                        activeTrackColor: NivexColors.blue,
-                        title: const Text(
-                          'Nhắc báo giá sắp hết hạn',
+                            setState(() => _balanceAlerts = val),
+                      ),
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      SwitchListTile.adaptive(
+                        value: _newsAlerts,
+                        activeTrackColor: theme.primary,
+                        title: Text(
+                          'Tin tức & Khuyến mãi',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: NivexColors.navy,
+                            color: theme.textPrimary,
                             letterSpacing: 0,
                           ),
                         ),
-                        subtitle: const Text(
-                          'Cảnh báo khi quote 30 giây sắp hết hiệu lực',
+                        subtitle: Text(
+                          'Cập nhật tính năng và chương trình ưu đãi',
                           style: TextStyle(
                             fontSize: 12,
-                            color: NivexColors.textSecondary,
+                            color: theme.textSecondary,
                             letterSpacing: 0,
                           ),
                         ),
+                        onChanged: (val) => setState(() => _newsAlerts = val),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
                 const DemoNotice(
-                  text: 'Các tuỳ chỉnh thông báo được lưu trữ tạm thời trong phiên làm việc hiện tại của bản demo.',
+                  text: 'Cài đặt thông báo chỉ lưu trữ trong phiên làm việc hiện tại của bản demo.',
                 ),
               ],
             ),

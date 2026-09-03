@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/presentation/receipt_screen.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
@@ -32,6 +32,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Đang xử lý',
       showBackButton: true,
@@ -43,65 +44,35 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(
+                SizedBox(
                   width: 56,
                   height: 56,
                   child: CircularProgressIndicator(
                     strokeWidth: 4,
-                    color: NivexColors.blue,
-                    backgroundColor: NivexColors.blueSoft,
+                    color: theme.primary,
+                    backgroundColor: theme.surfaceSubtle,
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
+                Text(
                   'Đang gửi yêu cầu rút VND',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: NivexColors.navy,
+                    fontWeight: FontWeight.w800,
+                    color: theme.textPrimary,
                     letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'NIVEX đang mô phỏng kiểm tra báo giá và thông tin tài khoản nhận.',
+                Text(
+                  'Hệ thống đang mô phỏng chuyển khoản sang tài khoản ngân hàng liên kết của bạn...',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: NivexColors.textSecondary,
                     fontSize: 13,
-                    height: 1.45,
+                    color: theme.textSecondary,
+                    height: 1.4,
                     letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: NivexColors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: NivexColors.border),
-                  ),
-                  child: const Column(
-                    children: [
-                      _ProcessingStep(
-                        label: 'Khóa tỷ giá quy đổi',
-                        icon: Icons.check_circle_rounded,
-                        done: true,
-                      ),
-                      SizedBox(height: 14),
-                      _ProcessingStep(
-                        label: 'Kiểm tra thông tin giao dịch',
-                        icon: Icons.sync_rounded,
-                        done: false,
-                      ),
-                      SizedBox(height: 14),
-                      _ProcessingStep(
-                        label: 'Tạo biên nhận chuyển tiền',
-                        icon: Icons.radio_button_unchecked_rounded,
-                        done: false,
-                      ),
-                    ],
                   ),
                 ),
               ],
@@ -116,43 +87,6 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     if (!mounted) return;
     Navigator.of(context).pushReplacement<void, void>(
       MaterialPageRoute(builder: (_) => ReceiptScreen(draft: widget.draft)),
-    );
-  }
-}
-
-class _ProcessingStep extends StatelessWidget {
-  const _ProcessingStep({
-    required this.label,
-    required this.icon,
-    required this.done,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool done;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: done ? NivexColors.green : NivexColors.blue,
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13.5,
-              color: NivexColors.navy,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/features/profile/widgets/status_badge.dart';
+import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class BankAccountScreen extends StatelessWidget {
@@ -9,6 +10,7 @@ class BankAccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Tài khoản nhận VND',
       subtitle: 'Tài khoản ngân hàng liên kết',
@@ -21,58 +23,95 @@ class BankAccountScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 1. Linked Bank Card
                 Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: NivexColors.white,
+                    color: theme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: NivexColors.border),
+                    border: Border.all(color: theme.border),
                   ),
                   child: Column(
-                    children: const [
-                      _BankDetailRow(
-                        label: 'Ngân hàng thụ hưởng',
-                        value: 'Vietcombank',
-                        icon: Icons.account_balance_rounded,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: theme.surfaceSubtle,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: theme.border),
+                                  ),
+                                  child: Icon(
+                                    Icons.account_balance_rounded,
+                                    color: theme.primary,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        DemoData.bankName,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: theme.textPrimary,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Ngân hàng TMCP Ngoại thương VN',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.textSecondary,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const StatusBadge(label: 'Mặc định'),
+                        ],
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
+                      const SizedBox(height: 16),
+                      Divider(height: 1, thickness: 1, color: theme.divider),
+                      const SizedBox(height: 12),
                       _BankDetailRow(
                         label: 'Số tài khoản',
-                        value: '•••• 2868',
-                        icon: Icons.credit_card_rounded,
+                        value: DemoData.bankAccountLast4,
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      _BankDetailRow(
-                        label: 'Chủ tài khoản',
-                        value: 'Minh A.',
-                        icon: Icons.person_outline_rounded,
-                      ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
+                      const SizedBox(height: 8),
+                      _BankDetailRow(label: 'Chủ tài khoản', value: 'MINH ANH'),
+                      const SizedBox(height: 8),
                       _BankDetailRow(
                         label: 'Trạng thái',
-                        value: 'Sẵn sàng nhận payout mô phỏng',
-                        icon: Icons.check_circle_outline_rounded,
-                        trailingWidget: StatusBadge(
-                          label: 'Sẵn sàng nhận payout mô phỏng',
-                        ),
+                        value: 'Đã liên kết (Khớp KYC)',
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                // 2. Demo Notice
                 const DemoNotice(
-                  text: 'Dữ liệu tài khoản trong bản demo chỉ là mô phỏng. Khi thực hiện thao tác Rút VND, hệ thống chỉ chạy quy trình giả lập, không có lệnh chuyển khoản thực tế qua ngân hàng.',
+                  text: 'Tài khoản ngân hàng dùng để nhận tiền khi rút VND (mô phỏng). Trong bản demo MVP, thông tin ngân hàng được cấu hình sẵn theo hồ sơ KYC và không chuyển tiền thật.',
                 ),
               ],
             ),
@@ -84,65 +123,41 @@ class BankAccountScreen extends StatelessWidget {
 }
 
 class _BankDetailRow extends StatelessWidget {
-  const _BankDetailRow({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.trailingWidget,
-  });
+  const _BankDetailRow({required this.label, required this.value});
 
   final String label;
   final String value;
-  final IconData icon;
-  final Widget? trailingWidget;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: NivexColors.blueSoft,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: NivexColors.blue, size: 19),
+    final theme = context.nivexTheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: theme.textSecondary,
+            letterSpacing: 0,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: NivexColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                if (trailingWidget != null)
-                  trailingWidget!
-                else
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: NivexColors.navy,
-                      letterSpacing: 0,
-                    ),
-                  ),
-              ],
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: theme.textPrimary,
+              letterSpacing: 0,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

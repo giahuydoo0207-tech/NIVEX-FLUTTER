@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 
 class NivexLogo extends StatelessWidget {
   const NivexLogo({super.key, this.height = 24, this.isLight = false});
@@ -9,8 +9,9 @@ class NivexLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final markColor = isLight ? NivexColors.white : NivexColors.blue;
-    final textColor = isLight ? NivexColors.white : NivexColors.navy;
+    final theme = context.nivexTheme;
+    final markColor = isLight ? Colors.white : theme.primary;
+    final textColor = isLight ? Colors.white : theme.textPrimary;
     return Semantics(
       label: 'NIVEX',
       child: Row(

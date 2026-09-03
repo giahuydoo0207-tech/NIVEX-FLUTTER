@@ -13,3 +13,10 @@ String formatVnd(double value) {
 String formatUsdc(double value) {
   return '${value.toStringAsFixed(2).replaceAll('.', ',')} USDC';
 }
+
+abstract final class CashoutFormat {
+  static String vnd(double value) => formatVnd(value);
+  static String usdc(double value) =>
+      value.toStringAsFixed(2).replaceAll('.', ',');
+  static double estimateVnd(double usdc) => usdc * 25545.0;
+}

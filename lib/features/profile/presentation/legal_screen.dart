@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
@@ -8,9 +8,10 @@ class LegalScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return NivexPage(
       title: 'Điều khoản & quyền riêng tư',
-      subtitle: 'Thông tin pháp lý và bản quyền',
+      subtitle: 'Quy chế demo và chính sách',
       showBackButton: true,
       child: Center(
         child: ConstrainedBox(
@@ -21,118 +22,83 @@ class LegalScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: NivexColors.white,
+                    color: theme.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: NivexColors.border),
+                    border: Border.all(color: theme.border),
                   ),
                   child: Column(
-                    children: const [
-                      _LegalSectionItem(
-                        title: 'Điều khoản sử dụng',
-                        icon: Icons.description_outlined,
-                        content: 'NIVEX là sản phẩm phần mềm thử nghiệm (prototype) được xây dựng phục vụ mục đích trình diễn giải pháp thanh toán và chuyển đổi token Solana Devnet tại hackathon.',
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '1. Mục đích thử nghiệm MVP',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textPrimary,
+                          letterSpacing: 0,
+                        ),
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
+                      const SizedBox(height: 6),
+                      Text(
+                        'Ứng dụng NIVEX phiên bản hiện tại là sản phẩm MVP phục vụ trình diễn giải pháp on/off-ramp crypto-fiat. Mọi giao dịch tiền tệ là mô phỏng và không phát sinh nghĩa vụ tài chính thực tế.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.textSecondary,
+                          height: 1.45,
+                          letterSpacing: 0,
+                        ),
                       ),
-                      _LegalSectionItem(
-                        title: 'Chính sách quyền riêng tư',
-                        icon: Icons.shield_outlined,
-                        content: 'Hệ thống không thu thập thông tin danh tính thực, số điện thoại hay tài khoản ngân hàng thực tế. Tất cả dữ liệu hồ sơ hiển thị đều là dữ liệu giả lập mẫu.',
+                      const SizedBox(height: 14),
+                      Text(
+                        '2. Bảo mật dữ liệu người dùng',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textPrimary,
+                          letterSpacing: 0,
+                        ),
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
+                      const SizedBox(height: 6),
+                      Text(
+                        'Ứng dụng tuân thủ nguyên tắc bảo mật tối thiểu: không yêu cầu hay lưu trữ private key hoặc seed phrase của người dùng. Mọi tương tác Solana được thực hiện qua địa chỉ công khai trên mạng Solana Devnet.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.textSecondary,
+                          height: 1.45,
+                          letterSpacing: 0,
+                        ),
                       ),
-                      _LegalSectionItem(
-                        title: 'NIVEX là prototype hackathon',
-                        icon: Icons.code_rounded,
-                        content: 'Dự án được phát triển dưới dạng bản thử nghiệm công nghệ. Mọi tính năng bao gồm tỷ giá quy đổi USDC/VND và tạo quote đều hoạt động dựa trên cơ chế mô phỏng.',
+                      const SizedBox(height: 14),
+                      Text(
+                        '3. Giới hạn trách nhiệm',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textPrimary,
+                          letterSpacing: 0,
+                        ),
                       ),
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
-                      ),
-                      _LegalSectionItem(
-                        title: 'Không có tiền thật được chuyển',
-                        icon: Icons.money_off_rounded,
-                        content: 'Không có bất kỳ giao dịch tiền thật (fiat VND) hay chuyển khoản ngân hàng thực tế nào diễn ra. Tuyệt đối không gửi tài sản có giá trị thực vào địa chỉ thử nghiệm.',
+                      const SizedBox(height: 6),
+                      Text(
+                        'Người dùng không chuyển tài sản thực tế (mainnet USDC hoặc VND thật) vào các địa chỉ hoặc số tài khoản demo được cung cấp trong ứng dụng.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.textSecondary,
+                          height: 1.45,
+                          letterSpacing: 0,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                const DemoNotice(
-                  text: 'Nội dung chưa phải điều khoản pháp lý production. Khi phát hành phiên bản thương mại chính thức, NIVEX sẽ công bố các văn bản pháp lý đầy đủ và tuân thủ các quy định hiện hành.',
-                ),
+                const DemoNotice(),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _LegalSectionItem extends StatelessWidget {
-  const _LegalSectionItem({
-    required this.title,
-    required this.icon,
-    required this.content,
-  });
-
-  final String title;
-  final IconData icon;
-  final String content;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: NivexColors.blueSoft,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: NivexColors.blue, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: NivexColors.navy,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            content,
-            style: const TextStyle(
-              fontSize: 13,
-              color: NivexColors.textSecondary,
-              height: 1.45,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
       ),
     );
   }

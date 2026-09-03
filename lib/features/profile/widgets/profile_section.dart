@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 
 class ProfileSection extends StatelessWidget {
   const ProfileSection({
@@ -13,6 +13,7 @@ class ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -20,19 +21,19 @@ class ProfileSection extends StatelessWidget {
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: NivexColors.textSecondary,
+              color: theme.textSecondary,
               letterSpacing: 0,
             ),
           ),
         ),
         Container(
           decoration: BoxDecoration(
-            color: NivexColors.white,
+            color: theme.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: NivexColors.border),
+            border: Border.all(color: theme.border),
           ),
           clipBehavior: Clip.antiAlias,
           child: ListView.separated(
@@ -40,11 +41,8 @@ class ProfileSection extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             itemCount: children.length,
-            separatorBuilder: (_, _) => const Divider(
-              height: 1,
-              thickness: 1,
-              color: NivexColors.border,
-            ),
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, thickness: 1, color: theme.divider),
             itemBuilder: (_, index) => children[index],
           ),
         ),

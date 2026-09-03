@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 
 class DemoNotice extends StatelessWidget {
   const DemoNotice({
@@ -11,27 +11,24 @@ class DemoNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: NivexColors.blueSoft,
+        color: theme.surfaceSubtle,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: NivexColors.border),
+        border: Border.all(color: theme.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            color: NivexColors.blue,
-            size: 20,
-          ),
+          Icon(Icons.info_outline_rounded, color: theme.primary, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: NivexColors.navy,
+              style: TextStyle(
+                color: theme.textPrimary,
                 fontSize: 12.5,
                 height: 1.45,
                 letterSpacing: 0,

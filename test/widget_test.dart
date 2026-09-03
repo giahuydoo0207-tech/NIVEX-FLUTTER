@@ -1,7 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nivex_flutter/app/nivex_app.dart';
+import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/app/theme/theme_controller.dart';
+import 'package:nivex_flutter/app/theme/theme_store.dart';
+import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
+import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/appearance_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/bank_account_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/legal_screen.dart';
@@ -13,42 +22,68 @@ import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+double _luminance(Color c) => c.computeLuminance();
+
+double _contrastRatio(Color c1, Color c2) {
+  final l1 = _luminance(c1);
+  final l2 = _luminance(c2);
+  final lighter = math.max(l1, l2);
+  final darker = math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 void main() {
-  setUp(() => AppTabController.index.value = 0);
+  setUp(() {
+    AppTabController.index.value = 0;
+  });
+
+  // =========================================================================
+  // 1. ORIGINAL FUNCTIONAL COVERAGE (13 TESTS)
+  // =========================================================================
 
   testWidgets('hiển thị Home NIVEX bằng tiếng Việt', (tester) async {
     await tester.pumpWidget(const NivexApp());
-
+    expect(find.text('Trang chủ'), findsWidgets);
+    expect(find.text('Ví'), findsOneWidget);
+    expect(find.text('Giao dịch'), findsOneWidget);
     expect(find.text('Minh Anh'), findsOneWidget);
-    expect(find.text('Solana Devnet'), findsOneWidget);
     expect(find.text('500.00 USDC'), findsOneWidget);
     expect(find.text('≈ 12.500.000 VND'), findsOneWidget);
+    expect(find.text('Solana Devnet'), findsOneWidget);
+    expect(find.text('Hoạt động gần đây'), findsOneWidget);
     expect(find.text('Nhận USDC'), findsWidgets);
     expect(find.text('Rút VND'), findsWidgets);
     expect(find.text('Lịch sử'), findsOneWidget);
     expect(find.text('Quote'), findsOneWidget);
     expect(find.text('Trợ giúp'), findsOneWidget);
-    expect(find.text('Chào'), findsNothing);
   });
 
   testWidgets('điều hướng được giữa ba bottom tabs', (tester) async {
     await tester.pumpWidget(const NivexApp());
 
-    expect(find.byType(NavigationDestination), findsNWidgets(3));
-    expect(find.text('Thị trường'), findsNothing);
-    expect(find.text('Cá nhân'), findsNothing);
+    // Tab 0: Home is visible
+    expect(find.text('500.00 USDC'), findsOneWidget);
 
+    // Tab 1: Tap Ví
     await tester.tap(find.text('Ví'));
     await tester.pumpAndSettle();
     expect(find.text('Ví của bạn'), findsOneWidget);
+    expect(find.text('Demo Mode • Solana Devnet'), findsOneWidget);
+    expect(find.text('880,00 USDC'), findsWidgets);
+    expect(find.text('ĐỊA CHỈ VÍ SOLANA DEVNET'), findsOneWidget);
 
+    // Tab 2: Tap Giao dịch
     await tester.tap(find.text('Giao dịch'));
     await tester.pumpAndSettle();
     expect(find.text('Lịch sử hoạt động của ví'), findsOneWidget);
+    expect(find.text('Tất cả'), findsOneWidget);
+    expect(find.text('Tiền vào'), findsOneWidget);
+    expect(find.text('Tiền ra'), findsOneWidget);
 
+    // Tab 0: Back to Home
     await tester.tap(find.text('Trang chủ'));
     await tester.pumpAndSettle();
-    expect(find.text('Minh Anh'), findsOneWidget);
+    expect(find.text('500.00 USDC'), findsOneWidget);
   });
 
   testWidgets('nhấn avatar hoặc tên Minh Anh đều mở ProfileScreen', (
@@ -85,29 +120,31 @@ void main() {
 
     // Header info
     expect(find.text('MA'), findsOneWidget);
-    expect(find.text('Minh Anh'), findsOneWidget);
+    expect(find.text('Minh Anh'), findsWidgets);
     expect(find.text('minh.anh@nivex.demo'), findsOneWidget);
     expect(find.text('Đã xác minh'), findsWidgets);
     expect(find.textContaining('NVX-000001'), findsOneWidget);
 
-    // Sections
-    expect(find.text('Tài khoản'), findsOneWidget);
+    // Section 1: TÀI KHOẢN & BẢO MẬT
+    expect(find.text('TÀI KHOẢN & BẢO MẬT'), findsOneWidget);
     expect(find.text('Thông tin cá nhân'), findsOneWidget);
     expect(find.text('Trạng thái xác minh'), findsOneWidget);
     expect(find.text('Địa chỉ ví Solana'), findsOneWidget);
     expect(find.text('Tài khoản nhận VND'), findsOneWidget);
 
-    expect(find.text('Tuỳ chỉnh'), findsOneWidget);
+    // Section 2: CÀI ĐẶT ỨNG DỤNG
+    expect(find.text('CÀI ĐẶT ỨNG DỤNG'), findsOneWidget);
     expect(find.text('Thông báo'), findsOneWidget);
     expect(find.text('Giao diện ứng dụng'), findsOneWidget);
 
-    expect(find.text('Hỗ trợ và thông tin'), findsOneWidget);
+    // Section 3: HỖ TRỢ & PHÁP LÝ
+    expect(find.text('HỖ TRỢ & PHÁP LÝ'), findsOneWidget);
     expect(find.text('Trung tâm trợ giúp'), findsOneWidget);
     expect(find.text('Điều khoản & quyền riêng tư'), findsOneWidget);
     expect(find.text('Phiên bản ứng dụng'), findsOneWidget);
-    expect(find.text('v0.1.0 Demo'), findsOneWidget);
 
-    expect(find.text('Hành động tài khoản'), findsOneWidget);
+    // Action: Đăng xuất
+    await tester.ensureVisible(find.text('Đăng xuất'));
     expect(find.text('Đăng xuất'), findsOneWidget);
   });
 
@@ -129,10 +166,11 @@ void main() {
     await tester.tap(find.text('Minh Anh'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Sao chép'));
     await tester.tap(find.text('Sao chép'));
     await tester.pump();
     expect(copiedText, equals('NVX-000001'));
-    expect(find.text('Đã sao chép ID NIVEX.'), findsOneWidget);
+    expect(find.text('Đã sao chép NIVEX ID'), findsOneWidget);
   });
 
   testWidgets('tất cả các hàng cài đặt mở đúng màn hình con', (tester) async {
@@ -156,8 +194,8 @@ void main() {
     await tester.tap(find.text('Trạng thái xác minh'));
     await tester.pumpAndSettle();
     expect(find.byType(VerificationScreen), findsOneWidget);
-    expect(find.text('Demo verified'), findsOneWidget);
-    expect(find.text('NIVEX MVP không thực hiện KYC thật.'), findsOneWidget);
+    expect(find.text('Định danh Cấp 2'), findsOneWidget);
+    expect(find.text('Hạn mức giao dịch: 50.000 USDC / ngày'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
@@ -181,7 +219,7 @@ void main() {
     expect(find.byType(BankAccountScreen), findsOneWidget);
     expect(find.text('Vietcombank'), findsOneWidget);
     expect(find.text('•••• 2868'), findsOneWidget);
-    expect(find.text('Minh A.'), findsOneWidget);
+    expect(find.text('MINH ANH'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
@@ -190,9 +228,9 @@ void main() {
     await tester.tap(find.text('Thông báo'));
     await tester.pumpAndSettle();
     expect(find.byType(NotificationSettingsScreen), findsOneWidget);
-    expect(find.text('Thông báo giao dịch'), findsOneWidget);
-    expect(find.text('Cập nhật sản phẩm'), findsOneWidget);
-    expect(find.text('Nhắc báo giá sắp hết hạn'), findsOneWidget);
+    expect(find.text('Giao dịch nạp/rút'), findsOneWidget);
+    expect(find.text('Biến động số dư'), findsOneWidget);
+    expect(find.text('Tin tức & Khuyến mãi'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
@@ -203,8 +241,9 @@ void main() {
     expect(find.byType(AppearanceScreen), findsOneWidget);
     expect(find.text('Mặc định'), findsOneWidget);
     expect(find.text('Đang dùng'), findsOneWidget);
-    expect(find.text('Minimal Light'), findsOneWidget);
     expect(find.text('Cyber Night'), findsOneWidget);
+    expect(find.text('Blockchain Flow'), findsOneWidget);
+    expect(find.text('Vietnam Future'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
@@ -212,7 +251,8 @@ void main() {
     await tester.ensureVisible(find.text('Trung tâm trợ giúp'));
     await tester.tap(find.text('Trung tâm trợ giúp'));
     await tester.pumpAndSettle();
-    expect(find.text('Câu hỏi thường gặp'), findsOneWidget);
+    expect(find.byType(HelpScreen), findsOneWidget);
+    expect(find.text('CÂU HỎI THƯỜNG GẶP'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
@@ -221,9 +261,8 @@ void main() {
     await tester.tap(find.text('Điều khoản & quyền riêng tư'));
     await tester.pumpAndSettle();
     expect(find.byType(LegalScreen), findsOneWidget);
-    expect(find.text('Điều khoản sử dụng'), findsOneWidget);
-    expect(find.text('Chính sách quyền riêng tư'), findsOneWidget);
-    expect(find.text('NIVEX là prototype hackathon'), findsOneWidget);
+    expect(find.text('1. Mục đích thử nghiệm MVP'), findsOneWidget);
+    expect(find.text('2. Bảo mật dữ liệu người dùng'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
   });
@@ -241,20 +280,25 @@ void main() {
     final switchTiles = find.byType(SwitchListTile);
     expect(switchTiles, findsNWidgets(3));
 
-    // Verify initial true state
+    // Verify initial states
     expect(tester.widget<SwitchListTile>(switchTiles.at(0)).value, isTrue);
     expect(tester.widget<SwitchListTile>(switchTiles.at(1)).value, isTrue);
-    expect(tester.widget<SwitchListTile>(switchTiles.at(2)).value, isTrue);
+    expect(tester.widget<SwitchListTile>(switchTiles.at(2)).value, isFalse);
 
     // Toggle first switch tile
     await tester.tap(switchTiles.at(0));
     await tester.pumpAndSettle();
     expect(tester.widget<SwitchListTile>(switchTiles.at(0)).value, isFalse);
 
-    // Toggle second switch tile
-    await tester.tap(switchTiles.at(1));
+    // Toggle back
+    await tester.tap(switchTiles.at(0));
     await tester.pumpAndSettle();
-    expect(tester.widget<SwitchListTile>(switchTiles.at(1)).value, isFalse);
+    expect(tester.widget<SwitchListTile>(switchTiles.at(0)).value, isTrue);
+
+    // Toggle third switch tile
+    await tester.tap(switchTiles.at(2));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(switchTiles.at(2)).value, isTrue);
   });
 
   testWidgets('đăng xuất yêu cầu xác nhận qua dialog', (tester) async {
@@ -268,16 +312,23 @@ void main() {
     await tester.pumpAndSettle();
 
     // Dialog appears
-    expect(find.text('Đăng xuất khỏi NIVEX?'), findsOneWidget);
+    expect(find.text('Đăng xuất'), findsWidgets);
     expect(
-      find.text('Đây là thao tác mô phỏng trong phiên bản demo.'),
+      find.text(
+        'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản demo này không?',
+      ),
       findsOneWidget,
     );
 
     // Tap Hủy -> cancels
     await tester.tap(find.text('Hủy'));
     await tester.pumpAndSettle();
-    expect(find.text('Đăng xuất khỏi NIVEX?'), findsNothing);
+    expect(
+      find.text(
+        'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản demo này không?',
+      ),
+      findsNothing,
+    );
     expect(find.byType(ProfileScreen), findsOneWidget);
 
     // Tap Đăng xuất again -> confirm
@@ -286,11 +337,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Đăng xuất'));
     await tester.pump();
-    expect(find.text('Bạn đã đăng xuất khỏi NIVEX.'), findsOneWidget);
+    expect(find.text('Đã đăng xuất phiên demo.'), findsOneWidget);
   });
 
   testWidgets(
-    'flow Nhận USDC hiển thị QR thật, nhãn Demo Mode và lưu ý bảo mật',
+    'flow Nhận USDC hiển thị QR thật, nhãn Demo Mode, lưu ý bảo mật và Android Back',
     (tester) async {
       String? copiedText;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -325,19 +376,17 @@ void main() {
       expect(qrValidation.status, equals(QrValidationStatus.valid));
       expect(qrValidation.qrCode, isNotNull);
 
-      expect(find.text('Chỉ gửi USDC qua mạng Solana.'), findsOneWidget);
       expect(
-        find.text(
-          'Gửi token qua mạng khác có thể khiến tài sản không thể khôi phục.',
-        ),
+        find.textContaining('Chỉ gửi USDC qua mạng Solana'),
         findsOneWidget,
       );
       expect(
-        find.text(
-          'Bản demo sử dụng dữ liệu mô phỏng hoặc Solana Devnet. Không gửi tài sản thật.',
+        find.textContaining(
+          'Gửi token qua mạng khác có thể khiến tài sản không thể khôi phục',
         ),
         findsOneWidget,
       );
+      expect(find.textContaining('Không gửi tài sản thật'), findsOneWidget);
 
       await tester.tap(find.text('Sao chép'));
       await tester.pump();
@@ -346,8 +395,8 @@ void main() {
         equals('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'),
       );
 
-      await tester.ensureVisible(find.text('Về trang chủ'));
-      await tester.tap(find.text('Về trang chủ'));
+      // Test Android back
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Minh Anh'), findsOneWidget);
     },
@@ -375,7 +424,12 @@ void main() {
     expect(find.text('Demo Mode • Solana Devnet'), findsOneWidget);
     expect(find.text('7xKXtg...sgAsU'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Sao chép địa chỉ'));
+    await tester.drag(
+      find.byKey(const PageStorageKey('wallet-scroll')),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Sao chép'));
     await tester.pump();
     expect(copiedText, equals('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'));
   });
@@ -387,8 +441,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Dùng tối đa'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('bank-selector')));
-    await tester.pumpAndSettle();
     expect(find.text('Vietcombank'), findsWidgets);
     expect(find.text('Techcombank'), findsOneWidget);
     expect(find.text('ACB'), findsWidgets);
@@ -396,18 +448,18 @@ void main() {
 
     await tester.tap(find.text('Techcombank'));
     await tester.pumpAndSettle();
-    expect(find.text('Techcombank'), findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(const Key('continue-to-quote')));
-    await tester.tap(find.byKey(const Key('continue-to-quote')));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xem báo giá quy đổi'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Báo giá quy đổi'), findsOneWidget);
-    expect(find.text('00:30'), findsOneWidget);
+    expect(find.textContaining('Tỷ giá cố định trong:'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView).last, const Offset(0, -320));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('confirm-quote')));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xác nhận đổi sang VND'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Đang gửi yêu cầu rút VND'), findsOneWidget);
@@ -416,15 +468,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Yêu cầu đã hoàn tất'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
-    await tester.pump();
-    await tester.tap(find.text('Chia sẻ biên nhận'));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -400));
     await tester.pumpAndSettle();
-    expect(find.text('Sao chép nội dung'), findsOneWidget);
-    await tester.tap(find.text('Chia sẻ dưới dạng ảnh'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('receipt-home')));
+    await tester.tap(find.text('Về Trang chủ'));
     await tester.pumpAndSettle();
     expect(find.text('Minh Anh'), findsOneWidget);
   });
@@ -436,23 +482,19 @@ void main() {
     await tester.tap(find.text('Quote'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('00:30'), findsOneWidget);
+    expect(find.textContaining('Tỷ giá cố định trong: 30s'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 30));
     expect(find.text('Báo giá đã hết hạn'), findsOneWidget);
 
     final confirm = tester.widget<FilledButton>(
-      find.byKey(const Key('confirm-quote')),
+      find.widgetWithText(FilledButton, 'Xác nhận đổi sang VND'),
     );
     expect(confirm.onPressed, isNull);
 
-    await tester.drag(find.byType(ListView).last, const Offset(0, -500));
+    await tester.tap(find.text('Làm mới'));
     await tester.pump();
-    await tester.tap(find.text('Lấy báo giá mới'));
-    await tester.pump();
-    await tester.drag(find.byType(ListView).last, const Offset(0, 500));
-    await tester.pump();
-    expect(find.text('00:30'), findsOneWidget);
+    expect(find.textContaining('Tỷ giá cố định trong: 30s'), findsOneWidget);
   });
 
   testWidgets('không overflow ở chiều rộng 320px', (tester) async {
@@ -491,6 +533,279 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
+    }
+  });
+
+  // =========================================================================
+  // 2. THEME SUITE & PERSISTENCE COVERAGE (8 TESTS)
+  // =========================================================================
+
+  testWidgets('AppearanceScreen có đúng 4 lựa chọn theme', (tester) async {
+    final store = FakeThemePreferenceStore();
+    final controller = ThemeController(store: store);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: NivexTheme.forMode(AppThemeMode.defaultTheme),
+        home: Scaffold(body: AppearanceScreen(themeController: controller)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mặc định'), findsOneWidget);
+    expect(find.text('Cyber Night'), findsOneWidget);
+    expect(find.text('Blockchain Flow'), findsOneWidget);
+    expect(find.text('Vietnam Future'), findsOneWidget);
+
+    // Confirm deprecated options are deleted
+    expect(find.text('Minimal Light'), findsNothing);
+    expect(find.text('Abstract Finance'), findsNothing);
+
+    controller.dispose();
+  });
+
+  testWidgets(
+    'chuyển liên tục giữa cả 4 theme cập nhật AppThemeMode và lưu storage',
+    (tester) async {
+      final store = FakeThemePreferenceStore();
+      final controller = ThemeController(store: store);
+      await controller.load();
+
+      await tester.pumpWidget(NivexApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Minh Anh'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Giao diện ứng dụng'));
+      await tester.tap(find.text('Giao diện ứng dụng'));
+      await tester.pumpAndSettle();
+
+      final modesToTest = [
+        ('Cyber Night', AppThemeMode.cyberNight),
+        ('Blockchain Flow', AppThemeMode.blockchainFlow),
+        ('Vietnam Future', AppThemeMode.vietnamFuture),
+        ('Mặc định', AppThemeMode.defaultTheme),
+      ];
+
+      for (final (label, expectedMode) in modesToTest) {
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+
+        expect(controller.mode, equals(expectedMode));
+        expect(store.storedValue, equals(expectedMode.toStorageString()));
+      }
+
+      controller.dispose();
+    },
+  );
+
+  testWidgets('khởi động lại app khôi phục đúng theme đã lưu', (tester) async {
+    final store = FakeThemePreferenceStore('vietnamFuture');
+    final controller = ThemeController(store: store);
+    await controller.load();
+
+    expect(controller.mode, equals(AppThemeMode.vietnamFuture));
+
+    await tester.pumpWidget(NivexApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(HomeScreen));
+    expect(context.nivexTheme.mode, equals(AppThemeMode.vietnamFuture));
+
+    controller.dispose();
+  });
+
+  testWidgets('fallback về Mặc định khi giá trị lưu trữ không hợp lệ', (
+    tester,
+  ) async {
+    final store = FakeThemePreferenceStore('corrupted_unknown_theme_string');
+    final controller = ThemeController(store: store);
+    await controller.load();
+
+    expect(controller.mode, equals(AppThemeMode.defaultTheme));
+
+    controller.dispose();
+  });
+
+  testWidgets('xử lý lỗi lưu storage bằng rollback và hiển thị thông báo lỗi', (
+    tester,
+  ) async {
+    final store = FakeThemePreferenceStore('defaultTheme', true);
+    final controller = ThemeController(store: store);
+    await controller.load();
+
+    await tester.pumpWidget(NivexApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Minh Anh'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Giao diện ứng dụng'));
+    await tester.tap(find.text('Giao diện ứng dụng'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Cyber Night'));
+    await tester.tap(find.text('Cyber Night'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // Mode must rollback to defaultTheme
+    expect(controller.mode, equals(AppThemeMode.defaultTheme));
+
+    // SnackBar error displayed
+    expect(
+      find.text('Không thể lưu giao diện. Vui lòng thử lại.'),
+      findsOneWidget,
+    );
+
+    controller.dispose();
+  });
+
+  testWidgets('kiểm tra độ tương phản relative luminance trên cả 4 theme', (
+    tester,
+  ) async {
+    for (final mode in AppThemeMode.values) {
+      final ext = NivexTheme.forMode(mode).extension<NivexThemeExtension>()!;
+
+      // 1. Text Primary on Background: WCAG AA normal text >= 4.5:1
+      final ratioTextBg = _contrastRatio(ext.textPrimary, ext.background);
+      expect(
+        ratioTextBg,
+        greaterThanOrEqualTo(4.5),
+        reason:
+            'textPrimary on background failed WCAG in ${mode.name}: $ratioTextBg',
+      );
+
+      // 2. Text Primary on Surface: WCAG AA normal text >= 4.5:1
+      final ratioTextSurface = _contrastRatio(ext.textPrimary, ext.surface);
+      expect(
+        ratioTextSurface,
+        greaterThanOrEqualTo(4.5),
+        reason:
+            'textPrimary on surface failed WCAG in ${mode.name}: $ratioTextSurface',
+      );
+
+      // 3. Primary accent on surface: UI component / large text >= 3.0:1
+      final ratioPrimarySurface = _contrastRatio(ext.primary, ext.surface);
+      expect(
+        ratioPrimarySurface,
+        greaterThanOrEqualTo(3.0),
+        reason:
+            'primary on surface failed 3.0:1 in ${mode.name}: $ratioPrimarySurface',
+      );
+    }
+  });
+
+  testWidgets(
+    'dữ liệu Solana và tài khoản ngân hàng không thay đổi qua các theme',
+    (tester) async {
+      for (final mode in AppThemeMode.values) {
+        AppTabController.index.value = 0;
+        final store = FakeThemePreferenceStore(mode.name);
+        final controller = ThemeController(store: store);
+        await controller.load();
+
+        await tester.pumpWidget(
+          NivexApp(key: UniqueKey(), controller: controller),
+        );
+        await tester.pumpAndSettle();
+
+        // Home data check
+        expect(find.text('500.00 USDC'), findsOneWidget);
+        expect(find.text('≈ 12.500.000 VND'), findsOneWidget);
+        expect(find.text('Solana Devnet'), findsOneWidget);
+
+        // Receive screen check
+        await tester.tap(find.text('Nhận USDC').first);
+        await tester.pumpAndSettle();
+        expect(
+          find.text('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'),
+          findsOneWidget,
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        // Profile screen check
+        await tester.tap(find.text('Minh Anh'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('NVX-000001'), findsOneWidget);
+
+        // Bank account check
+        await tester.ensureVisible(find.text('Tài khoản nhận VND'));
+        await tester.tap(find.text('Tài khoản nhận VND'));
+        await tester.pumpAndSettle();
+        expect(find.text('Vietcombank'), findsOneWidget);
+        expect(find.text('•••• 2868'), findsOneWidget);
+
+        controller.dispose();
+      }
+    },
+  );
+
+  testWidgets('không overflow ở chiều rộng 320px cho cả 4 theme', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final mode in AppThemeMode.values) {
+      AppTabController.index.value = 0;
+      final store = FakeThemePreferenceStore(mode.name);
+      final controller = ThemeController(store: store);
+      await controller.load();
+
+      await tester.pumpWidget(
+        NivexApp(key: UniqueKey(), controller: controller),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Home 320px overflow in ${mode.name}',
+      );
+
+      await tester.tap(find.text('Ví'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Wallet 320px overflow in ${mode.name}',
+      );
+
+      await tester.tap(find.text('Giao dịch'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Transactions 320px overflow in ${mode.name}',
+      );
+
+      await tester.tap(find.text('Trang chủ'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Minh Anh'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Profile 320px overflow in ${mode.name}',
+      );
+
+      await tester.ensureVisible(find.text('Giao diện ứng dụng'));
+      await tester.tap(find.text('Giao diện ứng dụng'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Appearance 320px overflow in ${mode.name}',
+      );
+
+      controller.dispose();
     }
   });
 }

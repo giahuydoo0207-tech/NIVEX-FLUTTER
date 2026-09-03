@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nivex_flutter/app/theme/theme_controller.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart';
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
@@ -11,9 +12,10 @@ import 'package:nivex_flutter/features/transactions/presentation/transactions_sc
 import 'package:nivex_flutter/features/wallet/presentation/wallet_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({this.initialTab = 0, super.key});
+  const AppShell({this.initialTab = 0, this.themeController, super.key});
 
   final int initialTab;
+  final ThemeController? themeController;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -126,7 +128,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _openProfile() {
-    return Navigator.of(context)
-        .push<void>(MaterialPageRoute(builder: (_) => const ProfileScreen()));
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ProfileScreen(themeController: widget.themeController),
+      ),
+    );
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_format.dart';
 import 'package:nivex_flutter/features/cashout/presentation/processing_screen.dart';
@@ -36,6 +36,9 @@ class _QuoteScreenState extends State<QuoteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final totalVnd = CashoutFormat.estimateVnd(widget.draft.usdcAmount);
+
     return NivexPage(
       title: 'Báo giá quy đổi',
       subtitle: 'Kiểm tra thông tin trước khi xác nhận',
@@ -54,14 +57,10 @@ class _QuoteScreenState extends State<QuoteScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: _expired
-                      ? const Color(0xFFFFF1F1)
-                      : NivexColors.blueSoft,
+                  color: _expired ? theme.dangerSoft : theme.surfaceSubtle,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _expired
-                        ? const Color(0xFFFCA5A5)
-                        : const Color(0xFFCCE0F5),
+                    color: _expired ? theme.danger : theme.border,
                   ),
                 ),
                 child: Row(
@@ -70,7 +69,7 @@ class _QuoteScreenState extends State<QuoteScreen> {
                       _expired
                           ? Icons.timer_off_outlined
                           : Icons.timer_outlined,
-                      color: _expired ? NivexColors.danger : NivexColors.blue,
+                      color: _expired ? theme.danger : theme.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -78,136 +77,116 @@ class _QuoteScreenState extends State<QuoteScreen> {
                       child: Text(
                         _expired
                             ? 'Báo giá đã hết hạn'
-                            : 'Báo giá có hiệu lực trong',
+                            : 'Tỷ giá cố định trong: ${_remainingSeconds}s',
                         style: TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          fontSize: 13.5,
-                          color: _expired
-                              ? NivexColors.danger
-                              : NivexColors.navy,
+                          color: _expired ? theme.danger : theme.textPrimary,
                           letterSpacing: 0,
                         ),
                       ),
                     ),
-                    if (!_expired)
-                      Text(
-                        '00:${_remainingSeconds.toString().padLeft(2, '0')}',
-                        key: const Key('quote-countdown'),
-                        style: const TextStyle(
-                          color: NivexColors.blue,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0,
+                    if (_expired)
+                      TextButton(
+                        onPressed: _refreshQuote,
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.primary,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
+                        child: const Text('Làm mới'),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-
-              // 2. Amount Summary Card
+              const SizedBox(height: 16),
+              // 2. Main Conversion Card
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: NivexColors.white,
+                  color: theme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: NivexColors.border),
+                  border: Border.all(color: theme.border),
                 ),
                 child: Column(
                   children: [
-                    _QuoteAmount(
-                      label: 'Bạn đổi',
-                      value: formatUsdc(widget.draft.usdcAmount),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: NivexColors.border,
+                    Text(
+                      'Số tiền nhận về tài khoản',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.textSecondary,
+                        letterSpacing: 0,
                       ),
                     ),
-                    _QuoteAmount(
-                      label: 'Bạn nhận được',
-                      value: formatVnd(widget.draft.vndAmount),
-                      highlighted: true,
+                    const SizedBox(height: 6),
+                    Text(
+                      CashoutFormat.vnd(totalVnd),
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: theme.success,
+                        letterSpacing: 0,
+                      ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // 3. Details Breakdown Group
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: NivexColors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: NivexColors.border),
-                ),
-                child: Column(
-                  children: [
-                    const _QuoteRow(
-                      label: 'Tỷ giá',
+                    const SizedBox(height: 20),
+                    Divider(height: 1, thickness: 1, color: theme.divider),
+                    const SizedBox(height: 16),
+                    _DetailRow(
+                      label: 'Đổi từ',
+                      value:
+                          '${CashoutFormat.usdc(widget.draft.usdcAmount)} USDC',
+                    ),
+                    const SizedBox(height: 10),
+                    const _DetailRow(
+                      label: 'Tỷ giá khóa',
                       value: '1 USDC = 25.545 VND',
                     ),
-                    const SizedBox(height: 12),
-                    const _QuoteRow(label: 'Phí giao dịch', value: '0 VND'),
-                    const SizedBox(height: 12),
-                    _QuoteRow(
-                      label: 'Ngân hàng nhận',
-                      value: widget.draft.bankName,
+                    const SizedBox(height: 10),
+                    const _DetailRow(
+                      label: 'Phí giao dịch',
+                      value: 'Miễn phí (Demo MVP)',
                     ),
-                    const SizedBox(height: 12),
-                    _QuoteRow(
-                      label: 'Tài khoản',
-                      value: 'Minh Anh • ${widget.draft.accountNumber}',
+                    const SizedBox(height: 10),
+                    _DetailRow(
+                      label: 'Ngân hàng nhận',
+                      value:
+                          '${widget.draft.bankName} • ${widget.draft.accountNumber}',
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              const Text(
-                'Dữ liệu và trạng thái trong prototype này được mô phỏng, '
-                'không tạo giao dịch blockchain hoặc chuyển khoản thật.',
-                style: TextStyle(
-                  color: NivexColors.textSecondary,
-                  fontSize: 12,
-                  height: 1.45,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 22),
-
-              // 4. Action Buttons
+              const SizedBox(height: 28),
+              // 3. Confirm Button
               FilledButton(
-                key: const Key('confirm-quote'),
-                onPressed: _expired ? null : _confirm,
+                onPressed: _expired
+                    ? null
+                    : () {
+                        Navigator.of(context).pushReplacement<void, void>(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ProcessingScreen(draft: widget.draft),
+                          ),
+                        );
+                      },
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
-                  backgroundColor: NivexColors.blue,
+                  backgroundColor: theme.primary,
+                  foregroundColor: theme.isDark
+                      ? const Color(0xFF0F172A)
+                      : Colors.white,
+                  disabledBackgroundColor: theme.disabled,
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    letterSpacing: 0,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Xác nhận yêu cầu'),
+                child: const Text('Xác nhận đổi sang VND'),
               ),
-              if (_expired) ...[
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _refreshQuote,
-                  icon: const Icon(Icons.refresh_rounded, size: 19),
-                  label: const Text('Lấy báo giá mới'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    foregroundColor: NivexColors.navy,
-                    side: const BorderSide(color: NivexColors.border),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -217,104 +196,49 @@ class _QuoteScreenState extends State<QuoteScreen> {
 
   void _startTimer() {
     _timer?.cancel();
+    _remainingSeconds = 30;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      if (_remainingSeconds <= 1) {
-        timer.cancel();
-        setState(() => _remainingSeconds = 0);
-      } else {
+      if (_remainingSeconds > 0) {
         setState(() => _remainingSeconds--);
+      } else {
+        timer.cancel();
       }
     });
   }
 
   void _refreshQuote() {
-    setState(() => _remainingSeconds = 30);
     _startTimer();
-  }
-
-  void _confirm() {
-    _timer?.cancel();
-    Navigator.of(context).pushAndRemoveUntil<void>(
-      MaterialPageRoute(builder: (_) => ProcessingScreen(draft: widget.draft)),
-      (route) => route.isFirst,
-    );
+    setState(() {});
   }
 }
 
-class _QuoteAmount extends StatelessWidget {
-  const _QuoteAmount({
-    required this.label,
-    required this.value,
-    this.highlighted = false,
-  });
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
 
   final String label;
   final String value;
-  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final theme = context.nivexTheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: NivexColors.textSecondary,
+          style: TextStyle(
             fontSize: 13,
+            color: theme.textSecondary,
             letterSpacing: 0,
           ),
         ),
-        const SizedBox(height: 4),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: highlighted ? 24 : 20,
-              fontWeight: FontWeight.w800,
-              color: highlighted ? NivexColors.green : NivexColors.navy,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _QuoteRow extends StatelessWidget {
-  const _QuoteRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: NivexColors.textSecondary,
-              fontSize: 13.5,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13.5,
-              color: NivexColors.navy,
-              letterSpacing: 0,
-            ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: theme.textPrimary,
+            letterSpacing: 0,
           ),
         ),
       ],

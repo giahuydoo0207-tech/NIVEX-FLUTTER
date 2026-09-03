@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nivex_flutter/app/theme/nivex_colors.dart';
+import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 
 class StatusBadge extends StatelessWidget {
   const StatusBadge({required this.label, this.isSuccess = true, super.key});
@@ -9,14 +9,16 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isSuccess ? NivexColors.greenSoft : NivexColors.blueSoft;
-    final fgColor = isSuccess ? NivexColors.green : NivexColors.navy;
+    final theme = context.nivexTheme;
+    final bgColor = isSuccess ? theme.successSoft : theme.surfaceSubtle;
+    final fgColor = isSuccess ? theme.success : theme.textPrimary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
