@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
-import 'package:nivex_flutter/shared/constants/demo_data.dart';
+import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 
@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -57,8 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
               onQuote: widget.onQuote,
               onHelp: widget.onHelp,
             ),
-            const _RecentActivitiesSection(),
-            const SizedBox(height: 32),
+            Divider(color: theme.divider, height: 1, thickness: 1),
+            const NivexEducationSection(),
+            SizedBox(
+              height: 80.0 + MediaQuery.paddingOf(context).bottom + 24.0,
+            ),
           ],
         ),
       ),
@@ -331,7 +335,7 @@ class _QuickActionsBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+      padding: const EdgeInsets.fromLTRB(10, 16, 10, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -411,7 +415,7 @@ class _QuickActionItem extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Icon(icon, color: theme.primary, size: 22),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -427,164 +431,6 @@ class _QuickActionItem extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ActivityData {
-  const _ActivityData({
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.time,
-    required this.isIncoming,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final String amount;
-  final String time;
-  final bool isIncoming;
-  final IconData icon;
-}
-
-class _RecentActivitiesSection extends StatelessWidget {
-  const _RecentActivitiesSection();
-
-  static const _activities = [
-    _ActivityData(
-      title: 'Nhận USDC',
-      subtitle: DemoData.solanaAddressShort,
-      amount: '+200.00 USDC',
-      time: 'Hôm nay, 09:21',
-      isIncoming: true,
-      icon: Icons.arrow_downward_rounded,
-    ),
-    _ActivityData(
-      title: 'Rút VND',
-      subtitle: DemoData.bankAccountFull,
-      amount: '-8.000.000 VND',
-      time: 'Hôm qua, 16:45',
-      isIncoming: false,
-      icon: Icons.arrow_upward_rounded,
-    ),
-    _ActivityData(
-      title: 'Quote đã tạo',
-      subtitle: '500 USDC → VND',
-      amount: '12.470.000 VND',
-      time: '25/05/2025, 11:10',
-      isIncoming: false,
-      icon: Icons.currency_exchange_rounded,
-    ),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.nivexTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Divider(color: theme.divider, height: 1, thickness: 1),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-          child: Text(
-            'Hoạt động gần đây',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: theme.textPrimary,
-              letterSpacing: 0,
-            ),
-          ),
-        ),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: _activities.length,
-          separatorBuilder: (context, index) =>
-              Divider(color: theme.divider, height: 1, thickness: 1),
-          itemBuilder: (context, index) =>
-              _ActivityTile(activity: _activities[index]),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActivityTile extends StatelessWidget {
-  const _ActivityTile({required this.activity});
-
-  final _ActivityData activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.nivexTheme;
-    final amountColor = activity.isIncoming
-        ? theme.success
-        : (activity.amount.startsWith('-') ? theme.danger : theme.textPrimary);
-
-    final iconBgColor = activity.isIncoming
-        ? theme.successSoft
-        : (activity.amount.startsWith('-')
-              ? theme.dangerSoft
-              : theme.surfaceSubtle);
-
-    final iconColor = activity.isIncoming
-        ? theme.success
-        : (activity.amount.startsWith('-') ? theme.danger : theme.primary);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconBgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(activity.icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  activity.title,
-                  style: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textPrimary,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${activity.subtitle} • ${activity.time}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.textSecondary,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            activity.amount,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: amountColor,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -642,7 +488,7 @@ class _NotificationsSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Nhận USDC thành công',
+                        'Đã xác nhận trên Solana Devnet',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -652,7 +498,7 @@ class _NotificationsSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '+200.00 USDC đã được nạp vào ví Solana Devnet của bạn.',
+                        '+200.00 USDC đã được ghi nhận trong dữ liệu demo của bạn.',
                         style: TextStyle(
                           fontSize: 12,
                           color: theme.textSecondary,

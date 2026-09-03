@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/presentation/receipt_screen.dart';
+import 'package:nivex_flutter/shared/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class ProcessingScreen extends StatefulWidget {
@@ -55,7 +56,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Đang gửi yêu cầu rút VND',
+                  'Đang xử lý payout mô phỏng',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 20,
@@ -66,7 +67,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Hệ thống đang mô phỏng chuyển khoản sang tài khoản ngân hàng liên kết của bạn...',
+                  'NIVEX đang cập nhật các trạng thái demo. Không có kết nối ngân hàng hoặc tiền thật được chuyển.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
@@ -75,6 +76,8 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                     letterSpacing: 0,
                   ),
                 ),
+                const SizedBox(height: 24),
+                const DemoNotice(),
               ],
             ),
           ),

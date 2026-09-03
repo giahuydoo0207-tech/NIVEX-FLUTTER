@@ -107,7 +107,7 @@ class VerificationScreen extends StatelessWidget {
                       Divider(height: 1, thickness: 1, color: theme.divider),
                       const _KycStepItem(
                         title: 'Nhận diện khuôn mặt sinh trắc học',
-                        subtitle: 'Mô phỏng xác thực tự động thành công',
+                        subtitle: 'Trạng thái xác thực dùng dữ liệu demo',
                         isCompleted: true,
                       ),
                     ],

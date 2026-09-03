@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/shared/constants/demo_data.dart';
+import 'package:nivex_flutter/shared/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -197,6 +198,8 @@ class ReceiveUsdcScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                const DemoNotice(),
               ],
             ),
           ),

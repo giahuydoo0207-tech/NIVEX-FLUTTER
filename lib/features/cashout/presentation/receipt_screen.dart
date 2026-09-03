@@ -3,6 +3,7 @@ import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_format.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
+import 'package:nivex_flutter/shared/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class ReceiptScreen extends StatelessWidget {
@@ -49,7 +50,7 @@ class ReceiptScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Yêu cầu đã hoàn tất',
+                      'Payout VND mô phỏng hoàn tất',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -70,18 +71,18 @@ class ReceiptScreen extends StatelessWidget {
                     Divider(height: 1, thickness: 1, color: theme.divider),
                     const SizedBox(height: 16),
                     _ReceiptRow(
-                      label: 'Số tiền VND',
+                      label: 'Số tiền VND dự kiến',
                       value: CashoutFormat.vnd(totalVnd),
                       isHighlight: true,
                     ),
                     const SizedBox(height: 10),
                     _ReceiptRow(
-                      label: 'Số USDC đã trừ',
+                      label: 'USDC demo đã trừ',
                       value: '-${CashoutFormat.usdc(draft.usdcAmount)} USDC',
                     ),
                     const SizedBox(height: 10),
                     _ReceiptRow(
-                      label: 'Ngân hàng thụ hưởng',
+                      label: 'Ngân hàng nhận demo',
                       value: draft.bankName,
                     ),
                     const SizedBox(height: 10),
@@ -94,7 +95,9 @@ class ReceiptScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
+              const DemoNotice(),
+              const SizedBox(height: 20),
               // 2. Action Buttons
               FilledButton(
                 onPressed: () {

@@ -11,15 +11,15 @@ class HelpScreen extends StatelessWidget {
     final faqs = [
       (
         'NIVEX hoạt động như thế nào?',
-        'NIVEX cho phép bạn nạp USDC trên mạng Solana Devnet và quy đổi rút VND về tài khoản ngân hàng liên kết một cách nhanh chóng và an toàn.',
+        'NIVEX mô phỏng cách nhận USDC bằng dữ liệu demo hoặc Solana Devnet, xem báo giá và theo dõi payout VND mô phỏng.',
       ),
       (
         'Bao lâu thì nhận được VND?',
-        'Trong bản thử nghiệm, giao dịch payout VND được xử lý mô phỏng tức thì trong vòng 3-5 giây sau khi xác nhận quote.',
+        'Bản demo cập nhật trạng thái payout mô phỏng sau vài giây để minh họa luồng xử lý. Không có VND thật được chuyển.',
       ),
       (
         'Tỷ giá được tính thế nào?',
-        'Tỷ giá USDC/VND được cập nhật theo thời gian thực từ nguồn tỷ giá thị trường và khóa trong 30 giây khi bạn tạo quote.',
+        'Tỷ giá USDC/VND là dữ liệu tham khảo trong bản demo và được giữ trong 30 giây để minh họa trạng thái quote.',
       ),
       (
         'Tôi cần hỗ trợ kỹ thuật?',
@@ -78,7 +78,7 @@ class HelpScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Đội ngũ hỗ trợ luôn sẵn sàng 24/7',
+                              'Kênh hỗ trợ dành cho bản demo',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: theme.textSecondary,

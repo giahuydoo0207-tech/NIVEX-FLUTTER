@@ -5,6 +5,7 @@ import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_format.dart';
 import 'package:nivex_flutter/features/cashout/presentation/processing_screen.dart';
+import 'package:nivex_flutter/shared/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class QuoteScreen extends StatefulWidget {
@@ -77,7 +78,7 @@ class _QuoteScreenState extends State<QuoteScreen> {
                       child: Text(
                         _expired
                             ? 'Báo giá đã hết hạn'
-                            : 'Tỷ giá cố định trong: ${_remainingSeconds}s',
+                            : 'Tỷ giá tham khảo còn hiệu lực: ${_remainingSeconds}s',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -112,7 +113,7 @@ class _QuoteScreenState extends State<QuoteScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Số tiền nhận về tài khoản',
+                      'Số tiền VND dự kiến nhận',
                       style: TextStyle(
                         fontSize: 13,
                         color: theme.textSecondary,
@@ -139,13 +140,13 @@ class _QuoteScreenState extends State<QuoteScreen> {
                     ),
                     const SizedBox(height: 10),
                     const _DetailRow(
-                      label: 'Tỷ giá khóa',
+                      label: 'Tỷ giá tham khảo trong bản demo',
                       value: '1 USDC = 25.545 VND',
                     ),
                     const SizedBox(height: 10),
                     const _DetailRow(
-                      label: 'Phí giao dịch',
-                      value: 'Miễn phí (Demo MVP)',
+                      label: 'Phí trong bản demo',
+                      value: '0 VND',
                     ),
                     const SizedBox(height: 10),
                     _DetailRow(
@@ -156,7 +157,9 @@ class _QuoteScreenState extends State<QuoteScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
+              const DemoNotice(),
+              const SizedBox(height: 20),
               // 3. Confirm Button
               FilledButton(
                 onPressed: _expired
@@ -185,7 +188,7 @@ class _QuoteScreenState extends State<QuoteScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Xác nhận đổi sang VND'),
+                child: const Text('Xác nhận payout mô phỏng'),
               ),
             ],
           ),
@@ -222,23 +225,29 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: theme.textSecondary,
-            letterSpacing: 0,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.textSecondary,
+              letterSpacing: 0,
+            ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: theme.textPrimary,
-            letterSpacing: 0,
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: theme.textPrimary,
+              letterSpacing: 0,
+            ),
           ),
         ),
       ],

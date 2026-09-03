@@ -11,6 +11,7 @@ import 'package:nivex_flutter/app/theme/theme_controller.dart';
 import 'package:nivex_flutter/app/theme/theme_store.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
+import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
 import 'package:nivex_flutter/features/profile/presentation/appearance_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/bank_account_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/legal_screen.dart';
@@ -50,7 +51,12 @@ void main() {
     expect(find.text('500.00 USDC'), findsOneWidget);
     expect(find.text('≈ 12.500.000 VND'), findsOneWidget);
     expect(find.text('Solana Devnet'), findsOneWidget);
-    expect(find.text('Hoạt động gần đây'), findsOneWidget);
+    expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
+    expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+    expect(
+      find.textContaining('Bản demo hackathon · Solana Devnet'),
+      findsOneWidget,
+    );
     expect(find.text('Nhận USDC'), findsWidgets);
     expect(find.text('Rút VND'), findsWidgets);
     expect(find.text('Lịch sử'), findsOneWidget);
@@ -455,18 +461,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Báo giá quy đổi'), findsOneWidget);
-    expect(find.textContaining('Tỷ giá cố định trong:'), findsOneWidget);
+    expect(
+      find.textContaining('Tỷ giá tham khảo còn hiệu lực:'),
+      findsOneWidget,
+    );
 
     await tester.drag(find.byType(ListView).last, const Offset(0, -400));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Xác nhận đổi sang VND'));
+    await tester.tap(find.text('Xác nhận payout mô phỏng'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('Đang gửi yêu cầu rút VND'), findsOneWidget);
+    expect(find.text('Đang xử lý payout mô phỏng'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 1500));
     await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('Yêu cầu đã hoàn tất'), findsOneWidget);
+    expect(find.text('Payout VND mô phỏng hoàn tất'), findsOneWidget);
 
     await tester.drag(find.byType(ListView).last, const Offset(0, -400));
     await tester.pumpAndSettle();
@@ -482,19 +491,25 @@ void main() {
     await tester.tap(find.text('Quote'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    expect(find.textContaining('Tỷ giá cố định trong: 30s'), findsOneWidget);
+    expect(
+      find.textContaining('Tỷ giá tham khảo còn hiệu lực: 30s'),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(seconds: 30));
     expect(find.text('Báo giá đã hết hạn'), findsOneWidget);
 
     final confirm = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Xác nhận đổi sang VND'),
+      find.widgetWithText(FilledButton, 'Xác nhận payout mô phỏng'),
     );
     expect(confirm.onPressed, isNull);
 
     await tester.tap(find.text('Làm mới'));
     await tester.pump();
-    expect(find.textContaining('Tỷ giá cố định trong: 30s'), findsOneWidget);
+    expect(
+      find.textContaining('Tỷ giá tham khảo còn hiệu lực: 30s'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('không overflow ở chiều rộng 320px', (tester) async {
@@ -808,4 +823,391 @@ void main() {
       controller.dispose();
     }
   });
+
+  // =========================================================================
+  // 3. HIỂU NHANH CÙNG NIVEX (EDUCATION CAROUSEL & BANNER TESTS)
+  // =========================================================================
+
+  testWidgets('Home hiển thị Hiểu nhanh cùng NIVEX và dải minh họa đầu tiên', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const NivexApp());
+    expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
+    expect(find.text('1/6'), findsOneWidget);
+    expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+    expect(find.text('USDC Devnet'), findsOneWidget);
+    expect(find.text('Bên gửi'), findsOneWidget);
+    expect(find.text('Payout mô phỏng'), findsOneWidget);
+  });
+
+  testWidgets('vuốt carousel cập nhật từ 1/6 sang 2/6 và đổi card', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390 * 2.0, 844 * 2.0);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(const NivexApp());
+    await tester.pumpAndSettle();
+
+    expect(find.text('1/6'), findsOneWidget);
+    expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+
+    // Vuốt sang trái để chuyển trang kế tiếp
+    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2/6'), findsOneWidget);
+    expect(find.text('Web3 là gì?'), findsOneWidget);
+  });
+
+  testWidgets(
+    'nhấn Tìm hiểu thêm mở bottom sheet chi tiết và nút Đã hiểu đóng lại',
+    (tester) async {
+      tester.view.physicalSize = const Size(390 * 2.0, 844 * 2.0);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const NivexApp());
+      await tester.pumpAndSettle();
+
+      // Cuộn nhẹ để card giáo dục nằm hoàn toàn trong vùng bấm
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Tìm hiểu thêm').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ĐIỀU CẦN NHỚ'), findsOneWidget);
+      expect(find.text('Đã hiểu'), findsOneWidget);
+
+      final actionRect = tester.getRect(
+        find.widgetWithText(FilledButton, 'Đã hiểu'),
+      );
+      final logicalHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(actionRect.top, greaterThanOrEqualTo(0));
+      expect(actionRect.bottom, lessThanOrEqualTo(logicalHeight));
+      expect(actionRect.height, greaterThanOrEqualTo(48));
+
+      await tester.tap(find.text('Đã hiểu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ĐIỀU CẦN NHỚ'), findsNothing);
+    },
+  );
+
+  testWidgets('Home hiển thị đầy đủ thông báo demo bắt buộc', (tester) async {
+    await tester.pumpWidget(const NivexApp());
+
+    expect(
+      find.text(
+        'Bản demo hackathon · Solana Devnet\n'
+        'Payout VND chỉ là mô phỏng. Không có tiền thật được chuyển.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('cuộn Home 320px kiểm tra không overflow trên cả 4 theme', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320 * 2.0, 700 * 2.0);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    for (final mode in AppThemeMode.values) {
+      final store = FakeThemePreferenceStore(mode.name);
+      final controller = ThemeController(store: store);
+      await controller.load();
+
+      await tester.pumpWidget(
+        NivexApp(key: UniqueKey(), controller: controller),
+      );
+      await tester.pumpAndSettle();
+
+      // Cuộn trang để hiển thị trọn vẹn khu vực giáo dục và banner
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -350),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'Education scroll 320px overflow in ${mode.name}',
+      );
+
+      controller.dispose();
+    }
+  });
+
+  testWidgets(
+    'bottom navigation không che banner hoặc story card khi cuộn hết trang',
+    (tester) async {
+      tester.view.physicalSize = const Size(360 * 2.0, 700 * 2.0);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const NivexApp());
+      await tester.pumpAndSettle();
+
+      // Cuộn xuống hết trang
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Bản demo hackathon · Solana Devnet'),
+        findsOneWidget,
+      );
+      expect(find.text('Trang chủ'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test('timeline animation tiến triển đúng 7 giai đoạn theo brief', () {
+    final t0 = EducationAnimationTimeline(0.0);
+    expect(t0.node1Opacity, closeTo(0.0, 0.001));
+    expect(t0.line1Progress, closeTo(0.0, 0.001));
+    expect(t0.node2Opacity, closeTo(0.0, 0.001));
+    expect(t0.line2Progress, closeTo(0.0, 0.001));
+    expect(t0.node3Opacity, closeTo(0.0, 0.001));
+    expect(t0.completionOpacity, closeTo(0.0, 0.001));
+
+    // Giai đoạn 1: 0 - 15%
+    final t1 = EducationAnimationTimeline(0.15);
+    expect(t1.node1Opacity, closeTo(1.0, 0.001));
+    expect(t1.node1Scale, closeTo(1.0, 0.001));
+    expect(t1.line1Progress, closeTo(0.0, 0.001));
+
+    // Giai đoạn 2: 15 - 35%
+    final t2 = EducationAnimationTimeline(0.35);
+    expect(t2.line1Progress, closeTo(1.0, 0.001));
+    expect(t2.node2Opacity, closeTo(0.0, 0.001));
+
+    // Giai đoạn 3: 35 - 50%
+    final t3 = EducationAnimationTimeline(0.50);
+    expect(t3.node2Opacity, closeTo(1.0, 0.001));
+    expect(t3.line2Progress, closeTo(0.0, 0.001));
+
+    // Giai đoạn 4: 50 - 70%
+    final t4 = EducationAnimationTimeline(0.70);
+    expect(t4.line2Progress, closeTo(1.0, 0.001));
+    expect(t4.node3Opacity, closeTo(0.0, 0.001));
+
+    // Giai đoạn 5: 70 - 85%
+    final t5 = EducationAnimationTimeline(0.85);
+    expect(t5.node3Opacity, closeTo(1.0, 0.001));
+    expect(t5.completionOpacity, closeTo(0.0, 0.001));
+
+    // Giai đoạn 6: 85 - 95%
+    final t6 = EducationAnimationTimeline(0.95);
+    expect(t6.completionOpacity, closeTo(1.0, 0.001));
+
+    // Giai đoạn 7: 95 - 100% (giữ trạng thái cuối)
+    final t7 = EducationAnimationTimeline(1.0);
+    expect(t7.node1Opacity, closeTo(1.0, 0.001));
+    expect(t7.line1Progress, closeTo(1.0, 0.001));
+    expect(t7.node2Opacity, closeTo(1.0, 0.001));
+    expect(t7.line2Progress, closeTo(1.0, 0.001));
+    expect(t7.node3Opacity, closeTo(1.0, 0.001));
+    expect(t7.completionOpacity, closeTo(1.0, 0.001));
+  });
+
+  testWidgets(
+    'chế độ giảm chuyển động (disableAnimations) hiển thị trạng thái hoàn chỉnh ngay',
+    (tester) async {
+      await tester.pumpWidget(
+        const MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: NivexApp(),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
+      expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+      expect(find.byType(CustomPaint), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'bottom sheet có nút phát lại với tooltip và có thể nhấn phát lại',
+    (tester) async {
+      tester.view.physicalSize = const Size(390 * 2.0, 844 * 2.0);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const NivexApp());
+      await tester.pumpAndSettle();
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Tìm hiểu thêm').first);
+      await tester.pumpAndSettle();
+
+      // Nút phát lại có mặt và có tooltip
+      final replayFinder = find.byTooltip('Phát lại');
+      expect(replayFinder, findsOneWidget);
+
+      await tester.tap(replayFinder);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('ĐIỀU CẦN NHỚ'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('đóng bottom sheet tiếp tục animation card chưa hoàn tất', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390 * 2.0, 844 * 2.0);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(const NivexApp());
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.ensureVisible(find.text('Tìm hiểu thêm').first);
+    await tester.pump(const Duration(milliseconds: 200));
+
+    double homeProgress() {
+      final semantics = tester.widget<Semantics>(
+        find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is Semantics &&
+                  widget.properties.label ==
+                      'Tiến trình minh họa NIVEX hoạt động thế nào?',
+            )
+            .first,
+      );
+      return double.parse(semantics.properties.value!.split(' ').first);
+    }
+
+    final progressBeforeSheet = homeProgress();
+    expect(progressBeforeSheet, greaterThan(0));
+    expect(progressBeforeSheet, lessThan(100));
+
+    await tester.tap(find.text('Tìm hiểu thêm').first);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.tap(find.text('Đã hiểu'));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final progressWhenClosed = homeProgress();
+    expect(progressWhenClosed, greaterThanOrEqualTo(progressBeforeSheet));
+    expect(progressWhenClosed, lessThan(100));
+
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(homeProgress(), greaterThan(progressWhenClosed));
+  });
+
+  testWidgets(
+    'animation không làm thay đổi kích thước hay vị trí của bottom navigation',
+    (tester) async {
+      tester.view.physicalSize = const Size(390 * 2.0, 844 * 2.0);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const NivexApp());
+      await tester.pump();
+
+      final initialNavRect = tester.getRect(find.byType(NavigationBar));
+
+      // Bơm tiến trình animation qua từng mốc thời gian
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.getRect(find.byType(NavigationBar)), initialNavRect);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(tester.getRect(find.byType(NavigationBar)), initialNavRect);
+
+      await tester.pump(const Duration(seconds: 3));
+      expect(tester.getRect(find.byType(NavigationBar)), initialNavRect);
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(tester.getRect(find.byType(NavigationBar)), initialNavRect);
+    },
+  );
+
+  testWidgets(
+    'vuốt đến card thứ 6 Tình huống minh họa và mở quy trình tuần tự',
+    (tester) async {
+      tester.view.physicalSize = const Size(390 * 2.0, 844 * 2.0);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(const NivexApp());
+      await tester.pumpAndSettle();
+
+      // Vuốt liên tục 5 lần để đến card thứ 6
+      for (int i = 0; i < 5; i++) {
+        await tester.drag(find.byType(PageView), const Offset(-320, 0));
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.text('6/6'), findsOneWidget);
+      expect(find.text('Tình huống minh họa'), findsOneWidget);
+
+      // Cuộn nhẹ để card nằm trong vùng tương tác
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Tình huống minh họa'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('QUY TRÌNH TUẦN TỰ MINH HỌA'), findsOneWidget);
+      expect(
+        find.text('Bên gửi tạo khoản thanh toán 100 USDC'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Payout VND được đánh dấu hoàn tất trong môi trường mô phỏng',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Đây chỉ là ví dụ minh họa'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Đã hiểu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Đã hiểu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('QUY TRÌNH TUẦN TỰ MINH HỌA'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'nhãn trong dải minh họa cho phép tối đa 2 dòng không bị ellipsis',
+    (tester) async {
+      await tester.pumpWidget(const NivexApp());
+      await tester.pumpAndSettle();
+
+      final nodeTexts = tester
+          .widgetList<Text>(find.byType(Text))
+          .where(
+            (widget) =>
+                widget.data == 'Bên gửi' || widget.data == 'Payout mô phỏng',
+          );
+      for (final textWidget in nodeTexts) {
+        expect(textWidget.maxLines, 2);
+        expect(textWidget.overflow, isNot(TextOverflow.ellipsis));
+      }
+    },
+  );
 }

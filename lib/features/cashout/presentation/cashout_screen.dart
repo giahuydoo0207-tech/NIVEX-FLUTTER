@@ -5,6 +5,7 @@ import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_format.dart';
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
 import 'package:nivex_flutter/shared/constants/demo_data.dart';
+import 'package:nivex_flutter/shared/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class CashoutScreen extends StatefulWidget {
@@ -46,7 +47,7 @@ class _CashoutScreenState extends State<CashoutScreen> {
     final theme = context.nivexTheme;
     return NivexPage(
       title: 'Rút VND',
-      subtitle: 'Quy đổi USDC về tài khoản ngân hàng',
+      subtitle: 'Mô phỏng quy đổi USDC sang VND',
       showBackButton: true,
       child: Center(
         child: ConstrainedBox(
@@ -212,23 +213,30 @@ class _CashoutScreenState extends State<CashoutScreen> {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'VND thực nhận dự kiến',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.textSecondary,
-                            letterSpacing: 0,
+                        Expanded(
+                          child: Text(
+                            'Số tiền VND dự kiến nhận',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.textSecondary,
+                              letterSpacing: 0,
+                            ),
                           ),
                         ),
-                        Text(
-                          CashoutFormat.vnd(CashoutFormat.estimateVnd(_amount)),
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: theme.success,
-                            letterSpacing: 0,
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            CashoutFormat.vnd(
+                              CashoutFormat.estimateVnd(_amount),
+                            ),
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: theme.success,
+                              letterSpacing: 0,
+                            ),
                           ),
                         ),
                       ],
@@ -333,7 +341,9 @@ class _CashoutScreenState extends State<CashoutScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              const DemoNotice(),
+              const SizedBox(height: 20),
               // 4. Submit Button
               FilledButton(
                 onPressed: _valid
