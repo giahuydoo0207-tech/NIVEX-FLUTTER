@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/app/theme/theme_controller.dart';
+import 'package:nivex_flutter/features/auth/presentation/login_screen.dart';
 import 'package:nivex_flutter/features/shell/presentation/app_shell.dart';
 
 class NivexApp extends StatefulWidget {
-  const NivexApp({super.key, this.controller});
+  const NivexApp({super.key, this.controller, this.showAuthentication = false});
 
   final ThemeController? controller;
+  final bool showAuthentication;
 
   @override
   State<NivexApp> createState() => _NivexAppState();
@@ -15,6 +17,7 @@ class NivexApp extends StatefulWidget {
 class _NivexAppState extends State<NivexApp> {
   late final ThemeController _controller;
   bool _createdOwnController = false;
+  bool _isAuthenticated = false;
 
   @override
   void initState() {
@@ -45,7 +48,11 @@ class _NivexAppState extends State<NivexApp> {
           title: 'NIVEX',
           debugShowCheckedModeBanner: false,
           theme: NivexTheme.forMode(_controller.mode),
-          home: AppShell(themeController: _controller),
+          home: widget.showAuthentication && !_isAuthenticated
+              ? LoginScreen(
+                  onLoginSuccess: () => setState(() => _isAuthenticated = true),
+                )
+              : AppShell(themeController: _controller),
         );
       },
     );

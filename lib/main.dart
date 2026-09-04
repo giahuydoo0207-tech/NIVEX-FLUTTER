@@ -6,5 +6,5 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final controller = ThemeController();
   await controller.load();
-  runApp(NivexApp(controller: controller));
+  runApp(NivexApp(controller: controller, showAuthentication: true));
 }
