@@ -837,7 +837,7 @@ void main() {
     expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
     expect(find.text('USDC Devnet'), findsOneWidget);
     expect(find.text('Bên gửi'), findsOneWidget);
-    expect(find.text('Payout mô phỏng'), findsOneWidget);
+    expect(find.text('VND demo'), findsOneWidget);
   });
 
   testWidgets('vuốt carousel cập nhật từ 1/6 sang 2/6 và đổi card', (
@@ -1114,6 +1114,44 @@ void main() {
     expect(homeProgress(), greaterThan(progressWhenClosed));
   });
 
+  testWidgets('đóng bottom sheet giữ nguyên animation card đã hoàn tất', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390 * 2.0, 844 * 2.0);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(const NivexApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 6500));
+
+    String homeProgress() {
+      final semantics = tester.widget<Semantics>(
+        find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is Semantics &&
+                  widget.properties.label ==
+                      'Tiến trình minh họa NIVEX hoạt động thế nào?',
+            )
+            .first,
+      );
+      return semantics.properties.value!;
+    }
+
+    expect(homeProgress(), '100 phần trăm');
+
+    await tester.ensureVisible(find.text('Tìm hiểu thêm').first);
+    await tester.pump();
+    await tester.tap(find.text('Tìm hiểu thêm').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Đã hiểu'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(homeProgress(), '100 phần trăm');
+  });
+
   testWidgets(
     'animation không làm thay đổi kích thước hay vị trí của bottom navigation',
     (tester) async {
@@ -1201,12 +1239,467 @@ void main() {
       final nodeTexts = tester
           .widgetList<Text>(find.byType(Text))
           .where(
-            (widget) =>
-                widget.data == 'Bên gửi' || widget.data == 'Payout mô phỏng',
+            (widget) => widget.data == 'Bên gửi' || widget.data == 'VND demo',
           );
       for (final textWidget in nodeTexts) {
         expect(textWidget.maxLines, 2);
         expect(textWidget.overflow, isNot(TextOverflow.ellipsis));
+      }
+    },
+  );
+
+  testWidgets('education node dùng hình vuông bo 8px trên Home và bottom sheet', (
+    tester,
+  ) async {
+    for (final isLarge in [false, true]) {
+      for (final topic in NivexEducationSection.topics) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: NivexTheme.light,
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: isLarge ? 248 : 255,
+                  height: isLarge ? 155 : 108,
+                  child: EducationIllustrationPreview(
+                    topic: topic,
+                    progress: 1,
+                    isLarge: isLarge,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final nodeContainers = tester.widgetList<Container>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Container &&
+                widget.key is ValueKey<String> &&
+                (widget.key! as ValueKey<String>).value.startsWith(
+                  'education-node-',
+                ),
+          ),
+        );
+        expect(nodeContainers.length, topic.steps.length);
+        final isDense = topic.steps.length > 3;
+        final availableWidth = isLarge ? 248.0 : 255.0;
+        final requestedConnectorWidth = isDense
+            ? (isLarge ? 30.0 : 24.0)
+            : (isLarge ? 46.0 : 38.0);
+        final minimumNodeWidth = isDense
+            ? (isLarge ? 40.0 : 38.0)
+            : (isLarge ? 50.0 : 46.0);
+        final connectorCount = topic.steps.length - 1;
+        final maximumConnectorWidth =
+            (availableWidth - minimumNodeWidth * topic.steps.length) /
+            connectorCount;
+        final connectorWidth = requestedConnectorWidth
+            .clamp(18.0, maximumConnectorWidth)
+            .toDouble();
+        final nodeWidth =
+            (availableWidth - connectorWidth * connectorCount) /
+            topic.steps.length;
+        final targetNodeSize = isDense
+            ? (isLarge ? 54.0 : 46.0)
+            : (isLarge ? 58.0 : 48.0);
+        final expectedNodeSize = math.min(targetNodeSize, nodeWidth);
+        final expectedIconSize = expectedNodeSize * (isDense ? 0.56 : 0.55);
+        final nodeCenters = <double>[];
+        for (final container in nodeContainers) {
+          final decoration = container.decoration! as BoxDecoration;
+          expect(decoration.shape, BoxShape.rectangle);
+          expect(decoration.borderRadius, BorderRadius.circular(8));
+          expect(container.constraints?.maxWidth, expectedNodeSize);
+          expect(container.constraints?.maxHeight, expectedNodeSize);
+        }
+
+        for (final step in topic.steps) {
+          final nodeFinder = find.byKey(
+            ValueKey(
+              'education-node-${step.label}-${isLarge ? 'large' : 'compact'}',
+            ),
+          );
+          expect(nodeFinder, findsOneWidget);
+          nodeCenters.add(tester.getCenter(nodeFinder).dy);
+
+          if (step.isBlockchain) {
+            final blockchainIcon = tester.widget<BlockchainNetworkIcon>(
+              find.descendant(
+                of: nodeFinder,
+                matching: find.byType(BlockchainNetworkIcon),
+              ),
+            );
+            expect(blockchainIcon.size, expectedIconSize);
+          } else if (!step.isSolana) {
+            final icon = tester.widget<Icon>(
+              find.descendant(of: nodeFinder, matching: find.byType(Icon)),
+            );
+            expect(icon.size, expectedIconSize);
+          }
+        }
+        expect(
+          nodeCenters.every(
+            (center) => (center - nodeCenters.first).abs() < 0.01,
+          ),
+          isTrue,
+          reason: '${topic.id} phải có tâm icon nằm trên cùng một đường ngang',
+        );
+
+        final previewRect = tester.getRect(
+          find.byType(EducationIllustrationPreview),
+        );
+        final contentTop = nodeCenters.first - expectedNodeSize / 2;
+        final contentHeight = expectedNodeSize + 4 + (isLarge ? 30.0 : 24.0);
+        final topGap = contentTop - previewRect.top;
+        final bottomGap = previewRect.bottom - (contentTop + contentHeight);
+        expect(
+          (topGap - bottomGap).abs(),
+          lessThan(0.01),
+          reason: '${topic.id} phải được căn giữa theo chiều dọc',
+        );
+
+        for (var i = 0; i < topic.steps.length - 1; i++) {
+          final connectorFinder = find.byKey(
+            ValueKey(
+              'education-connector-${topic.steps.length}-$i-${isLarge ? 'large' : 'compact'}',
+            ),
+          );
+          expect(connectorFinder, findsOneWidget);
+          expect(
+            (tester.getCenter(connectorFinder).dy - nodeCenters.first).abs(),
+            lessThan(0.01),
+            reason: '${topic.id} connector $i phải chĩa đúng giữa khung icon',
+          );
+        }
+      }
+    }
+  });
+
+  test('Card 2 — Web3 không dùng Icons.hub_outlined và không dùng Icons.grid_view_rounded', () {
+    final web3Topic = NivexEducationSection.topics.firstWhere(
+      (topic) => topic.id == 'web3_intro',
+    );
+    final blockchainStep = web3Topic.steps.firstWhere(
+      (step) => step.label == 'Blockchain',
+    );
+
+    expect(blockchainStep.icon, isNot(Icons.hub_outlined));
+    expect(blockchainStep.icon, isNot(Icons.grid_view_rounded));
+    expect(blockchainStep.isBlockchain, isTrue);
+  });
+
+  test('BlockchainNetworkPainter geometry chỉ gồm khối vuông và đường thẳng, fitsInside bounds', () {
+    for (final size in [
+      const Size(15, 15),
+      const Size(16, 16),
+      const Size(18, 18),
+      const Size(20, 20),
+      const Size(23, 23),
+      const Size(24, 24),
+    ]) {
+      final painter = BlockchainNetworkPainter(
+        progress: 1.0,
+        color: Colors.blue,
+      );
+      final geometry = painter.geometryFor(size);
+
+      expect(geometry.fitsInside(size), isTrue);
+      expect(geometry.totalBlocks, 5);
+      expect(geometry.outerBlocks.length, 4);
+
+      // Center and outer blocks are strictly square
+      expect(
+        (geometry.centerBlock.width - geometry.centerBlock.height).abs(),
+        lessThan(0.001),
+      );
+      for (final outer in geometry.outerBlocks) {
+        expect((outer.width - outer.height).abs(), lessThan(0.001));
+      }
+
+      // Slight rounding 1-2px
+      expect(geometry.centerBlock.tlRadiusX, inInclusiveRange(1.0, 2.0));
+      for (final outer in geometry.outerBlocks) {
+        expect(outer.tlRadiusX, inInclusiveRange(0.8, 1.5));
+      }
+
+      // 4 straight lines (horizontal or vertical)
+      expect(geometry.connectorLines.length, 4);
+      for (final line in geometry.connectorLines) {
+        final isVertical = (line.start.dx - line.end.dx).abs() < 0.001;
+        final isHorizontal = (line.start.dy - line.end.dy).abs() < 0.001;
+        expect(isVertical || isHorizontal, isTrue);
+      }
+
+      // Verify across phases 0%, 50%, 100%
+      for (final phase in [0.0, 0.5, 1.0]) {
+        final phaseGeom = painter.geometryFor(size, atProgress: phase);
+        expect(phaseGeom.fitsInside(size), isTrue);
+      }
+    }
+  });
+
+  testWidgets(
+    'Node Blockchain render bằng custom painter/widget mới ở 0%, 50%, 100% progress và disableAnimations',
+    (tester) async {
+      for (final isLarge in [false, true]) {
+        for (final phase in [0.0, 0.5, 1.0]) {
+          for (final disableAnim in [false, true]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: NivexTheme.light,
+                home: MediaQuery(
+                  data: MediaQueryData(disableAnimations: disableAnim),
+                  child: Scaffold(
+                    body: Center(
+                      child: BlockchainNetworkIcon(
+                        size: isLarge ? 23.0 : 16.0,
+                        color: Colors.blue,
+                        progress: phase,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pump();
+            expect(tester.takeException(), isNull);
+            expect(find.byType(BlockchainNetworkIcon), findsOneWidget);
+            expect(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is CustomPaint && w.painter is BlockchainNetworkPainter,
+              ),
+              findsOneWidget,
+            );
+          }
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'Card 2 — Web3 hiển thị BlockchainNetworkIcon trong dải minh họa trên Home và bottom sheet',
+    (tester) async {
+      final web3Topic = NivexEducationSection.topics.firstWhere(
+        (t) => t.id == 'web3_intro',
+      );
+
+      for (final isLarge in [false, true]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: NivexTheme.light,
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                height: isLarge ? 155 : 108,
+                child: EducationIllustrationPreview(
+                  topic: web3Topic,
+                  progress: 1.0,
+                  isLarge: isLarge,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(find.byType(BlockchainNetworkIcon), findsOneWidget);
+      }
+    },
+  );
+
+  testWidgets(
+    'connector 3-node và 4-node có đủ thân và arrowhead trong bounds',
+    (tester) async {
+      for (final viewportWidth in [320.0, 407.0]) {
+        for (final topicIndex in [0, 1]) {
+          final topic = NivexEducationSection.topics[topicIndex];
+          for (final isLarge in [false, true]) {
+            final horizontalChrome = isLarge ? 72.0 : 65.0;
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: NivexTheme.light,
+                home: Scaffold(
+                  body: Center(
+                    child: SizedBox(
+                      width: viewportWidth - horizontalChrome,
+                      height: isLarge ? 155 : 108,
+                      child: EducationIllustrationPreview(
+                        topic: topic,
+                        progress: 0.5,
+                        isLarge: isLarge,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pump();
+
+            final connectorFinder = find.byWidgetPredicate(
+              (widget) =>
+                  widget is CustomPaint &&
+                  widget.painter is EducationConnectorPainter,
+            );
+            expect(connectorFinder, findsNWidgets(topic.steps.length - 1));
+
+            for (final customPaint in tester.widgetList<CustomPaint>(
+              connectorFinder,
+            )) {
+              final finder = find.byWidget(customPaint);
+              final size = tester.getSize(finder);
+              final painter = customPaint.painter! as EducationConnectorPainter;
+              final baseline = painter.backgroundGeometryFor(size);
+              expect(baseline.fitsInside(size), isTrue);
+              expect(
+                baseline.lineEnd.dx - baseline.lineStart.dx,
+                greaterThan(4),
+              );
+              expect(
+                baseline.arrowTip.dx - baseline.arrowUpperWing.dx,
+                greaterThan(3),
+              );
+              expect(baseline.arrowTip.dx, lessThan(size.width));
+
+              for (final phase in [0.0, 0.5, 1.0]) {
+                final active = painter.geometryFor(size, atProgress: phase);
+                expect(active.fitsInside(size), isTrue);
+                expect(
+                  active.arrowTip.dx - active.arrowUpperWing.dx,
+                  greaterThan(3),
+                );
+              }
+            }
+          }
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    '6 education graphic không overflow ở 320/407 qua mọi phase và reduced motion',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      for (final viewportWidth in [320.0, 407.0]) {
+        tester.view.physicalSize = Size(viewportWidth, 900);
+        for (final topic in NivexEducationSection.topics) {
+          for (final isLarge in [false, true]) {
+            final horizontalChrome = isLarge ? 72.0 : 65.0;
+            for (final phase in [0.0, 0.5, 1.0]) {
+              await tester.pumpWidget(
+                MaterialApp(
+                  theme: NivexTheme.light,
+                  home: Builder(
+                    builder: (context) => MediaQuery(
+                      data: MediaQuery.of(context)
+                          .copyWith(disableAnimations: phase == 1),
+                      child: Scaffold(
+                        body: Center(
+                          child: SizedBox(
+                            width: viewportWidth - horizontalChrome,
+                            height: isLarge ? 155 : 108,
+                            child: EducationIllustrationPreview(
+                              topic: topic,
+                              progress: phase,
+                              isLarge: isLarge,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              await tester.pump();
+              expect(
+                tester.takeException(),
+                isNull,
+                reason:
+                    '${topic.id} ${isLarge ? 'sheet' : 'home'} '
+                    '${viewportWidth.round()}px phase $phase',
+              );
+            }
+          }
+        }
+      }
+
+      const requiredLabels = ['Bên gửi', 'USDC Devnet', 'Ví NIVEX', 'VND demo'];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.light,
+          home: Scaffold(
+            body: SizedBox(
+              width: 255,
+              height: 108,
+              child: EducationIllustrationPreview(
+                topic: NivexEducationSection.topics[0],
+                progress: 1,
+                isLarge: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final label in requiredLabels) {
+        final text = tester.widget<Text>(find.text(label));
+        expect(text.maxLines, 2);
+        expect(text.overflow, isNot(TextOverflow.ellipsis));
+      }
+    },
+  );
+
+  testWidgets(
+    'kiểm tra Home và bottom sheet tại 320px và Xiaomi 407dp ở progress 0%, 50%, 100%',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      for (final width in [320.0, 407.0]) {
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1.0;
+
+        for (final phase in [0.0, 0.5, 1.0]) {
+          // Home
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: NivexTheme.forMode(AppThemeMode.cyberNight),
+              home: const Scaffold(
+                body: SingleChildScrollView(child: NivexEducationSection()),
+              ),
+            ),
+          );
+          await tester.pump();
+          expect(tester.takeException(), isNull);
+          expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
+
+          // Bottom sheet illustration band preview
+          for (final topic in NivexEducationSection.topics) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: NivexTheme.forMode(AppThemeMode.cyberNight),
+                home: Scaffold(
+                  body: SizedBox(
+                    width: width - 32.0,
+                    height: 155,
+                    child: EducationIllustrationPreview(
+                      topic: topic,
+                      progress: phase,
+                      isLarge: true,
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pump();
+            expect(tester.takeException(), isNull);
+          }
+        }
       }
     },
   );

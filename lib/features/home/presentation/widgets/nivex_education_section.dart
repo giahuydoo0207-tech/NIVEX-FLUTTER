@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/shared/widgets/demo_notice.dart';
@@ -6,13 +8,15 @@ import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 class EducationStepItem {
   const EducationStepItem({
     required this.label,
-    required this.icon,
+    this.icon,
     this.isSolana = false,
+    this.isBlockchain = false,
   });
 
   final String label;
-  final IconData icon;
+  final IconData? icon;
   final bool isSolana;
+  final bool isBlockchain;
 }
 
 class EducationTopic {
@@ -112,7 +116,7 @@ class NivexEducationSection extends StatefulWidget {
           icon: Icons.currency_exchange_rounded,
         ),
         EducationStepItem(
-          label: 'Payout mô phỏng',
+          label: 'VND demo',
           icon: Icons.account_balance_outlined,
         ),
       ],
@@ -143,7 +147,7 @@ class NivexEducationSection extends StatefulWidget {
           label: 'Ví kết nối',
           icon: Icons.account_balance_wallet_outlined,
         ),
-        EducationStepItem(label: 'Blockchain', icon: Icons.hub_outlined),
+        EducationStepItem(label: 'Blockchain', isBlockchain: true),
       ],
       howItWorks: [
         'Ứng dụng có thể gửi yêu cầu kết nối đến một ví tương thích.',
@@ -261,7 +265,7 @@ class NivexEducationSection extends StatefulWidget {
         ),
         EducationStepItem(label: 'Ví NIVEX', icon: Icons.person_rounded),
         EducationStepItem(
-          label: 'Payout mô phỏng',
+          label: 'VND demo',
           icon: Icons.account_balance_outlined,
         ),
       ],
@@ -615,107 +619,194 @@ class _AnimatedIllustrationBand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    final timeline = EducationAnimationTimeline(progress);
+    final disableAnim = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final effectiveProgress = disableAnim ? 1.0 : progress;
+    final timeline = EducationAnimationTimeline(effectiveProgress);
     final steps = topic.steps;
-
-    // Layout nodes with connecting lines
-    final isCompact = steps.length > 3;
-    final nodeFlex = isCompact ? 5 : 3;
-    final lineFlex = isCompact ? 1 : 2;
 
     return Semantics(
       label: 'Tiến trình minh họa ${topic.title}',
       value: '${(progress * 100).round()} phần trăm',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          for (int i = 0; i < steps.length; i++) ...[
-            // Node
-            Expanded(
-              flex: nodeFlex,
-              child: _AnimatedNodeWidget(
-                icon: steps[i].icon,
-                label: steps[i].label,
-                isSolana: steps[i].isSolana,
-                opacity: i == 0
-                    ? timeline.node1Opacity
-                    : (i == 1
-                          ? (steps.length == 3
-                                ? timeline.node2Opacity
-                                : timeline.line1Progress)
-                          : (i == 2
-                                ? (steps.length == 3
-                                      ? timeline.node3Opacity
-                                      : timeline.node2Opacity)
-                                : timeline.node3Opacity)),
-                scale: i == 0
-                    ? timeline.node1Scale
-                    : (i == steps.length - 1
-                          ? timeline.node3Scale
-                          : timeline.node2Scale),
-                completionOpacity: i == steps.length - 1
-                    ? timeline.completionOpacity
-                    : 0.0,
-                completionScale: i == steps.length - 1
-                    ? timeline.completionScale
-                    : 1.0,
-                theme: theme,
-                isLarge: isLarge,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDense = steps.length > 3;
+          final requestedConnectorWidth = isDense
+              ? (isLarge ? 30.0 : 24.0)
+              : (isLarge ? 46.0 : 38.0);
+          final minimumNodeWidth = isDense
+              ? (isLarge ? 40.0 : 38.0)
+              : (isLarge ? 50.0 : 46.0);
+          final connectorCount = steps.length - 1;
+          final maximumConnectorWidth = connectorCount == 0
+              ? 0.0
+              : (constraints.maxWidth - minimumNodeWidth * steps.length) /
+                    connectorCount;
+          final connectorWidth = connectorCount == 0
+              ? 0.0
+              : requestedConnectorWidth
+                    .clamp(18.0, maximumConnectorWidth)
+                    .toDouble();
+          final nodeWidth =
+              (constraints.maxWidth - connectorWidth * connectorCount) /
+              steps.length;
+          final targetNodeSize = isDense
+              ? (isLarge ? 54.0 : 46.0)
+              : (isLarge ? 58.0 : 48.0);
+          final nodeVisualSize = math.min(targetNodeSize, nodeWidth);
+          final nodeIconSize = nodeVisualSize * (isDense ? 0.56 : 0.55);
+          final connectorHeight = isLarge ? 32.0 : 26.0;
+          final connectorTop = (nodeVisualSize - connectorHeight) / 2;
+          final labelHeight = isLarge ? 30.0 : 24.0;
+          final contentHeight = nodeVisualSize + 4 + labelHeight;
+
+          return Align(
+            alignment: Alignment.center,
+            child: SizedBox(
+              height: contentHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < steps.length; i++) ...[
+                    SizedBox(
+                      width: nodeWidth,
+                      child: _AnimatedNodeWidget(
+                        icon: steps[i].icon,
+                        label: steps[i].label,
+                        isSolana: steps[i].isSolana,
+                        isBlockchain: steps[i].isBlockchain,
+                        blockchainProgress: steps[i].isBlockchain
+                            ? (disableAnim
+                                  ? 1.0
+                                  : (steps.length == 3 && i == 2
+                                        ? ((progress - 0.65) / 0.30).clamp(
+                                            0.0,
+                                            1.0,
+                                          )
+                                        : progress))
+                            : 1.0,
+                        opacity: i == 0
+                            ? timeline.node1Opacity
+                            : (i == 1
+                                  ? (steps.length == 3
+                                        ? timeline.node2Opacity
+                                        : timeline.line1Progress)
+                                  : (i == 2
+                                        ? (steps.length == 3
+                                              ? timeline.node3Opacity
+                                              : timeline.node2Opacity)
+                                        : timeline.node3Opacity)),
+                        scale: i == 0
+                            ? timeline.node1Scale
+                            : (i == steps.length - 1
+                                  ? timeline.node3Scale
+                                  : timeline.node2Scale),
+                        completionOpacity: i == steps.length - 1
+                            ? timeline.completionOpacity
+                            : 0.0,
+                        completionScale: i == steps.length - 1
+                            ? timeline.completionScale
+                            : 1.0,
+                        theme: theme,
+                        isLarge: isLarge,
+                        isDense: isDense,
+                        nodeSize: nodeVisualSize,
+                        iconSize: nodeIconSize,
+                      ),
+                    ),
+                    if (i < steps.length - 1)
+                      Padding(
+                        padding: EdgeInsets.only(top: connectorTop),
+                        child: SizedBox(
+                          key: ValueKey(
+                            'education-connector-${steps.length}-$i-${isLarge ? 'large' : 'compact'}',
+                          ),
+                          width: connectorWidth,
+                          height: connectorHeight,
+                          child: CustomPaint(
+                            painter: EducationConnectorPainter(
+                              progress: i == 0
+                                  ? timeline.line1Progress
+                                  : (i == 1 && steps.length > 3
+                                        ? timeline.node2Opacity
+                                        : timeline.line2Progress),
+                              activeColor: theme.primary,
+                              inactiveColor: theme.border,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ],
               ),
             ),
-
-            // Connecting line (if not last node)
-            if (i < steps.length - 1)
-              Expanded(
-                flex: lineFlex,
-                child: CustomPaint(
-                  size: Size(double.infinity, isLarge ? 24 : 16),
-                  painter: _ConnectingLinePainter(
-                    progress: i == 0
-                        ? timeline.line1Progress
-                        : (i == 1 && steps.length > 3
-                              ? timeline.line1Progress
-                              : timeline.line2Progress),
-                    activeColor: theme.primary,
-                    inactiveColor: theme.border,
-                  ),
-                ),
-              ),
-          ],
-        ],
+          );
+        },
       ),
+    );
+  }
+}
+
+class EducationIllustrationPreview extends StatelessWidget {
+  const EducationIllustrationPreview({
+    required this.topic,
+    required this.progress,
+    required this.isLarge,
+    super.key,
+  });
+
+  final EducationTopic topic;
+  final double progress;
+  final bool isLarge;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AnimatedIllustrationBand(
+      topic: topic,
+      progress: progress,
+      isLarge: isLarge,
     );
   }
 }
 
 class _AnimatedNodeWidget extends StatelessWidget {
   const _AnimatedNodeWidget({
-    required this.icon,
     required this.label,
     required this.isSolana,
     required this.opacity,
     required this.scale,
     required this.theme,
     required this.isLarge,
+    required this.isDense,
+    required this.nodeSize,
+    required this.iconSize,
+    this.icon,
+    this.isBlockchain = false,
+    this.blockchainProgress = 1.0,
     this.completionOpacity = 0.0,
     this.completionScale = 1.0,
   });
 
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final bool isSolana;
+  final bool isBlockchain;
+  final double blockchainProgress;
   final double opacity;
   final double scale;
   final NivexThemeExtension theme;
   final bool isLarge;
+  final bool isDense;
+  final double nodeSize;
+  final double iconSize;
   final double completionOpacity;
   final double completionScale;
 
   @override
   Widget build(BuildContext context) {
-    final size = isLarge ? 46.0 : 32.0;
-    final iconSize = isLarge ? 24.0 : 16.0;
-    final fontSize = isLarge ? 11.5 : 9.5;
+    final fontSize = isDense
+        ? (isLarge ? 11.5 : 10.0)
+        : (isLarge ? 12.0 : 10.5);
+    final labelHeight = isLarge ? 30.0 : 24.0;
 
     return Opacity(
       opacity: opacity.clamp(0.0, 1.0),
@@ -729,17 +820,26 @@ class _AnimatedNodeWidget extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: size,
-                  height: size,
+                  key: ValueKey(
+                    'education-node-$label-${isLarge ? 'large' : 'compact'}',
+                  ),
+                  width: nodeSize,
+                  height: nodeSize,
                   decoration: BoxDecoration(
                     color: theme.surface,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: theme.border),
                   ),
                   alignment: Alignment.center,
                   child: isSolana
                       ? SolanaMark(width: iconSize)
-                      : Icon(icon, color: theme.primary, size: iconSize),
+                      : (isBlockchain
+                            ? BlockchainNetworkIcon(
+                                size: iconSize,
+                                color: theme.primary,
+                                progress: blockchainProgress,
+                              )
+                            : Icon(icon, color: theme.primary, size: iconSize)),
                 ),
                 if (completionOpacity > 0.01)
                   Positioned(
@@ -773,16 +873,23 @@ class _AnimatedNodeWidget extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: FontWeight.w600,
-                color: theme.textSecondary,
-                height: 1.15,
-                letterSpacing: 0,
+            SizedBox(
+              height: labelHeight,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                    color: theme.textSecondary,
+                    height: 1.15,
+                    letterSpacing: 0,
+                  ),
+                ),
               ),
             ),
           ],
@@ -792,8 +899,34 @@ class _AnimatedNodeWidget extends StatelessWidget {
   }
 }
 
-class _ConnectingLinePainter extends CustomPainter {
-  _ConnectingLinePainter({
+class EducationConnectorGeometry {
+  const EducationConnectorGeometry({
+    required this.lineStart,
+    required this.lineEnd,
+    required this.arrowTip,
+    required this.arrowUpperWing,
+    required this.arrowLowerWing,
+  });
+
+  final Offset lineStart;
+  final Offset lineEnd;
+  final Offset arrowTip;
+  final Offset arrowUpperWing;
+  final Offset arrowLowerWing;
+
+  bool fitsInside(Size size) {
+    return [lineStart, lineEnd, arrowTip, arrowUpperWing, arrowLowerWing].every(
+      (point) =>
+          point.dx >= 0 &&
+          point.dx <= size.width &&
+          point.dy >= 0 &&
+          point.dy <= size.height,
+    );
+  }
+}
+
+class EducationConnectorPainter extends CustomPainter {
+  EducationConnectorPainter({
     required this.progress,
     required this.activeColor,
     required this.inactiveColor,
@@ -803,50 +936,326 @@ class _ConnectingLinePainter extends CustomPainter {
   final Color activeColor;
   final Color inactiveColor;
 
-  @override
-  void paint(Canvas canvas, Size size) {
+  EducationConnectorGeometry geometryFor(Size size, {double? atProgress}) {
     final y = size.height / 2;
-    final w = size.width;
+    const horizontalInset = 3.0;
+    final startX = horizontalInset.clamp(0.0, size.width / 2).toDouble();
+    final endX = (size.width - horizontalInset)
+        .clamp(startX, size.width)
+        .toDouble();
+    final available = endX - startX;
+    final arrowLength = (available * 0.34).clamp(4.5, 7.5).toDouble();
+    final arrowHalfHeight = (size.height * 0.22).clamp(3.5, 5.5).toDouble();
+    final resolvedProgress = (atProgress ?? progress).clamp(0.0, 1.0);
+    final arrowTipX =
+        startX + arrowLength + (available - arrowLength) * resolvedProgress;
+    final arrowBaseX = arrowTipX - arrowLength;
 
-    // Inactive baseline
-    final bgPaint = Paint()
-      ..color = inactiveColor.withValues(alpha: 0.4)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(Offset(0, y), Offset(w, y), bgPaint);
+    return EducationConnectorGeometry(
+      lineStart: Offset(startX, y),
+      lineEnd: Offset(arrowBaseX, y),
+      arrowTip: Offset(arrowTipX, y),
+      arrowUpperWing: Offset(arrowBaseX, y - arrowHalfHeight),
+      arrowLowerWing: Offset(arrowBaseX, y + arrowHalfHeight),
+    );
+  }
 
-    if (progress <= 0.001) return;
+  EducationConnectorGeometry backgroundGeometryFor(Size size) {
+    return geometryFor(size, atProgress: 1.0);
+  }
 
-    final currentX = w * progress.clamp(0.0, 1.0);
-    final activePaint = Paint()
-      ..color = activeColor
-      ..strokeWidth = 2.5
+  void _drawConnector(
+    Canvas canvas,
+    EducationConnectorGeometry geometry,
+    Color color,
+    double strokeWidth,
+  ) {
+    final linePaint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
+    canvas.drawLine(geometry.lineStart, geometry.lineEnd, linePaint);
 
-    canvas.drawLine(Offset(0, y), Offset(currentX, y), activePaint);
+    final arrowPath = Path()
+      ..moveTo(geometry.arrowTip.dx, geometry.arrowTip.dy)
+      ..lineTo(geometry.arrowUpperWing.dx, geometry.arrowUpperWing.dy)
+      ..lineTo(geometry.arrowLowerWing.dx, geometry.arrowLowerWing.dy)
+      ..close();
+    canvas.drawPath(arrowPath, Paint()..color = color);
+  }
 
-    // Arrowhead
-    if (progress > 0.45) {
-      final arrowOpacity = ((progress - 0.45) / 0.55).clamp(0.0, 1.0);
-      final arrowPaint = Paint()
-        ..color = activeColor.withValues(alpha: arrowOpacity)
+  @override
+  void paint(Canvas canvas, Size size) {
+    _drawConnector(
+      canvas,
+      backgroundGeometryFor(size),
+      inactiveColor.withValues(alpha: 0.55),
+      2.5,
+    );
+
+    if (progress <= 0.001) return;
+    _drawConnector(canvas, geometryFor(size), activeColor, 3.0);
+  }
+
+  @override
+  bool shouldRepaint(EducationConnectorPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.activeColor != activeColor ||
+        oldDelegate.inactiveColor != inactiveColor;
+  }
+}
+
+class BlockchainConnectorLine {
+  const BlockchainConnectorLine({required this.start, required this.end});
+
+  final Offset start;
+  final Offset end;
+}
+
+class BlockchainNetworkGeometry {
+  const BlockchainNetworkGeometry({
+    required this.centerBlock,
+    required this.outerBlocks,
+    required this.connectorLines,
+  });
+
+  final RRect centerBlock;
+  final List<RRect> outerBlocks;
+  final List<BlockchainConnectorLine> connectorLines;
+
+  int get totalBlocks => 1 + outerBlocks.length;
+
+  bool fitsInside(Size size) {
+    bool inBounds(Offset p) =>
+        p.dx >= 0.0 && p.dx <= size.width && p.dy >= 0.0 && p.dy <= size.height;
+
+    bool rectInBounds(Rect r) =>
+        r.left >= 0.0 &&
+        r.right <= size.width &&
+        r.top >= 0.0 &&
+        r.bottom <= size.height;
+
+    if (!rectInBounds(centerBlock.outerRect)) return false;
+    for (final block in outerBlocks) {
+      if (!rectInBounds(block.outerRect)) return false;
+    }
+    for (final line in connectorLines) {
+      if (!inBounds(line.start) || !inBounds(line.end)) return false;
+    }
+    return true;
+  }
+}
+
+class BlockchainNetworkPainter extends CustomPainter {
+  BlockchainNetworkPainter({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  BlockchainNetworkGeometry geometryFor(Size size, {double? atProgress}) {
+    final p = (atProgress ?? progress).clamp(0.0, 1.0);
+    final w = size.width;
+    final h = size.height;
+    final s = math.min(w, h);
+    final c = Offset(w / 2, h / 2);
+
+    final centerSize = (s * 0.34).clamp(5.0, 9.0);
+    final outerSize = (s * 0.20).clamp(3.0, 5.5);
+    final pad = (s * 0.04).clamp(0.5, 1.2);
+    final centerRadius = (centerSize * 0.18).clamp(1.0, 2.0);
+    final outerRadius = (outerSize * 0.18).clamp(0.8, 1.5);
+
+    final centerRect = Rect.fromCenter(
+      center: c,
+      width: centerSize,
+      height: centerSize,
+    );
+    final centerBlock = RRect.fromRectAndRadius(
+      centerRect,
+      Radius.circular(centerRadius),
+    );
+
+    final topRect = Rect.fromCenter(
+      center: Offset(c.dx, pad + outerSize / 2),
+      width: outerSize,
+      height: outerSize,
+    );
+    final bottomRect = Rect.fromCenter(
+      center: Offset(c.dx, h - pad - outerSize / 2),
+      width: outerSize,
+      height: outerSize,
+    );
+    final leftRect = Rect.fromCenter(
+      center: Offset(pad + outerSize / 2, c.dy),
+      width: outerSize,
+      height: outerSize,
+    );
+    final rightRect = Rect.fromCenter(
+      center: Offset(w - pad - outerSize / 2, c.dy),
+      width: outerSize,
+      height: outerSize,
+    );
+
+    final outerBlocks = [
+      RRect.fromRectAndRadius(topRect, Radius.circular(outerRadius)),
+      RRect.fromRectAndRadius(bottomRect, Radius.circular(outerRadius)),
+      RRect.fromRectAndRadius(leftRect, Radius.circular(outerRadius)),
+      RRect.fromRectAndRadius(rightRect, Radius.circular(outerRadius)),
+    ];
+
+    // Stage 2: lines draw outward from center to outer blocks (progress 0.25 to 0.70)
+    final lineProgress = ((p - 0.25) / 0.45).clamp(0.0, 1.0);
+
+    final topStart = Offset(c.dx, centerRect.top);
+    final topTarget = Offset(c.dx, topRect.bottom);
+    final bottomStart = Offset(c.dx, centerRect.bottom);
+    final bottomTarget = Offset(c.dx, bottomRect.top);
+    final leftStart = Offset(centerRect.left, c.dy);
+    final leftTarget = Offset(leftRect.right, c.dy);
+    final rightStart = Offset(centerRect.right, c.dy);
+    final rightTarget = Offset(rightRect.left, c.dy);
+
+    final lines = [
+      BlockchainConnectorLine(
+        start: topStart,
+        end: Offset.lerp(topStart, topTarget, lineProgress)!,
+      ),
+      BlockchainConnectorLine(
+        start: bottomStart,
+        end: Offset.lerp(bottomStart, bottomTarget, lineProgress)!,
+      ),
+      BlockchainConnectorLine(
+        start: leftStart,
+        end: Offset.lerp(leftStart, leftTarget, lineProgress)!,
+      ),
+      BlockchainConnectorLine(
+        start: rightStart,
+        end: Offset.lerp(rightStart, rightTarget, lineProgress)!,
+      ),
+    ];
+
+    return BlockchainNetworkGeometry(
+      centerBlock: centerBlock,
+      outerBlocks: outerBlocks,
+      connectorLines: lines,
+    );
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = progress.clamp(0.0, 1.0);
+    final geom = geometryFor(size, atProgress: p);
+    final s = math.min(size.width, size.height);
+    final c = Offset(size.width / 2, size.height / 2);
+
+    // Stage 1: Center block appears first (progress 0.0 to 0.35)
+    final centerOpacity = (p / 0.35).clamp(0.0, 1.0);
+    final centerScale = 0.70 + 0.30 * centerOpacity;
+
+    // Stage 2: 4 connecting lines draw outward (progress 0.25 to 0.70)
+    final lineProgress = ((p - 0.25) / 0.45).clamp(0.0, 1.0);
+
+    // Stage 3: 4 outer blocks appear and complete (progress 0.60 to 1.0)
+    final outerOpacity = ((p - 0.60) / 0.40).clamp(0.0, 1.0);
+    final outerScale = 0.70 + 0.30 * outerOpacity;
+
+    // 1. Draw connector lines
+    if (lineProgress > 0.01) {
+      final strokeWidth = (s * 0.07).clamp(1.25, 1.5);
+      final linePaint = Paint()
+        ..color = color.withValues(
+          alpha: (color.a * lineProgress).clamp(0.0, 1.0),
+        )
+        ..strokeWidth = strokeWidth
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.square;
+
+      for (final line in geom.connectorLines) {
+        canvas.drawLine(line.start, line.end, linePaint);
+      }
+    }
+
+    // 2. Draw center block
+    if (centerOpacity > 0.01) {
+      final centerPaint = Paint()
+        ..color = color.withValues(
+          alpha: (color.a * centerOpacity).clamp(0.0, 1.0),
+        )
         ..style = PaintingStyle.fill;
 
-      final arrowPath = Path()
-        ..moveTo(currentX, y)
-        ..lineTo((currentX - 5.0).clamp(0.0, w), y - 3.5)
-        ..lineTo((currentX - 5.0).clamp(0.0, w), y + 3.5)
-        ..close();
-      canvas.drawPath(arrowPath, arrowPaint);
+      if (centerScale < 0.999) {
+        canvas.save();
+        canvas.translate(c.dx, c.dy);
+        canvas.scale(centerScale);
+        canvas.translate(-c.dx, -c.dy);
+        canvas.drawRRect(geom.centerBlock, centerPaint);
+        canvas.restore();
+      } else {
+        canvas.drawRRect(geom.centerBlock, centerPaint);
+      }
+    }
+
+    // 3. Draw outer blocks
+    if (outerOpacity > 0.01) {
+      final outerPaint = Paint()
+        ..color = color.withValues(
+          alpha: (color.a * outerOpacity).clamp(0.0, 1.0),
+        )
+        ..style = PaintingStyle.fill;
+
+      for (final block in geom.outerBlocks) {
+        final bCenter = block.outerRect.center;
+        if (outerScale < 0.999) {
+          canvas.save();
+          canvas.translate(bCenter.dx, bCenter.dy);
+          canvas.scale(outerScale);
+          canvas.translate(-bCenter.dx, -bCenter.dy);
+          canvas.drawRRect(block, outerPaint);
+          canvas.restore();
+        } else {
+          canvas.drawRRect(block, outerPaint);
+        }
+      }
     }
   }
 
   @override
-  bool shouldRepaint(_ConnectingLinePainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.activeColor != activeColor ||
-        oldDelegate.inactiveColor != inactiveColor;
+  bool shouldRepaint(covariant BlockchainNetworkPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color;
+  }
+}
+
+class BlockchainNetworkIcon extends StatelessWidget {
+  const BlockchainNetworkIcon({
+    super.key,
+    this.size = 18.0,
+    this.color,
+    this.progress = 1.0,
+  });
+
+  final double size;
+  final Color? color;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final iconColor = color ?? theme.primary;
+    final disableAnim = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final effectiveProgress = disableAnim ? 1.0 : progress.clamp(0.0, 1.0);
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        size: Size(size, size),
+        painter: BlockchainNetworkPainter(
+          progress: effectiveProgress,
+          color: iconColor,
+        ),
+      ),
+    );
   }
 }
 
