@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/theme_controller.dart';
-import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
+import 'package:nivex_flutter/features/cashout/data/demo_cashout_fixtures.dart';
+import 'package:nivex_flutter/features/cashout/domain/cashout_auth_service.dart';
 import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart';
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
@@ -12,10 +13,16 @@ import 'package:nivex_flutter/features/transactions/presentation/transactions_sc
 import 'package:nivex_flutter/features/wallet/presentation/wallet_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({this.initialTab = 0, this.themeController, super.key});
+  const AppShell({
+    this.initialTab = 0,
+    this.themeController,
+    this.cashoutAuthService,
+    super.key,
+  });
 
   final int initialTab;
   final ThemeController? themeController;
+  final CashoutAuthService? cashoutAuthService;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -104,19 +111,19 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _openCashout() {
-    return Navigator.of(context)
-        .push<void>(MaterialPageRoute(builder: (_) => const CashoutScreen()));
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => CashoutScreen(authService: widget.cashoutAuthService),
+      ),
+    );
   }
 
   Future<void> _openQuickQuote() {
     return Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => const QuoteScreen(
-          draft: CashoutDraft(
-            usdcAmount: 250,
-            bankName: 'Vietcombank',
-            accountNumber: '•••• 2868',
-          ),
+        builder: (_) => QuoteScreen(
+          quote: DemoCashoutFixtures.createCanonicalQuote(),
+          authService: widget.cashoutAuthService,
         ),
       ),
     );

@@ -9,6 +9,8 @@ import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/app/theme/theme_controller.dart';
 import 'package:nivex_flutter/app/theme/theme_store.dart';
+import 'package:nivex_flutter/features/cashout/data/cashout_auth_state_store.dart';
+import 'package:nivex_flutter/features/cashout/domain/cashout_auth_service.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
@@ -22,6 +24,8 @@ import 'package:nivex_flutter/features/profile/presentation/verification_screen.
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+
+import 'fakes/fake_biometric_auth_client.dart';
 
 double _luminance(Color c) => c.computeLuminance();
 
@@ -60,7 +64,7 @@ void main() {
     expect(find.text('Nhận USDC'), findsWidgets);
     expect(find.text('Rút VND'), findsWidgets);
     expect(find.text('Lịch sử'), findsOneWidget);
-    expect(find.text('Quote'), findsOneWidget);
+    expect(find.text('Báo giá'), findsOneWidget);
     expect(find.text('Trợ giúp'), findsOneWidget);
   });
 
@@ -441,7 +445,14 @@ void main() {
   });
 
   testWidgets('cashout chọn ngân hàng và đi đến biên nhận', (tester) async {
-    await tester.pumpWidget(const NivexApp());
+    await tester.pumpWidget(
+      NivexApp(
+        cashoutAuthService: CashoutAuthService(
+          biometricClient: FakeBiometricAuthClient(),
+          stateStore: InMemoryCashoutAuthStateStore(),
+        ),
+      ),
+    );
 
     await tester.tap(find.text('Rút VND').first);
     await tester.pumpAndSettle();
@@ -460,15 +471,19 @@ void main() {
     await tester.tap(find.text('Xem báo giá quy đổi'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('Báo giá quy đổi'), findsOneWidget);
-    expect(
-      find.textContaining('Tỷ giá tham khảo còn hiệu lực:'),
-      findsOneWidget,
-    );
+    await tester.pump();
+    expect(find.text('Báo giá & xác nhận'), findsOneWidget);
+    expect(find.textContaining('Báo giá còn hiệu lực'), findsOneWidget);
 
     await tester.drag(find.byType(ListView).last, const Offset(0, -400));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Xác nhận payout mô phỏng'));
+    await tester.tap(find.text('Tiếp tục xác thực'));
+    await tester.pumpAndSettle();
+    expect(find.text('Xác thực giao dịch'), findsOneWidget);
+    for (final d in ['1', '2', '3', '4', '5', '6']) {
+      await tester.tap(find.text(d).last);
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Đang xử lý payout mô phỏng'), findsOneWidget);
@@ -487,29 +502,27 @@ void main() {
   testWidgets('quote hết hạn sau 30 giây và có thể làm mới', (tester) async {
     await tester.pumpWidget(const NivexApp());
 
-    await tester.ensureVisible(find.text('Quote'));
-    await tester.tap(find.text('Quote'));
+    await tester.ensureVisible(find.text('Báo giá'));
+    await tester.tap(find.text('Báo giá'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    expect(
-      find.textContaining('Tỷ giá tham khảo còn hiệu lực: 30s'),
-      findsOneWidget,
-    );
+    expect(find.text('Báo giá còn hiệu lực 0:30'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 30));
-    expect(find.text('Báo giá đã hết hạn'), findsOneWidget);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -400));
+    await tester.pumpAndSettle();
 
     final confirm = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Xác nhận payout mô phỏng'),
+      find.widgetWithText(FilledButton, 'Tiếp tục xác thực'),
     );
     expect(confirm.onPressed, isNull);
 
-    await tester.tap(find.text('Làm mới'));
+    await tester.drag(find.byType(ListView).last, const Offset(0, 400));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Lấy báo giá mới'));
     await tester.pump();
-    expect(
-      find.textContaining('Tỷ giá tham khảo còn hiệu lực: 30s'),
-      findsOneWidget,
-    );
+    expect(find.text('Báo giá còn hiệu lực 0:30'), findsOneWidget);
   });
 
   testWidgets('không overflow ở chiều rộng 320px', (tester) async {

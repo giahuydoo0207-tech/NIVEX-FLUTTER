@@ -1,3 +1,6 @@
+import 'package:nivex_flutter/features/cashout/domain/cashout_money.dart';
+
+@Deprecated('Pass a validated CashoutQuote between cashout screens instead.')
 class CashoutDraft {
   const CashoutDraft({
     required this.usdcAmount,
@@ -5,11 +8,7 @@ class CashoutDraft {
     required this.accountNumber,
   });
 
-  static const rate = 25545.0;
-
-  final double usdcAmount;
+  final UsdcAmount usdcAmount;
   final String bankName;
   final String accountNumber;
-
-  double get vndAmount => usdcAmount * rate;
 }

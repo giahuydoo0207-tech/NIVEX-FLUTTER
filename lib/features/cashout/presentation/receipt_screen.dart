@@ -1,21 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
-import 'package:nivex_flutter/features/cashout/domain/cashout_draft.dart';
-import 'package:nivex_flutter/features/cashout/domain/cashout_format.dart';
+import 'package:nivex_flutter/features/cashout/data/demo_cashout_fixtures.dart';
+import 'package:nivex_flutter/features/cashout/domain/cashout_auth_service.dart';
+import 'package:nivex_flutter/features/cashout/domain/cashout_quote.dart';
+import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
+import 'package:nivex_flutter/shared/constants/app_environment.dart';
 import 'package:nivex_flutter/shared/widgets/demo_notice.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class ReceiptScreen extends StatelessWidget {
-  const ReceiptScreen({required this.draft, super.key});
+  const ReceiptScreen({
+    this.quote,
+    this.clock = DateTime.now,
+    this.receiptId = DemoCashoutFixtures.defaultReceiptId,
+    super.key,
+  });
 
-  static const receiptId = 'NXV-20260901-0042';
-  final CashoutDraft draft;
+  final CashoutQuote? quote;
+  final Clock clock;
+  final String receiptId;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    final totalVnd = CashoutFormat.estimateVnd(draft.usdcAmount);
+    final colorScheme = Theme.of(context).colorScheme;
+    final simulated = AppEnvironmentScope.isSimulated(context);
+
+    final effectiveQuote =
+        quote ?? DemoCashoutFixtures.createCanonicalQuote(now: clock());
+
+    final formattedTime = _formatTimestamp(effectiveQuote.createdAt);
 
     return NivexPage(
       title: 'Biên nhận',
@@ -50,54 +66,167 @@ class ReceiptScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Payout VND mô phỏng hoàn tất',
+                      simulated
+                          ? 'Payout VND mô phỏng hoàn tất'
+                          : 'Payout VND hoàn tất',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         color: theme.textPrimary,
-                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Dữ liệu mô phỏng • Không có tiền thật được chuyển',
+                      simulated
+                          ? 'Dữ liệu mô phỏng • Không có tiền thật được chuyển'
+                          : 'Giao dịch đã được ghi nhận',
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.textSecondary,
-                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 20),
                     Divider(height: 1, thickness: 1, color: theme.divider),
                     const SizedBox(height: 16),
+
+                    // Amount received
                     _ReceiptRow(
-                      label: 'Số tiền VND dự kiến',
-                      value: CashoutFormat.vnd(totalVnd),
+                      label: 'Số tiền VND thực nhận',
+                      value: effectiveQuote.netVnd.toFormattedString(),
                       isHighlight: true,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
+
+                    // Total USDC debited
                     _ReceiptRow(
-                      label: 'USDC demo đã trừ',
-                      value: '-${CashoutFormat.usdc(draft.usdcAmount)} USDC',
+                      label: 'Tổng USDC đã trừ',
+                      value:
+                          '-${effectiveQuote.sellAmount.toFormattedString()}',
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Fees itemized
+                    _ReceiptRow(
+                      label: 'Phí mạng lưới',
+                      value: effectiveQuote.fee.networkFee.toFormattedString(),
                     ),
                     const SizedBox(height: 10),
                     _ReceiptRow(
-                      label: 'Ngân hàng nhận demo',
-                      value: draft.bankName,
+                      label: 'Phí dịch vụ',
+                      value: effectiveQuote.fee.serviceFee.toFormattedString(),
+                    ),
+                    const SizedBox(height: 10),
+                    _ReceiptRow(
+                      label: 'Tổng phí giao dịch',
+                      value:
+                          '-${effectiveQuote.fee.totalFee.toFormattedString()}',
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Amount converted
+                    _ReceiptRow(
+                      label: 'USDC quy đổi',
+                      value: effectiveQuote.netUsdc.toFormattedString(),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Rate
+                    _ReceiptRow(
+                      label: 'Tỷ giá quy đổi',
+                      value: effectiveQuote.exchangeRate.toFormattedString(),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Bank
+                    _ReceiptRow(
+                      label: simulated
+                          ? 'Ngân hàng nhận demo'
+                          : 'Ngân hàng nhận',
+                      value: effectiveQuote.destinationBankName,
                     ),
                     const SizedBox(height: 10),
                     _ReceiptRow(
                       label: 'Số tài khoản',
-                      value: draft.accountNumber,
+                      value: effectiveQuote.destinationAccountNumber,
                     ),
                     const SizedBox(height: 10),
-                    const _ReceiptRow(label: 'Mã giao dịch', value: receiptId),
+
+                    // Network & Time
+                    _ReceiptRow(
+                      label: 'Mạng lưới',
+                      value: effectiveQuote.network,
+                    ),
+                    const SizedBox(height: 10),
+                    _ReceiptRow(label: 'Thời gian', value: formattedTime),
+                    const SizedBox(height: 10),
+
+                    // Transaction ID with Copy button
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        Text(
+                          'Mã giao dịch',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.textSecondary,
+                          ),
+                        ),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                receiptId,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: receiptId),
+                                  );
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Đã sao chép mã giao dịch',
+                                      ),
+                                      backgroundColor: theme.primary,
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.copy_rounded,
+                                    size: 16,
+                                    color: theme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               const DemoNotice(),
               const SizedBox(height: 20),
+
               // 2. Action Buttons
               FilledButton(
                 onPressed: () {
@@ -107,13 +236,10 @@ class ReceiptScreen extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
                   backgroundColor: theme.primary,
-                  foregroundColor: theme.isDark
-                      ? const Color(0xFF0F172A)
-                      : Colors.white,
+                  foregroundColor: colorScheme.onPrimary,
                   textStyle: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
-                    letterSpacing: 0,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -121,11 +247,44 @@ class ReceiptScreen extends StatelessWidget {
                 ),
                 child: const Text('Về Trang chủ'),
               ),
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () {
+                  final navigator = Navigator.of(context);
+                  AppTabController.index.value = 0;
+                  navigator.popUntil((route) => route.isFirst);
+                  navigator.push<void>(
+                    MaterialPageRoute(builder: (_) => const CashoutScreen()),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: theme.textPrimary,
+                  side: BorderSide(color: theme.border),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text('Thực hiện giao dịch khác'),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatTimestamp(DateTime time) {
+    final day = time.day.toString().padLeft(2, '0');
+    final month = time.month.toString().padLeft(2, '0');
+    final year = time.year.toString();
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute';
   }
 }
 
@@ -145,22 +304,24 @@ class _ReceiptRow extends StatelessWidget {
     final theme = context.nivexTheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: theme.textSecondary,
-            letterSpacing: 0,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, color: theme.textSecondary),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: isHighlight ? 15 : 13,
-            fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
-            color: isHighlight ? theme.success : theme.textPrimary,
-            letterSpacing: 0,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: isHighlight ? 16 : 13,
+              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
+              color: isHighlight ? theme.success : theme.textPrimary,
+            ),
           ),
         ),
       ],

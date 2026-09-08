@@ -363,7 +363,7 @@ class _QuickActionsBar extends StatelessWidget {
           Expanded(
             child: _QuickActionItem(
               icon: Icons.show_chart_rounded,
-              label: 'Quote',
+              label: 'Báo giá',
               onTap: onQuote,
             ),
           ),

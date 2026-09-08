@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/shared/constants/app_environment.dart';
 
 class DemoNotice extends StatelessWidget {
   const DemoNotice({
@@ -11,6 +12,9 @@ class DemoNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AppEnvironmentScope.isProduction(context)) {
+      return const SizedBox.shrink();
+    }
     final theme = context.nivexTheme;
     return Container(
       width: double.infinity,
