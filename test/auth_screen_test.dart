@@ -70,6 +70,42 @@ void main() {
     expect(find.byType(LoginScreen), findsNothing);
   });
 
+  testWidgets('Login bằng vân tay chuyển vào AppShell', (tester) async {
+    final biometricClient = FakeBiometricAuthClient();
+    final authService = CashoutAuthService(
+      biometricClient: biometricClient,
+      stateStore: InMemoryCashoutAuthStateStore(),
+    );
+
+    await tester.pumpWidget(
+      NivexApp(showAuthentication: true, sessionAuthService: authService),
+    );
+    await tester.pump();
+
+    final biometricButton = find.byKey(const Key('login-biometric-button'));
+    expect(biometricButton, findsOneWidget);
+    await tester.ensureVisible(biometricButton);
+    await tester.tap(biometricButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppShell), findsOneWidget);
+    expect(find.byType(LoginScreen), findsNothing);
+  });
+
+  testWidgets('Login ẩn nút vân tay khi thiết bị không hỗ trợ', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: NivexTheme.light,
+        home: LoginScreen(
+          biometricClient: FakeBiometricAuthClient(canAuth: false),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('login-biometric-button')), findsNothing);
+  });
+
   testWidgets(
     'khóa phiên mở lại bằng PIN, sinh trắc học và đăng xuất về Login',
     (tester) async {

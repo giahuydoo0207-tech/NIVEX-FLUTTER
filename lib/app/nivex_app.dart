@@ -80,6 +80,7 @@ class _NivexAppState extends State<NivexApp> {
                 ? LoginScreen(
                     onLoginSuccess: () =>
                         setState(() => _isAuthenticated = true),
+                    biometricClient: _sessionAuthService.biometricClient,
                   )
                 : _buildAuthenticatedHome(),
           ),
