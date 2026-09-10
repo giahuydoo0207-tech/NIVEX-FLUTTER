@@ -53,8 +53,37 @@ class NivexPage extends StatelessWidget {
           ],
         ),
         actions: actions,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Row(
+            children: [
+              Container(width: 72, height: 1, color: theme.primary),
+              Expanded(child: Container(height: 1, color: theme.border)),
+            ],
+          ),
+        ),
       ),
-      body: SafeArea(top: false, child: child),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _TechGridPainter(
+                    lineColor: theme.border.withValues(
+                      alpha: theme.isDark ? 0.32 : 0.22,
+                    ),
+                    accentColor: theme.primary.withValues(
+                      alpha: theme.isDark ? 0.12 : 0.07,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(top: false, child: child),
+        ],
+      ),
     );
   }
 }
@@ -79,10 +108,48 @@ class NivexCard extends StatelessWidget {
       color: cardColor,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: theme.border),
       ),
       child: Padding(padding: padding, child: child),
     );
   }
+}
+
+class _TechGridPainter extends CustomPainter {
+  const _TechGridPainter({required this.lineColor, required this.accentColor});
+
+  final Color lineColor;
+  final Color accentColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const spacing = 32.0;
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 0.5;
+    final accentPaint = Paint()
+      ..color = accentColor
+      ..strokeWidth = 1;
+
+    for (double x = 0; x <= size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), linePaint);
+    }
+    for (double y = 0; y <= size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
+    }
+
+    final signalY = size.height * 0.3;
+    final path = Path()
+      ..moveTo(0, signalY)
+      ..lineTo(size.width * 0.18, signalY)
+      ..lineTo(size.width * 0.23, signalY + 22)
+      ..lineTo(size.width * 0.42, signalY + 22);
+    canvas.drawPath(path, accentPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TechGridPainter oldDelegate) =>
+      oldDelegate.lineColor != lineColor ||
+      oldDelegate.accentColor != accentColor;
 }

@@ -256,7 +256,7 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     ProfileRow(
                       title: 'Thông báo',
-                      subtitle: 'Giao dịch, biến động số dư, tin tức',
+                      subtitle: 'Công việc, giao dịch và biến động số dư',
                       icon: Icons.notifications_none_rounded,
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(

@@ -10,6 +10,7 @@ class HomeScreen extends StatefulWidget {
     required this.onReceive,
     required this.onCashout,
     required this.onHistory,
+    required this.onJobs,
     required this.onQuote,
     required this.onHelp,
     required this.onProfile,
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onReceive;
   final VoidCallback onCashout;
   final VoidCallback onHistory;
+  final VoidCallback onJobs;
   final VoidCallback onQuote;
   final VoidCallback onHelp;
   final VoidCallback onProfile;
@@ -74,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => const _NotificationsSheet(),
+      builder: (context) => _NotificationsSheet(onJobs: widget.onJobs),
     );
   }
 }
@@ -437,7 +439,9 @@ class _QuickActionItem extends StatelessWidget {
 }
 
 class _NotificationsSheet extends StatelessWidget {
-  const _NotificationsSheet();
+  const _NotificationsSheet({required this.onJobs});
+
+  final VoidCallback onJobs;
 
   @override
   Widget build(BuildContext context) {
@@ -468,6 +472,72 @@ class _NotificationsSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          Material(
+            color: theme.surfaceSubtle,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: theme.primary.withValues(alpha: 0.45)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).pop();
+                onJobs();
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.work_outline_rounded,
+                        color: theme.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '2 công việc mới phù hợp',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: theme.textPrimary,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'NIVEX Labs vừa đăng cơ hội Flutter và Product Design.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.textSecondary,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: theme.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(

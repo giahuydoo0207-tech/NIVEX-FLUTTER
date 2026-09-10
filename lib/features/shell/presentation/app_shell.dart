@@ -6,6 +6,7 @@ import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart'
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
+import 'package:nivex_flutter/features/jobs/presentation/jobs_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
@@ -53,11 +54,13 @@ class _AppShellState extends State<AppShell> {
       HomeScreen(
         onReceive: _openReceive,
         onCashout: _openCashout,
-        onHistory: () => _selectTab(2),
+        onHistory: () => _selectTab(3),
+        onJobs: () => _selectTab(1),
         onQuote: _openQuickQuote,
         onHelp: _openHelp,
         onProfile: _openProfile,
       ),
+      const JobsScreen(),
       WalletScreen(onReceive: _openReceive, onCashout: _openCashout),
       const TransactionsScreen(),
     ];
@@ -77,6 +80,11 @@ class _AppShellState extends State<AppShell> {
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_rounded),
               label: 'Trang chủ',
+            ),
+            NavigationDestination(
+              icon: _JobsTabIcon(selected: false),
+              selectedIcon: _JobsTabIcon(selected: true),
+              label: 'Công việc',
             ),
             NavigationDestination(
               icon: Icon(Icons.account_balance_wallet_outlined),
@@ -139,6 +147,49 @@ class _AppShellState extends State<AppShell> {
       MaterialPageRoute(
         builder: (_) => ProfileScreen(themeController: widget.themeController),
       ),
+    );
+  }
+}
+
+class _JobsTabIcon extends StatelessWidget {
+  const _JobsTabIcon({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).navigationBarTheme.iconTheme
+        ?.resolve(selected ? {WidgetState.selected} : <WidgetState>{})
+        ?.color;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(
+          selected ? Icons.work_rounded : Icons.work_outline_rounded,
+          color: color,
+        ),
+        Positioned(
+          right: -8,
+          top: -6,
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '2',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimary,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -13,6 +13,7 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
+  bool _jobAlerts = true;
   bool _txAlerts = true;
   bool _balanceAlerts = true;
   bool _newsAlerts = false;
@@ -41,6 +42,33 @@ class _NotificationSettingsScreenState
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
+                      SwitchListTile.adaptive(
+                        value: _jobAlerts,
+                        activeTrackColor: theme.primary,
+                        secondary: Icon(
+                          Icons.work_outline_rounded,
+                          color: theme.primary,
+                        ),
+                        title: Text(
+                          'Công việc phù hợp',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: theme.textPrimary,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Báo ngay khi tổ chức đã xác minh đăng việc khớp kỹ năng',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.textSecondary,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        onChanged: (val) => setState(() => _jobAlerts = val),
+                      ),
+                      Divider(height: 1, thickness: 1, color: theme.divider),
                       SwitchListTile.adaptive(
                         value: _txAlerts,
                         activeTrackColor: theme.primary,

@@ -79,6 +79,124 @@ abstract final class NivexTheme {
           letterSpacing: 0,
         ),
       ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: ext.background,
+        foregroundColor: ext.textPrimary,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: ext.surface,
+        hintStyle: TextStyle(color: ext.textSecondary, fontSize: 13),
+        labelStyle: TextStyle(color: ext.textSecondary, fontSize: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: ext.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: ext.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: ext.primary, width: 1.5),
+        ),
+      ),
+      searchBarTheme: SearchBarThemeData(
+        elevation: const WidgetStatePropertyAll(0),
+        backgroundColor: WidgetStatePropertyAll(ext.surface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+        hintStyle: WidgetStatePropertyAll(
+          TextStyle(color: ext.textSecondary, fontSize: 13),
+        ),
+        textStyle: WidgetStatePropertyAll(
+          TextStyle(color: ext.textPrimary, fontSize: 14),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: ext.border),
+          ),
+        ),
+        constraints: const BoxConstraints(minHeight: 50),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(0, 46)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 8),
+          ),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.selected)
+                ? ext.primary
+                : ext.textSecondary;
+          }),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.selected)
+                ? ext.primary.withValues(alpha: 0.1)
+                : ext.surface;
+          }),
+          side: WidgetStatePropertyAll(BorderSide(color: ext.border)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          backgroundColor: ext.primary,
+          foregroundColor: ext.isDark ? const Color(0xFF07101F) : Colors.white,
+          disabledBackgroundColor: ext.disabled.withValues(alpha: 0.45),
+          disabledForegroundColor: ext.textSecondary,
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          foregroundColor: ext.textPrimary,
+          side: BorderSide(color: ext.border),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: ext.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: ext.border),
+        ),
+      ),
       dividerTheme: DividerThemeData(
         color: ext.divider,
         thickness: 1,
@@ -115,7 +233,7 @@ abstract final class NivexTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: ext.surface,
         indicatorColor: Colors.transparent,
-        height: 64,
+        height: 68,
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {

@@ -49,6 +49,7 @@ void main() {
   testWidgets('hiển thị Home NIVEX bằng tiếng Việt', (tester) async {
     await tester.pumpWidget(const NivexApp());
     expect(find.text('Trang chủ'), findsWidgets);
+    expect(find.text('Công việc'), findsOneWidget);
     expect(find.text('Ví'), findsOneWidget);
     expect(find.text('Giao dịch'), findsOneWidget);
     expect(find.text('Minh Anh'), findsOneWidget);
@@ -68,7 +69,7 @@ void main() {
     expect(find.text('Trợ giúp'), findsOneWidget);
   });
 
-  testWidgets('điều hướng được giữa ba bottom tabs', (tester) async {
+  testWidgets('điều hướng được giữa bốn bottom tabs', (tester) async {
     await tester.pumpWidget(const NivexApp());
 
     // Tab 0: Home is visible
@@ -288,12 +289,13 @@ void main() {
     await tester.pumpAndSettle();
 
     final switchTiles = find.byType(SwitchListTile);
-    expect(switchTiles, findsNWidgets(3));
+    expect(switchTiles, findsNWidgets(4));
 
     // Verify initial states
     expect(tester.widget<SwitchListTile>(switchTiles.at(0)).value, isTrue);
     expect(tester.widget<SwitchListTile>(switchTiles.at(1)).value, isTrue);
-    expect(tester.widget<SwitchListTile>(switchTiles.at(2)).value, isFalse);
+    expect(tester.widget<SwitchListTile>(switchTiles.at(2)).value, isTrue);
+    expect(tester.widget<SwitchListTile>(switchTiles.at(3)).value, isFalse);
 
     // Toggle first switch tile
     await tester.tap(switchTiles.at(0));
@@ -305,10 +307,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<SwitchListTile>(switchTiles.at(0)).value, isTrue);
 
-    // Toggle third switch tile
-    await tester.tap(switchTiles.at(2));
+    // Toggle news switch tile
+    await tester.tap(switchTiles.at(3));
     await tester.pumpAndSettle();
-    expect(tester.widget<SwitchListTile>(switchTiles.at(2)).value, isTrue);
+    expect(tester.widget<SwitchListTile>(switchTiles.at(3)).value, isTrue);
   });
 
   testWidgets('đăng xuất yêu cầu xác nhận qua dialog', (tester) async {
