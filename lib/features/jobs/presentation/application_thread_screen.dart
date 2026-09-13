@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/jobs/data/demo_application_controller.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
@@ -18,10 +19,18 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
   final _scrollController = ScrollController();
   final _applications = DemoApplicationController.instance;
   JobApplicationMessage? _replyingTo;
+  JobApplication? _lastApplicationSnapshot;
+  int _lastMessageCount = 0;
+  bool _wasTyping = false;
+  bool _forceFollowMessages = false;
 
   @override
   void initState() {
     super.initState();
+    final application = _applications.byId(widget.applicationId);
+    _lastApplicationSnapshot = application;
+    _lastMessageCount = application?.messages.length ?? 0;
+    _wasTyping = _applications.isBusinessTyping(widget.applicationId);
     _applications.addListener(_refresh);
     WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToEnd());
   }
@@ -37,8 +46,30 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
 
   void _refresh() {
     if (!mounted) return;
+    final application = _applications.byId(widget.applicationId);
+    if (application == null) {
+      setState(() {});
+      return;
+    }
+    final isTyping = _applications.isBusinessTyping(application.id);
+    if (identical(application, _lastApplicationSnapshot) &&
+        isTyping == _wasTyping) {
+      return;
+    }
+    final hasNewMessage = application.messages.length > _lastMessageCount;
+    final typingStarted = isTyping && !_wasTyping;
+    final wasNearBottom = !_scrollController.hasClients ||
+        _scrollController.position.extentAfter < 140;
+
+    _lastApplicationSnapshot = application;
+    _lastMessageCount = application.messages.length;
+    _wasTyping = isTyping;
     setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+    if ((hasNewMessage || typingStarted) &&
+        (wasNearBottom || _forceFollowMessages)) {
+      _forceFollowMessages = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
+    }
   }
 
   void _jumpToEnd() {
@@ -49,9 +80,11 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
 
   void _scrollToEnd() {
     if (!_scrollController.hasClients) return;
+    final distance = _scrollController.position.extentAfter;
+    if (distance <= 1) return;
     _scrollController.animateTo(
       _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 280),
+      duration: Duration(milliseconds: distance > 420 ? 220 : 150),
       curve: Curves.easeOutCubic,
     );
   }
@@ -67,6 +100,9 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
       );
     }
     final isTyping = _applications.isBusinessTyping(application.id);
+    final messagesById = {
+      for (final message in application.messages) message.id: message,
+    };
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -146,6 +182,10 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
                   ListView.builder(
                     key: const Key('application-message-list'),
                     controller: _scrollController,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    scrollCacheExtent: const ScrollCacheExtent.pixels(420),
+                    addAutomaticKeepAlives: false,
                     padding: const EdgeInsets.fromLTRB(12, 14, 12, 20),
                     itemCount: application.messages.length + (isTyping ? 2 : 1),
                     itemBuilder: (context, index) {
@@ -156,9 +196,7 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
                       final message = application.messages[index - 1];
                       final repliedMessage = message.replyToId == null
                           ? null
-                          : application.messages
-                                .where((item) => item.id == message.replyToId)
-                                .firstOrNull;
+                          : messagesById[message.replyToId];
                       return _MessageBubble(
                         key: ValueKey(message.id),
                         message: message,
@@ -187,6 +225,7 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
   void _send(JobApplication application) {
     final body = _messageController.text.trim();
     if (body.isEmpty) return;
+    _forceFollowMessages = true;
     _applications.sendTalentMessage(
       application.id,
       body,
