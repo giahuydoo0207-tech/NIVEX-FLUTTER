@@ -7,6 +7,7 @@ import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
 import 'package:nivex_flutter/features/jobs/presentation/jobs_screen.dart';
+import 'package:nivex_flutter/features/messages/presentation/messages_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
@@ -54,7 +55,7 @@ class _AppShellState extends State<AppShell> {
       HomeScreen(
         onReceive: _openReceive,
         onCashout: _openCashout,
-        onHistory: () => _selectTab(3),
+        onHistory: () => _selectTab(4),
         onJobs: () => _selectTab(1),
         onQuote: _openQuickQuote,
         onHelp: _openHelp,
@@ -62,6 +63,7 @@ class _AppShellState extends State<AppShell> {
       ),
       const JobsScreen(),
       WalletScreen(onReceive: _openReceive, onCashout: _openCashout),
+      const MessagesScreen(),
       const TransactionsScreen(),
     ];
 
@@ -90,6 +92,11 @@ class _AppShellState extends State<AppShell> {
               icon: Icon(Icons.account_balance_wallet_outlined),
               selectedIcon: Icon(Icons.account_balance_wallet_rounded),
               label: 'Ví',
+            ),
+            NavigationDestination(
+              icon: _MessagesTabIcon(selected: false),
+              selectedIcon: _MessagesTabIcon(selected: true),
+              label: 'Tin nhắn',
             ),
             NavigationDestination(
               icon: Icon(Icons.swap_horiz_rounded),
@@ -147,6 +154,55 @@ class _AppShellState extends State<AppShell> {
       MaterialPageRoute(
         builder: (_) => ProfileScreen(themeController: widget.themeController),
       ),
+    );
+  }
+}
+
+class _MessagesTabIcon extends StatelessWidget {
+  const _MessagesTabIcon({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).navigationBarTheme.iconTheme
+        ?.resolve(selected ? {WidgetState.selected} : <WidgetState>{})
+        ?.color;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(
+          selected ? Icons.forum_rounded : Icons.forum_outlined,
+          color: color,
+        ),
+        Positioned(
+          right: -7,
+          top: -5,
+          child: Container(
+            width: 14,
+            height: 14,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color:
+                    Theme.of(context).navigationBarTheme.backgroundColor ??
+                    Theme.of(context).colorScheme.surface,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              '1',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimary,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

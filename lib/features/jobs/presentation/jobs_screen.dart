@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/features/jobs/data/demo_application_controller.dart';
 import 'package:nivex_flutter/features/jobs/data/demo_job_opportunities.dart';
+import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_opportunity.dart';
+import 'package:nivex_flutter/features/jobs/presentation/application_thread_screen.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
-enum _JobFilter { all, matched, saved }
+enum _JobFilter { all, matched, applied }
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -16,14 +19,25 @@ class JobsScreen extends StatefulWidget {
 class _JobsScreenState extends State<JobsScreen> {
   final _searchController = TextEditingController();
   final _savedIds = <String>{};
-  final _appliedIds = <String>{};
+  final _applications = DemoApplicationController.instance;
   _JobFilter _filter = _JobFilter.all;
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    _applications.addListener(_refreshApplications);
+  }
+
+  @override
   void dispose() {
+    _applications.removeListener(_refreshApplications);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _refreshApplications() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -41,7 +55,7 @@ class _JobsScreenState extends State<JobsScreen> {
       final matchesFilter = switch (_filter) {
         _JobFilter.all => true,
         _JobFilter.matched => job.matchScore >= 90,
-        _JobFilter.saved => _savedIds.contains(job.id),
+        _JobFilter.applied => _applications.forJob(job.id) != null,
       };
       return matchesQuery && matchesFilter;
     }).toList();
@@ -96,9 +110,9 @@ class _JobsScreenState extends State<JobsScreen> {
                       label: Text('Phù hợp'),
                     ),
                     ButtonSegment(
-                      value: _JobFilter.saved,
-                      icon: Icon(Icons.bookmark_outline_rounded),
-                      label: Text('Đã lưu'),
+                      value: _JobFilter.applied,
+                      icon: Icon(Icons.assignment_turned_in_outlined),
+                      label: Text('Ứng tuyển'),
                     ),
                   ],
                   selected: {_filter},
@@ -120,7 +134,7 @@ class _JobsScreenState extends State<JobsScreen> {
                     child: _JobCard(
                       job: job,
                       isSaved: _savedIds.contains(job.id),
-                      isApplied: _appliedIds.contains(job.id),
+                      isApplied: _applications.forJob(job.id) != null,
                       onSave: () => _toggleSaved(job.id),
                       onTap: () => _showJob(job),
                     ),
@@ -139,26 +153,43 @@ class _JobsScreenState extends State<JobsScreen> {
     });
   }
 
-  Future<void> _showJob(JobOpportunity job) {
-    return showModalBottomSheet<void>(
+  Future<void> _showJob(JobOpportunity job) async {
+    final applicationJobId = await showModalBottomSheet<String>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _JobDetailSheet(
+      builder: (sheetContext) => _JobDetailSheet(
         job: job,
-        initiallyApplied: _appliedIds.contains(job.id),
+        initialApplication: _applications.forJob(job.id),
         onApply: () => _apply(job),
+        onOpenApplication: () => Navigator.of(sheetContext).pop(job.id),
       ),
     );
+    if (applicationJobId != null && mounted) {
+      await _openApplication(applicationJobId);
+    }
   }
 
-  Future<void> _apply(JobOpportunity job) async {
+  Future<JobApplication> _apply(JobOpportunity job) async {
     await Future<void>.delayed(const Duration(milliseconds: 650));
-    if (!mounted) return;
-    setState(() => _appliedIds.add(job.id));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Đã gửi hồ sơ đến ${job.organizationName}')),
+    final application = _applications.apply(job);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã gửi hồ sơ đến ${job.organizationName}')),
+      );
+    }
+    return application;
+  }
+
+  Future<void> _openApplication(String jobId) async {
+    final application = _applications.forJob(jobId);
+    if (application == null || !mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ApplicationThreadScreen(applicationId: application.id),
+      ),
     );
   }
 
@@ -619,23 +650,23 @@ class _EmptyJobs extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            filter == _JobFilter.saved
-                ? Icons.bookmark_outline_rounded
+            filter == _JobFilter.applied
+                ? Icons.assignment_turned_in_outlined
                 : Icons.search_off_rounded,
             color: theme.textSecondary,
             size: 38,
           ),
           const SizedBox(height: 12),
           Text(
-            filter == _JobFilter.saved
-                ? 'Chưa có công việc đã lưu'
+            filter == _JobFilter.applied
+                ? 'Chưa có hồ sơ ứng tuyển'
                 : 'Không tìm thấy công việc',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 5),
           Text(
-            filter == _JobFilter.saved
-                ? 'Nhấn biểu tượng lưu trên một cơ hội để xem lại tại đây.'
+            filter == _JobFilter.applied
+                ? 'Hồ sơ đã gửi và trạng thái xét duyệt sẽ xuất hiện tại đây.'
                 : 'Thử đổi từ khóa hoặc chọn bộ lọc khác.',
             textAlign: TextAlign.center,
             style: TextStyle(color: theme.textSecondary),
@@ -693,20 +724,22 @@ class _JobAlertButton extends StatelessWidget {
 class _JobDetailSheet extends StatefulWidget {
   const _JobDetailSheet({
     required this.job,
-    required this.initiallyApplied,
+    required this.initialApplication,
     required this.onApply,
+    required this.onOpenApplication,
   });
 
   final JobOpportunity job;
-  final bool initiallyApplied;
-  final Future<void> Function() onApply;
+  final JobApplication? initialApplication;
+  final Future<JobApplication> Function() onApply;
+  final VoidCallback onOpenApplication;
 
   @override
   State<_JobDetailSheet> createState() => _JobDetailSheetState();
 }
 
 class _JobDetailSheetState extends State<_JobDetailSheet> {
-  late bool _applied = widget.initiallyApplied;
+  late JobApplication? _application = widget.initialApplication;
   bool _submitting = false;
 
   @override
@@ -820,6 +853,53 @@ class _JobDetailSheetState extends State<_JobDetailSheet> {
                       ],
                     ),
                   ),
+                  if (_application != null) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: theme.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: theme.primary.withValues(alpha: 0.34),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.forum_outlined,
+                            color: theme.primary,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _application!.statusLabel,
+                                  style: TextStyle(
+                                    color: theme.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _application!.statusDescription,
+                                  style: TextStyle(
+                                    color: theme.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -838,18 +918,24 @@ class _JobDetailSheetState extends State<_JobDetailSheet> {
             child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _applied || _submitting ? null : _submit,
+                onPressed: _submitting
+                    ? null
+                    : _application == null
+                    ? _submit
+                    : _openApplication,
                 icon: _submitting
                     ? const SizedBox.square(
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Icon(
-                        _applied
-                            ? Icons.check_circle_outline_rounded
+                        _application != null
+                            ? Icons.forum_outlined
                             : Icons.send_outlined,
                       ),
-                label: Text(_applied ? 'Đã gửi hồ sơ' : 'Ứng tuyển ngay'),
+                label: Text(
+                  _application != null ? 'Đã gửi hồ sơ' : 'Ứng tuyển ngay',
+                ),
               ),
             ),
           ),
@@ -860,13 +946,15 @@ class _JobDetailSheetState extends State<_JobDetailSheet> {
 
   Future<void> _submit() async {
     setState(() => _submitting = true);
-    await widget.onApply();
+    final application = await widget.onApply();
     if (!mounted) return;
     setState(() {
       _submitting = false;
-      _applied = true;
+      _application = application;
     });
   }
+
+  void _openApplication() => widget.onOpenApplication();
 }
 
 class _DetailMetrics extends StatelessWidget {
