@@ -9,6 +9,7 @@ import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
 import 'package:nivex_flutter/features/profile/widgets/reputation_badge.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfessionalProfileScreen extends StatefulWidget {
   const ProfessionalProfileScreen({super.key});
@@ -147,7 +148,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                   icon: Icons.school_outlined,
                 ),
                 const SizedBox(height: 8),
-                const _EducationCard(),
+                _EducationCard(education: profile.education),
                 const SizedBox(height: 22),
                 _PrivacyNotice(visibility: profile.visibility),
               ],
@@ -530,6 +531,14 @@ class _ProjectCard extends StatelessWidget {
               height: 1.45,
             ),
           ),
+          if (project.link.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: () => launchUrl(Uri.parse(project.link)),
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: const Text('Xem sản phẩm'),
+            ),
+          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 6,
@@ -673,31 +682,50 @@ class _ExperienceTile extends StatelessWidget {
 }
 
 class _EducationCard extends StatelessWidget {
-  const _EducationCard();
+  const _EducationCard({required this.education});
+
+  final List<FreelancerEducation> education;
 
   @override
   Widget build(BuildContext context) {
-    return const _SectionSurface(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return _SectionSurface(
+      padding: const EdgeInsets.all(0),
+      child: Column(
         children: [
-          Icon(Icons.account_balance_outlined, size: 22),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Kỹ thuật phần mềm',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                ),
-                SizedBox(height: 4),
-                Text('Sinh viên · 2023 - 2027'),
-                SizedBox(height: 7),
-                Text('Thông tin do người dùng tự khai'),
-              ],
+          for (var index = 0; index < education.length; index++) ...[
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.account_balance_outlined, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          education[index].program,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${education[index].institution} · ${education[index].period}',
+                        ),
+                        const SizedBox(height: 7),
+                        Text(education[index].note),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            if (index != education.length - 1)
+              Divider(height: 1, color: context.nivexTheme.divider),
+          ],
         ],
       ),
     );
@@ -784,6 +812,9 @@ class _EditProfessionalProfileScreenState
   late final TextEditingController _headlineController;
   late final TextEditingController _bioController;
   late Set<String> _skills;
+  late List<FreelancerProject> _projects;
+  late List<FreelancerExperience> _experiences;
+  late List<FreelancerEducation> _education;
   late String? _avatarPath;
   late ProfileHeaderTheme _headerTheme;
   late ProfileVisibility _visibility;
@@ -797,6 +828,9 @@ class _EditProfessionalProfileScreenState
     _headlineController = TextEditingController(text: profile.headline);
     _bioController = TextEditingController(text: profile.bio);
     _skills = profile.skills.toSet();
+    _projects = [...profile.projects];
+    _experiences = [...profile.experiences];
+    _education = [...profile.education];
     _avatarPath = profile.avatarPath;
     _headerTheme = profile.profileHeaderTheme;
     _visibility = profile.visibility;
@@ -943,6 +977,51 @@ class _EditProfessionalProfileScreenState
                 const SizedBox(height: 24),
                 const _EditSectionHeading(
                   step: '04',
+                  title: 'Portfolio nổi bật',
+                ),
+                const SizedBox(height: 10),
+                _EditableEntryList<FreelancerProject>(
+                  entries: _projects,
+                  emptyLabel: 'Thêm sản phẩm để doanh nghiệp xem được proof of work.',
+                  addLabel: 'Thêm portfolio',
+                  titleOf: (entry) => entry.title,
+                  subtitleOf: (entry) => entry.link.isEmpty ? entry.role : entry.link,
+                  onAdd: _addProject,
+                  onEdit: _editProject,
+                  onDelete: (index) => setState(() => _projects.removeAt(index)),
+                ),
+                const SizedBox(height: 24),
+                const _EditSectionHeading(step: '05', title: 'Kinh nghiệm'),
+                const SizedBox(height: 10),
+                _EditableEntryList<FreelancerExperience>(
+                  entries: _experiences,
+                  emptyLabel: 'Thêm kinh nghiệm làm việc hoặc hoạt động liên quan.',
+                  addLabel: 'Thêm kinh nghiệm',
+                  titleOf: (entry) => entry.title,
+                  subtitleOf: (entry) => '${entry.organization} · ${entry.period}',
+                  onAdd: _addExperience,
+                  onEdit: _editExperience,
+                  onDelete: (index) => setState(() => _experiences.removeAt(index)),
+                ),
+                const SizedBox(height: 24),
+                const _EditSectionHeading(
+                  step: '06',
+                  title: 'Học vấn & chứng chỉ',
+                ),
+                const SizedBox(height: 10),
+                _EditableEntryList<FreelancerEducation>(
+                  entries: _education,
+                  emptyLabel: 'Thêm học vấn, khóa học hoặc chứng chỉ nổi bật.',
+                  addLabel: 'Thêm học vấn / chứng chỉ',
+                  titleOf: (entry) => entry.program,
+                  subtitleOf: (entry) => '${entry.institution} · ${entry.period}',
+                  onAdd: _addEducation,
+                  onEdit: _editEducation,
+                  onDelete: (index) => setState(() => _education.removeAt(index)),
+                ),
+                const SizedBox(height: 24),
+                const _EditSectionHeading(
+                  step: '07',
                   title: 'Khả năng nhận việc',
                 ),
                 const SizedBox(height: 10),
@@ -983,7 +1062,7 @@ class _EditProfessionalProfileScreenState
                   ],
                 ),
                 const SizedBox(height: 24),
-                const _EditSectionHeading(step: '05', title: 'Quyền riêng tư'),
+                const _EditSectionHeading(step: '08', title: 'Quyền riêng tư'),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<ProfileVisibility>(
                   initialValue: _visibility,
@@ -1094,6 +1173,54 @@ class _EditProfessionalProfileScreenState
     setState(() => _skills.add(normalized));
   }
 
+  Future<void> _addProject() async {
+    final entry = await showDialog<FreelancerProject>(
+      context: context,
+      builder: (_) => const _ProjectEditorDialog(),
+    );
+    if (entry != null && mounted) setState(() => _projects.add(entry));
+  }
+
+  Future<void> _editProject(int index) async {
+    final entry = await showDialog<FreelancerProject>(
+      context: context,
+      builder: (_) => _ProjectEditorDialog(initial: _projects[index]),
+    );
+    if (entry != null && mounted) setState(() => _projects[index] = entry);
+  }
+
+  Future<void> _addExperience() async {
+    final entry = await showDialog<FreelancerExperience>(
+      context: context,
+      builder: (_) => const _ExperienceEditorDialog(),
+    );
+    if (entry != null && mounted) setState(() => _experiences.add(entry));
+  }
+
+  Future<void> _editExperience(int index) async {
+    final entry = await showDialog<FreelancerExperience>(
+      context: context,
+      builder: (_) => _ExperienceEditorDialog(initial: _experiences[index]),
+    );
+    if (entry != null && mounted) setState(() => _experiences[index] = entry);
+  }
+
+  Future<void> _addEducation() async {
+    final entry = await showDialog<FreelancerEducation>(
+      context: context,
+      builder: (_) => const _EducationEditorDialog(),
+    );
+    if (entry != null && mounted) setState(() => _education.add(entry));
+  }
+
+  Future<void> _editEducation(int index) async {
+    final entry = await showDialog<FreelancerEducation>(
+      context: context,
+      builder: (_) => _EducationEditorDialog(initial: _education[index]),
+    );
+    if (entry != null && mounted) setState(() => _education[index] = entry);
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     if (_skills.isEmpty) {
@@ -1108,6 +1235,9 @@ class _EditProfessionalProfileScreenState
         headline: _headlineController.text.trim(),
         bio: _bioController.text.trim(),
         skills: _skills.toList(growable: false),
+        projects: _projects,
+        experiences: _experiences,
+        education: _education,
         visibility: _visibility,
         isAvailable: _isAvailable,
         weeklyCapacityHours: _capacity.round(),
@@ -1122,6 +1252,221 @@ class _EditProfessionalProfileScreenState
     );
   }
 }
+
+class _EditableEntryList<T> extends StatelessWidget {
+  const _EditableEntryList({
+    required this.entries,
+    required this.emptyLabel,
+    required this.addLabel,
+    required this.titleOf,
+    required this.subtitleOf,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final List<T> entries;
+  final String emptyLabel;
+  final String addLabel;
+  final String Function(T) titleOf;
+  final String Function(T) subtitleOf;
+  final Future<void> Function() onAdd;
+  final Future<void> Function(int) onEdit;
+  final ValueChanged<int> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return _EditSurface(
+      children: [
+        if (entries.isEmpty)
+          Text(emptyLabel, style: TextStyle(color: theme.textSecondary)),
+        for (var index = 0; index < entries.length; index++) ...[
+          if (index > 0) Divider(height: 20, color: theme.divider),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titleOf(entries[index]),
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text(subtitleOf(entries[index]),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Chỉnh sửa',
+                onPressed: () => onEdit(index),
+                icon: const Icon(Icons.edit_outlined, size: 19),
+              ),
+              IconButton(
+                tooltip: 'Xóa',
+                onPressed: () => onDelete(index),
+                icon: const Icon(Icons.delete_outline_rounded, size: 19),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(Icons.add_rounded),
+          label: Text(addLabel),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProjectEditorDialog extends StatefulWidget {
+  const _ProjectEditorDialog({this.initial});
+  final FreelancerProject? initial;
+
+  @override
+  State<_ProjectEditorDialog> createState() => _ProjectEditorDialogState();
+}
+
+class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _title;
+  late final TextEditingController _role;
+  late final TextEditingController _summary;
+  late final TextEditingController _technologies;
+  late final TextEditingController _status;
+  late final TextEditingController _link;
+
+  @override
+  void initState() {
+    super.initState();
+    final item = widget.initial;
+    _title = TextEditingController(text: item?.title);
+    _role = TextEditingController(text: item?.role);
+    _summary = TextEditingController(text: item?.summary);
+    _technologies = TextEditingController(text: item?.technologies.join(', '));
+    _status = TextEditingController(text: item?.status ?? 'Đang phát triển');
+    _link = TextEditingController(text: item?.link);
+  }
+
+  @override
+  void dispose() {
+    for (final controller in [_title, _role, _summary, _technologies, _status, _link]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.initial == null ? 'Thêm portfolio' : 'Sửa portfolio'),
+      content: SizedBox(
+        width: 460,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(children: [
+              _field(_title, 'Tên sản phẩm', required: true),
+              _field(_role, 'Vai trò', required: true),
+              _field(_summary, 'Mô tả', required: true, maxLines: 3),
+              _field(_technologies, 'Công nghệ (ngăn cách bằng dấu phẩy)'),
+              _field(_status, 'Trạng thái'),
+              _field(_link, 'Link sản phẩm / GitHub / demo', keyboard: TextInputType.url),
+            ]),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+        FilledButton(onPressed: _submit, child: const Text('Lưu')),
+      ],
+    );
+  }
+
+  Widget _field(TextEditingController controller, String label,
+      {bool required = false, int maxLines = 1, TextInputType? keyboard}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        keyboardType: keyboard,
+        decoration: InputDecoration(labelText: label),
+        validator: required ? (value) => value!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null : null,
+      ),
+    );
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    final technologies = _technologies.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    Navigator.pop(context, FreelancerProject(
+      title: _title.text.trim(), role: _role.text.trim(), summary: _summary.text.trim(),
+      technologies: technologies, status: _status.text.trim(), link: _link.text.trim(),
+    ));
+  }
+}
+
+class _ExperienceEditorDialog extends StatefulWidget {
+  const _ExperienceEditorDialog({this.initial});
+  final FreelancerExperience? initial;
+  @override
+  State<_ExperienceEditorDialog> createState() => _ExperienceEditorDialogState();
+}
+
+class _ExperienceEditorDialogState extends State<_ExperienceEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _title, _organization, _period, _summary;
+  @override
+  void initState() {
+    super.initState(); final i = widget.initial;
+    _title = TextEditingController(text: i?.title); _organization = TextEditingController(text: i?.organization);
+    _period = TextEditingController(text: i?.period); _summary = TextEditingController(text: i?.summary);
+  }
+  @override
+  void dispose() { for (final c in [_title, _organization, _period, _summary]) c.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => _simpleDialog(
+    context: context,
+    title: widget.initial == null ? 'Thêm kinh nghiệm' : 'Sửa kinh nghiệm', formKey: _formKey,
+    fields: [_f(_title, 'Vị trí', true), _f(_organization, 'Tổ chức / công ty', true), _f(_period, 'Thời gian', true), _f(_summary, 'Mô tả', true, 3)],
+    onSubmit: () { if (!_formKey.currentState!.validate()) return; Navigator.pop(context, FreelancerExperience(title: _title.text.trim(), organization: _organization.text.trim(), period: _period.text.trim(), summary: _summary.text.trim())); },
+  );
+  Widget _f(TextEditingController c, String label, bool required, [int lines = 1]) => TextFormField(controller: c, maxLines: lines, decoration: InputDecoration(labelText: label), validator: required ? (v) => v!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null : null);
+}
+
+class _EducationEditorDialog extends StatefulWidget {
+  const _EducationEditorDialog({this.initial});
+  final FreelancerEducation? initial;
+  @override
+  State<_EducationEditorDialog> createState() => _EducationEditorDialogState();
+}
+
+class _EducationEditorDialogState extends State<_EducationEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _program, _institution, _period, _note;
+  @override
+  void initState() { super.initState(); final i = widget.initial; _program = TextEditingController(text: i?.program); _institution = TextEditingController(text: i?.institution); _period = TextEditingController(text: i?.period); _note = TextEditingController(text: i?.note); }
+  @override
+  void dispose() { for (final c in [_program, _institution, _period, _note]) c.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => _simpleDialog(
+    context: context,
+    title: widget.initial == null ? 'Thêm học vấn / chứng chỉ' : 'Sửa học vấn / chứng chỉ', formKey: _formKey,
+    fields: [_f(_program, 'Tên ngành / chứng chỉ', true), _f(_institution, 'Trường / đơn vị cấp', true), _f(_period, 'Thời gian', true), _f(_note, 'Ghi chú', false)],
+    onSubmit: () { if (!_formKey.currentState!.validate()) return; Navigator.pop(context, FreelancerEducation(program: _program.text.trim(), institution: _institution.text.trim(), period: _period.text.trim(), note: _note.text.trim())); },
+  );
+  Widget _f(TextEditingController c, String label, bool required) => TextFormField(controller: c, decoration: InputDecoration(labelText: label), validator: required ? (v) => v!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null : null);
+}
+
+Widget _simpleDialog({required BuildContext context, required String title, required GlobalKey<FormState> formKey, required List<Widget> fields, required VoidCallback onSubmit}) => AlertDialog(
+  title: Text(title), content: SizedBox(width: 460, child: Form(key: formKey, child: SingleChildScrollView(child: Column(children: [for (final field in fields) Padding(padding: const EdgeInsets.only(bottom: 12), child: field)])))),
+  actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')), FilledButton(onPressed: onSubmit, child: const Text('Lưu'))],
+);
 
 class _AvatarEditor extends StatelessWidget {
   const _AvatarEditor({

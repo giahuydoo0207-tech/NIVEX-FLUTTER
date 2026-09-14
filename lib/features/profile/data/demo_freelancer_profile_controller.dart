@@ -34,6 +34,14 @@ class DemoFreelancerProfileController extends ChangeNotifier {
         summary: 'Xây dựng auth flow, wallet, payment request và kiểm thử responsive trên thiết bị Android thật.',
       ),
     ],
+    education: [
+      FreelancerEducation(
+        program: 'Kỹ thuật phần mềm',
+        institution: 'Đại học FPT Đà Nẵng',
+        period: 'Sinh viên · 2023 - 2027',
+        note: 'Thông tin do người dùng tự khai',
+      ),
+    ],
     projects: [
       FreelancerProject(
         title: 'NIVEX Mobile Prototype',
@@ -41,6 +49,7 @@ class DemoFreelancerProfileController extends ChangeNotifier {
         summary: 'Ứng dụng hỗ trợ freelancer tìm việc, trao đổi và theo dõi thanh toán quốc tế.',
         technologies: ['Flutter', 'Dart', 'Solana Devnet'],
         status: 'Prototype',
+        link: 'https://github.com/giahuydoo0207-tech/NIVEX-FLUTTER',
       ),
       FreelancerProject(
         title: 'NIVEX Business',
@@ -48,6 +57,7 @@ class DemoFreelancerProfileController extends ChangeNotifier {
         summary: 'Không gian doanh nghiệp để đăng cơ hội, xét duyệt ứng viên và quản lý yêu cầu thanh toán.',
         technologies: ['Next.js', 'TypeScript', 'UI/UX'],
         status: 'Đang phát triển',
+        link: 'https://nivex-business.vercel.app',
       ),
     ],
     visibility: ProfileVisibility.registeredUsers,

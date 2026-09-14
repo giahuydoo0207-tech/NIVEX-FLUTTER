@@ -35,6 +35,20 @@ class FreelancerExperience {
   final String summary;
 }
 
+class FreelancerEducation {
+  const FreelancerEducation({
+    required this.program,
+    required this.institution,
+    required this.period,
+    required this.note,
+  });
+
+  final String program;
+  final String institution;
+  final String period;
+  final String note;
+}
+
 class FreelancerProject {
   const FreelancerProject({
     required this.title,
@@ -42,6 +56,7 @@ class FreelancerProject {
     required this.summary,
     required this.technologies,
     required this.status,
+    this.link = '',
   });
 
   final String title;
@@ -49,6 +64,7 @@ class FreelancerProject {
   final String summary;
   final List<String> technologies;
   final String status;
+  final String link;
 }
 
 class FreelancerProfile {
@@ -62,6 +78,7 @@ class FreelancerProfile {
     required this.languages,
     required this.skills,
     required this.experiences,
+    required this.education,
     required this.projects,
     required this.visibility,
     required this.isAvailable,
@@ -81,6 +98,7 @@ class FreelancerProfile {
   final List<String> languages;
   final List<String> skills;
   final List<FreelancerExperience> experiences;
+  final List<FreelancerEducation> education;
   final List<FreelancerProject> projects;
   final ProfileVisibility visibility;
   final bool isAvailable;
@@ -99,6 +117,9 @@ class FreelancerProfile {
     int? weeklyCapacityHours,
     String? workPreference,
     String? startAvailability,
+    List<FreelancerExperience>? experiences,
+    List<FreelancerProject>? projects,
+    List<FreelancerEducation>? education,
     ProfileHeaderTheme? profileHeaderTheme,
     String? avatarPath,
     bool clearAvatar = false,
@@ -112,8 +133,9 @@ class FreelancerProfile {
       timezone: timezone,
       languages: languages,
       skills: skills ?? this.skills,
-      experiences: experiences,
-      projects: projects,
+      experiences: experiences ?? this.experiences,
+      education: education ?? this.education,
+      projects: projects ?? this.projects,
       visibility: visibility ?? this.visibility,
       isAvailable: isAvailable ?? this.isAvailable,
       weeklyCapacityHours: weeklyCapacityHours ?? this.weeklyCapacityHours,
