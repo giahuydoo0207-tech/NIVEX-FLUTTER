@@ -1,5 +1,17 @@
 enum ProfileVisibility { public, registeredUsers, connectedUsers, private }
 
+enum ProfileHeaderTheme { flow, horizon, circuit, graphite, signal }
+
+extension ProfileHeaderThemeLabel on ProfileHeaderTheme {
+  String get label => switch (this) {
+    ProfileHeaderTheme.flow => 'Dòng chảy',
+    ProfileHeaderTheme.horizon => 'Chân trời',
+    ProfileHeaderTheme.circuit => 'Mạch kết nối',
+    ProfileHeaderTheme.graphite => 'Tối giản',
+    ProfileHeaderTheme.signal => 'Tín hiệu',
+  };
+}
+
 extension ProfileVisibilityLabel on ProfileVisibility {
   String get label => switch (this) {
     ProfileVisibility.public => 'Công khai',
@@ -56,6 +68,8 @@ class FreelancerProfile {
     required this.weeklyCapacityHours,
     required this.workPreference,
     required this.startAvailability,
+    required this.profileHeaderTheme,
+    this.avatarPath,
   });
 
   final String displayName;
@@ -73,6 +87,8 @@ class FreelancerProfile {
   final int weeklyCapacityHours;
   final String workPreference;
   final String startAvailability;
+  final ProfileHeaderTheme profileHeaderTheme;
+  final String? avatarPath;
 
   FreelancerProfile copyWith({
     String? headline,
@@ -83,6 +99,9 @@ class FreelancerProfile {
     int? weeklyCapacityHours,
     String? workPreference,
     String? startAvailability,
+    ProfileHeaderTheme? profileHeaderTheme,
+    String? avatarPath,
+    bool clearAvatar = false,
   }) {
     return FreelancerProfile(
       displayName: displayName,
@@ -100,6 +119,8 @@ class FreelancerProfile {
       weeklyCapacityHours: weeklyCapacityHours ?? this.weeklyCapacityHours,
       workPreference: workPreference ?? this.workPreference,
       startAvailability: startAvailability ?? this.startAvailability,
+      profileHeaderTheme: profileHeaderTheme ?? this.profileHeaderTheme,
+      avatarPath: clearAvatar ? null : avatarPath ?? this.avatarPath,
     );
   }
 }

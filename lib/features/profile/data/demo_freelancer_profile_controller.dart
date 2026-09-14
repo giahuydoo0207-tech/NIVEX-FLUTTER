@@ -55,6 +55,7 @@ class DemoFreelancerProfileController extends ChangeNotifier {
     weeklyCapacityHours: 20,
     workPreference: 'Remote · Theo dự án',
     startAvailability: 'Có thể bắt đầu trong 1 tuần',
+    profileHeaderTheme: ProfileHeaderTheme.flow,
   );
 
   void update(FreelancerProfile nextProfile) {

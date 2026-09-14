@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/app/theme/theme_controller.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
+import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
 import 'package:nivex_flutter/features/profile/presentation/appearance_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/bank_account_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/legal_screen.dart';
@@ -27,6 +30,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
+    final profileController = DemoFreelancerProfileController.instance;
     return NivexPage(
       title: 'Cá nhân',
       subtitle: 'Hồ sơ và tuỳ chỉnh tài khoản',
@@ -40,164 +44,169 @@ class ProfileScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Profile Header Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: theme.border),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          // Avatar Initials: MA
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: theme.primary,
-                              shape: BoxShape.circle,
+                ListenableBuilder(
+                  listenable: profileController,
+                  builder: (context, _) => Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: theme.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: theme.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: theme.surfaceSubtle,
+                              foregroundImage:
+                                  profileController.profile.avatarPath == null
+                                  ? null
+                                  : FileImage(
+                                      File(
+                                        profileController.profile.avatarPath!,
+                                      ),
+                                    ),
+                              child:
+                                  profileController.profile.avatarPath == null
+                                  ? Icon(
+                                      Icons.person_outline_rounded,
+                                      color: theme.primary,
+                                      size: 24,
+                                    )
+                                  : null,
                             ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              'MA',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: 0,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      Text(
+                                        profileController.profile.displayName,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: theme.textPrimary,
+                                          letterSpacing: 0,
+                                        ),
+                                      ),
+                                      const StatusBadge(label: 'Đã xác minh'),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'minh.anh@nivex.demo',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: theme.textSecondary,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Wrap(
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    Text(
-                                      'Minh Anh',
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Divider(height: 1, thickness: 1, color: theme.divider),
+                        const SizedBox(height: 8),
+                        // NIVEX ID Row with Copy button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'NIVEX ID: ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.textSecondary,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                  Flexible(
+                                    child: Text(
+                                      nivexId,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
                                         color: theme.textPrimary,
                                         letterSpacing: 0,
                                       ),
                                     ),
-                                    const StatusBadge(label: 'Đã xác minh'),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'minh.anh@nivex.demo',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: theme.textSecondary,
-                                    letterSpacing: 0,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Divider(height: 1, thickness: 1, color: theme.divider),
-                      const SizedBox(height: 8),
-                      // NIVEX ID Row with Copy button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Text(
-                                  'NIVEX ID: ',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: theme.textSecondary,
-                                    letterSpacing: 0,
-                                  ),
-                                ),
-                                Flexible(
-                                  child: Text(
-                                    nivexId,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.textPrimary,
-                                      letterSpacing: 0,
+                            Semantics(
+                              button: true,
+                              label: 'Sao chép NIVEX ID',
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    Clipboard.setData(
+                                      const ClipboardData(text: nivexId),
+                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Đã sao chép NIVEX ID'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 48,
+                                      minHeight: 48,
                                     ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Semantics(
-                            button: true,
-                            label: 'Sao chép NIVEX ID',
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  Clipboard.setData(
-                                    const ClipboardData(text: nivexId),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Đã sao chép NIVEX ID'),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    minWidth: 48,
-                                    minHeight: 48,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 6,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.copy_rounded,
-                                          size: 15,
-                                          color: theme.primary,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Sao chép',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.copy_rounded,
+                                            size: 15,
                                             color: theme.primary,
-                                            letterSpacing: 0,
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Sao chép',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: theme.primary,
+                                              letterSpacing: 0,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),

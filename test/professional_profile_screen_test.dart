@@ -40,7 +40,10 @@ void main() {
       updatedHeadline,
     );
     for (var index = 0; index < 5; index++) {
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.drag(
+        find.byKey(const Key('edit-profile-list')),
+        const Offset(0, -500),
+      );
       await tester.pumpAndSettle();
     }
     expect(find.byKey(const Key('save-professional-profile')), findsOneWidget);
@@ -95,6 +98,56 @@ void main() {
       scrollable: find.byType(Scrollable).last,
     );
     expect(find.text('Verified Expert'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('có thể chọn nền và thêm kỹ năng ngoài danh sách gợi ý', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+        home: const ProfessionalProfileScreen(),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Chỉnh sửa hồ sơ'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pick-profile-avatar')), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const Key('profile-theme-list')),
+      const Offset(-360, 0),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-theme-signal')));
+    for (var index = 0; index < 3; index++) {
+      await tester.drag(
+        find.byKey(const Key('edit-profile-list')),
+        const Offset(0, -420),
+      );
+      await tester.pumpAndSettle();
+      if (find.byKey(const Key('add-custom-skill')).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+    await tester.ensureVisible(find.byKey(const Key('add-custom-skill')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('add-custom-skill')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('custom-skill-field')),
+      'Biên tập video',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Thêm'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Biên tập video'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

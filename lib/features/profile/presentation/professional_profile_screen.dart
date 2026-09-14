@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
 import 'package:nivex_flutter/features/profile/domain/freelancer_profile.dart';
@@ -164,118 +167,246 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    return NivexCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: theme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.border),
+      ),
+      child: Stack(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: theme.surfaceSubtle,
-                    child: Text(
-                      'MA',
-                      style: TextStyle(
-                        color: theme.primary,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  if (profile.isAvailable)
-                    Positioned(
-                      right: 1,
-                      bottom: 1,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: theme.success,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: theme.surface, width: 2),
-                        ),
-                      ),
-                    ),
-                ],
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _ProfileHeaderBackgroundPainter(
+                  variant: profile.profileHeaderTheme,
+                  primary: theme.primary,
+                  secondary: theme.success,
+                  line: theme.border,
+                ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      profile.displayName,
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: theme.surfaceSubtle,
+                          foregroundImage: profile.avatarPath == null
+                              ? null
+                              : FileImage(File(profile.avatarPath!)),
+                          child: profile.avatarPath == null
+                              ? Icon(
+                                  Icons.person_outline_rounded,
+                                  color: theme.primary,
+                                  size: 30,
+                                )
+                              : null,
+                        ),
+                        if (profile.isAvailable)
+                          Positioned(
+                            right: 1,
+                            bottom: 1,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: theme.success,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.surface,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.displayName,
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '@${profile.username}',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '@${profile.username}',
-                      style: TextStyle(
-                        color: theme.textSecondary,
-                        fontSize: 12.5,
+                    _AvailabilityBadge(isAvailable: profile.isAvailable),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  profile.headline,
+                  style: TextStyle(
+                    color: theme.textPrimary,
+                    fontSize: 16,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 8,
+                  children: [
+                    _Meta(
+                      icon: Icons.location_on_outlined,
+                      label: profile.location,
+                    ),
+                    _Meta(
+                      icon: Icons.schedule_rounded,
+                      label: profile.timezone,
+                    ),
+                    _Meta(
+                      icon: Icons.translate_rounded,
+                      label: profile.languages.join(' · '),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Divider(height: 1, color: theme.divider),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _WorkMetric(
+                        label: 'Hình thức',
+                        value: profile.workPreference,
+                      ),
+                    ),
+                    Container(width: 1, height: 34, color: theme.divider),
+                    Expanded(
+                      child: _WorkMetric(
+                        label: 'Năng lực',
+                        value: '${profile.weeklyCapacityHours} giờ/tuần',
                       ),
                     ),
                   ],
                 ),
-              ),
-              _AvailabilityBadge(isAvailable: profile.isAvailable),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            profile.headline,
-            style: TextStyle(
-              color: theme.textPrimary,
-              fontSize: 16,
-              height: 1.35,
-              fontWeight: FontWeight.w700,
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 14,
-            runSpacing: 8,
-            children: [
-              _Meta(icon: Icons.location_on_outlined, label: profile.location),
-              _Meta(icon: Icons.schedule_rounded, label: profile.timezone),
-              _Meta(
-                icon: Icons.translate_rounded,
-                label: profile.languages.join(' · '),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Divider(height: 1, color: theme.divider),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _WorkMetric(
-                  label: 'Hình thức',
-                  value: profile.workPreference,
-                ),
-              ),
-              Container(width: 1, height: 34, color: theme.divider),
-              Expanded(
-                child: _WorkMetric(
-                  label: 'Năng lực',
-                  value: '${profile.weeklyCapacityHours} giờ/tuần',
-                ),
-              ),
-            ],
           ),
         ],
       ),
     );
+  }
+}
+
+class _ProfileHeaderBackgroundPainter extends CustomPainter {
+  const _ProfileHeaderBackgroundPainter({
+    required this.variant,
+    required this.primary,
+    required this.secondary,
+    required this.line,
+  });
+
+  final ProfileHeaderTheme variant;
+  final Color primary;
+  final Color secondary;
+  final Color line;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final subtle = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = primary.withValues(alpha: 0.10);
+    final accent = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = secondary.withValues(alpha: 0.12);
+
+    switch (variant) {
+      case ProfileHeaderTheme.flow:
+        for (var y = 18.0; y < size.height; y += 28) {
+          final path = Path()..moveTo(size.width * .42, y);
+          path.cubicTo(
+            size.width * .62,
+            y - 10,
+            size.width * .78,
+            y + 10,
+            size.width + 8,
+            y - 2,
+          );
+          canvas.drawPath(path, y % 56 == 18 ? accent : subtle);
+        }
+      case ProfileHeaderTheme.horizon:
+        for (var index = 0; index < 4; index++) {
+          final y = size.height * (.58 + index * .10);
+          canvas.drawLine(
+            Offset(size.width * .38, y),
+            Offset(size.width, y),
+            subtle,
+          );
+        }
+        final sun = Paint()
+          ..color = primary.withValues(alpha: 0.08)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(size.width * .82, size.height * .27), 34, sun);
+      case ProfileHeaderTheme.circuit:
+        for (var x = size.width * .48; x < size.width; x += 34) {
+          canvas.drawLine(Offset(x, 0), Offset(x, size.height), subtle);
+        }
+        for (var y = 22.0; y < size.height; y += 32) {
+          canvas.drawLine(
+            Offset(size.width * .48, y),
+            Offset(size.width, y),
+            subtle,
+          );
+          canvas.drawCircle(Offset(size.width * .72, y), 2.2, accent);
+        }
+      case ProfileHeaderTheme.graphite:
+        final paint = Paint()
+          ..color = line.withValues(alpha: 0.45)
+          ..strokeWidth = 1;
+        for (var x = size.width * .55; x < size.width + 40; x += 22) {
+          canvas.drawLine(Offset(x, 0), Offset(x - 80, size.height), paint);
+        }
+      case ProfileHeaderTheme.signal:
+        final center = Offset(size.width * .84, size.height * .34);
+        for (var radius = 22.0; radius <= 88; radius += 22) {
+          canvas.drawArc(
+            Rect.fromCircle(center: center, radius: radius),
+            2.2,
+            2.6,
+            false,
+            radius == 66 ? accent : subtle,
+          );
+        }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfileHeaderBackgroundPainter oldDelegate) {
+    return oldDelegate.variant != variant ||
+        oldDelegate.primary != primary ||
+        oldDelegate.secondary != secondary ||
+        oldDelegate.line != line;
   }
 }
 
@@ -649,9 +780,12 @@ class _EditProfessionalProfileScreenState
   ];
 
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
   late final TextEditingController _headlineController;
   late final TextEditingController _bioController;
   late Set<String> _skills;
+  late String? _avatarPath;
+  late ProfileHeaderTheme _headerTheme;
   late ProfileVisibility _visibility;
   late bool _isAvailable;
   late double _capacity;
@@ -663,6 +797,8 @@ class _EditProfessionalProfileScreenState
     _headlineController = TextEditingController(text: profile.headline);
     _bioController = TextEditingController(text: profile.bio);
     _skills = profile.skills.toSet();
+    _avatarPath = profile.avatarPath;
+    _headerTheme = profile.profileHeaderTheme;
     _visibility = profile.visibility;
     _isAvailable = profile.isAvailable;
     _capacity = profile.weeklyCapacityHours.toDouble();
@@ -692,11 +828,39 @@ class _EditProfessionalProfileScreenState
           child: Form(
             key: _formKey,
             child: ListView(
+              key: const Key('edit-profile-list'),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 const _EditSectionHeading(
                   step: '01',
+                  title: 'Ảnh đại diện và nền hồ sơ',
+                ),
+                const SizedBox(height: 10),
+                _AvatarEditor(
+                  avatarPath: _avatarPath,
+                  onPick: _pickAvatar,
+                  onRemove: _avatarPath == null
+                      ? null
+                      : () => setState(() => _avatarPath = null),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Chọn nền thẻ hồ sơ',
+                  style: TextStyle(
+                    color: theme.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ProfileThemeSelector(
+                  selected: _headerTheme,
+                  onSelected: (value) => setState(() => _headerTheme = value),
+                ),
+                const SizedBox(height: 24),
+                const _EditSectionHeading(
+                  step: '02',
                   title: 'Tiêu đề và giới thiệu',
                 ),
                 const SizedBox(height: 10),
@@ -735,7 +899,7 @@ class _EditProfessionalProfileScreenState
                   },
                 ),
                 const SizedBox(height: 24),
-                const _EditSectionHeading(step: '02', title: 'Kỹ năng'),
+                const _EditSectionHeading(step: '03', title: 'Kỹ năng'),
                 const SizedBox(height: 6),
                 Text(
                   'Chọn tối đa 10 kỹ năng phù hợp nhất.',
@@ -759,11 +923,26 @@ class _EditProfessionalProfileScreenState
                           });
                         },
                       ),
+                    for (final skill in _skills.where(
+                      (skill) => !availableSkills.contains(skill),
+                    ))
+                      FilterChip(
+                        label: Text(skill),
+                        selected: true,
+                        onSelected: (_) =>
+                            setState(() => _skills.remove(skill)),
+                      ),
+                    ActionChip(
+                      key: const Key('add-custom-skill'),
+                      avatar: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Thêm kỹ năng'),
+                      onPressed: _showAddSkillDialog,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
                 const _EditSectionHeading(
-                  step: '03',
+                  step: '04',
                   title: 'Khả năng nhận việc',
                 ),
                 const SizedBox(height: 10),
@@ -804,7 +983,7 @@ class _EditProfessionalProfileScreenState
                   ],
                 ),
                 const SizedBox(height: 24),
-                const _EditSectionHeading(step: '04', title: 'Quyền riêng tư'),
+                const _EditSectionHeading(step: '05', title: 'Quyền riêng tư'),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<ProfileVisibility>(
                   initialValue: _visibility,
@@ -848,6 +1027,73 @@ class _EditProfessionalProfileScreenState
     );
   }
 
+  Future<void> _pickAvatar() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 88,
+        maxWidth: 1200,
+      );
+      if (image != null && mounted) setState(() => _avatarPath = image.path);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể mở thư viện ảnh. Hãy kiểm tra quyền truy cập.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAddSkillDialog() async {
+    if (_skills.length >= 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn đã chọn tối đa 10 kỹ năng')),
+      );
+      return;
+    }
+    var pendingSkill = '';
+    final skill = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Thêm kỹ năng'),
+        content: TextField(
+          key: const Key('custom-skill-field'),
+          autofocus: true,
+          maxLength: 40,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Tên kỹ năng',
+            hintText: 'Ví dụ: Biên tập, Bán hàng, Phiên dịch',
+          ),
+          onChanged: (value) => pendingSkill = value,
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(pendingSkill),
+            child: const Text('Thêm'),
+          ),
+        ],
+      ),
+    );
+    final normalized = skill?.trim();
+    if (normalized == null || normalized.isEmpty || !mounted) return;
+    if (_skills.any((item) => item.toLowerCase() == normalized.toLowerCase())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kỹ năng này đã có trong hồ sơ')),
+      );
+      return;
+    }
+    setState(() => _skills.add(normalized));
+  }
+
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     if (_skills.isEmpty) {
@@ -865,11 +1111,180 @@ class _EditProfessionalProfileScreenState
         visibility: _visibility,
         isAvailable: _isAvailable,
         weeklyCapacityHours: _capacity.round(),
+        avatarPath: _avatarPath,
+        clearAvatar: _avatarPath == null,
+        profileHeaderTheme: _headerTheme,
       ),
     );
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Đã cập nhật hồ sơ nghề nghiệp')),
+    );
+  }
+}
+
+class _AvatarEditor extends StatelessWidget {
+  const _AvatarEditor({
+    required this.avatarPath,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final String? avatarPath;
+  final VoidCallback onPick;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return NivexCard(
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 34,
+            backgroundColor: theme.surfaceSubtle,
+            foregroundImage: avatarPath == null
+                ? null
+                : FileImage(File(avatarPath!)),
+            child: avatarPath == null
+                ? Icon(
+                    Icons.add_a_photo_outlined,
+                    color: theme.primary,
+                    size: 27,
+                  )
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ảnh đại diện',
+                  style: TextStyle(
+                    color: theme.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Ảnh vuông, khuôn mặt rõ và đủ sáng.',
+                  style: TextStyle(color: theme.textSecondary, fontSize: 11.5),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('pick-profile-avatar'),
+                      onPressed: onPick,
+                      icon: const Icon(Icons.photo_library_outlined, size: 18),
+                      label: const Text('Chọn từ thư viện'),
+                    ),
+                    if (onRemove != null)
+                      IconButton(
+                        tooltip: 'Xóa ảnh đại diện',
+                        onPressed: onRemove,
+                        icon: const Icon(Icons.delete_outline_rounded),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileThemeSelector extends StatelessWidget {
+  const _ProfileThemeSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ProfileHeaderTheme selected;
+  final ValueChanged<ProfileHeaderTheme> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return SizedBox(
+      height: 88,
+      child: ListView.separated(
+        key: const Key('profile-theme-list'),
+        scrollDirection: Axis.horizontal,
+        itemCount: ProfileHeaderTheme.values.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 9),
+        itemBuilder: (context, index) {
+          final option = ProfileHeaderTheme.values[index];
+          final isSelected = option == selected;
+          return Semantics(
+            button: true,
+            selected: isSelected,
+            label: 'Nền ${option.label}',
+            child: InkWell(
+              key: Key('profile-theme-${option.name}'),
+              onTap: () => onSelected(option),
+              borderRadius: BorderRadius.circular(7),
+              child: Container(
+                width: 104,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: theme.surface,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: isSelected ? theme.primary : theme.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _ProfileHeaderBackgroundPainter(
+                          variant: option,
+                          primary: theme.primary,
+                          secondary: theme.success,
+                          line: theme.border,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 8,
+                      right: 8,
+                      bottom: 7,
+                      child: Text(
+                        option.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.textPrimary,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (isSelected)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Icon(
+                          Icons.check_circle_rounded,
+                          color: theme.primary,
+                          size: 17,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
