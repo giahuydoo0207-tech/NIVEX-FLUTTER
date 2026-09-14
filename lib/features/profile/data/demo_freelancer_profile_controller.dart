@@ -1,8 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:nivex_flutter/features/profile/domain/freelancer_profile.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DemoFreelancerProfileController extends ChangeNotifier {
-  DemoFreelancerProfileController._();
+  DemoFreelancerProfileController._() {
+    _restoreAvatar();
+  }
 
   static final instance = DemoFreelancerProfileController._();
 
@@ -68,8 +74,57 @@ class DemoFreelancerProfileController extends ChangeNotifier {
     profileHeaderTheme: ProfileHeaderTheme.flow,
   );
 
-  void update(FreelancerProfile nextProfile) {
-    profile = nextProfile;
+  static const _avatarPreferenceKey = 'nivex_profile_avatar_path';
+
+  Future<void> update(FreelancerProfile nextProfile) async {
+    var stableProfile = nextProfile;
+    if (nextProfile.avatarPath != profile.avatarPath) {
+      final stableAvatarPath = await _persistAvatar(nextProfile.avatarPath);
+      stableProfile = nextProfile.copyWith(
+        avatarPath: stableAvatarPath,
+        clearAvatar: stableAvatarPath == null,
+      );
+    }
+    profile = stableProfile;
     notifyListeners();
+  }
+
+  Future<void> _restoreAvatar() async {
+    try {
+      final preferences = SharedPreferencesAsync();
+      final avatarPath = await preferences.getString(_avatarPreferenceKey);
+      if (avatarPath == null || !await File(avatarPath).exists()) return;
+      profile = profile.copyWith(avatarPath: avatarPath);
+      notifyListeners();
+    } catch (_) {
+      // Persistence is best-effort until the profile API is connected.
+    }
+  }
+
+  Future<String?> _persistAvatar(String? sourcePath) async {
+    final preferences = SharedPreferencesAsync();
+    if (sourcePath == null) {
+      final previousPath = await preferences.getString(_avatarPreferenceKey);
+      if (previousPath != null) {
+        final previousFile = File(previousPath);
+        if (await previousFile.exists()) await previousFile.delete();
+      }
+      await preferences.remove(_avatarPreferenceKey);
+      return null;
+    }
+
+    final source = File(sourcePath);
+    if (!await source.exists()) return null;
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final dotIndex = sourcePath.lastIndexOf('.');
+    final extension = dotIndex >= 0 ? sourcePath.substring(dotIndex) : '.jpg';
+    final destination = File(
+      '${documentsDirectory.path}${Platform.pathSeparator}nivex_profile_avatar$extension',
+    );
+    final copiedAvatar = source.path == destination.path
+        ? source
+        : await source.copy(destination.path);
+    await preferences.setString(_avatarPreferenceKey, copiedAvatar.path);
+    return copiedAvatar.path;
   }
 }

@@ -75,40 +75,49 @@ class _PostsScreenState extends State<PostsScreen> {
         const SizedBox(width: 6),
       ],
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
-          _PostComposer(
-            controller: _composerController,
-            images: _selectedImages,
-            avatarPath: _profileController.profile.avatarPath,
-            isPublishing: _isPublishing,
-            onPickImages: _pickImages,
-            onRemoveImage: (index) =>
-                setState(() => _selectedImages.removeAt(index)),
-            onPublish: _publish,
-          ),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              Icon(Icons.dynamic_feed_outlined,
-                  size: 19, color: context.nivexTheme.primary),
-              const SizedBox(width: 8),
-              Text('Bài đăng mới nhất',
-                  style: TextStyle(
-                    color: context.nivexTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  )),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: _PostComposer(
+              controller: _composerController,
+              images: _selectedImages,
+              displayName: _profileController.profile.displayName,
+              avatarPath: _profileController.profile.avatarPath,
+              isPublishing: _isPublishing,
+              onPickImages: _pickImages,
+              onRemoveImage: (index) =>
+                  setState(() => _selectedImages.removeAt(index)),
+              onPublish: _publish,
+            ),
           ),
           const SizedBox(height: 10),
+          Container(height: 7, color: context.nivexTheme.surfaceSubtle),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            child: Row(
+              children: [
+                Icon(Icons.dynamic_feed_outlined,
+                    size: 19, color: context.nivexTheme.primary),
+                const SizedBox(width: 8),
+                Text('Dành cho bạn',
+                    style: TextStyle(
+                      color: context.nivexTheme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    )),
+              ],
+            ),
+          ),
           for (final post in _posts) ...[
             _PostCard(
               post: post,
               ownAvatarPath: _profileController.profile.avatarPath,
+              ownDisplayName: _profileController.profile.displayName,
+              ownHeadline: _profileController.profile.headline,
               onOpenProfile: () => _openProfile(_postAuthor(post)),
             ),
-            const SizedBox(height: 10),
+            Container(height: 7, color: context.nivexTheme.surfaceSubtle),
           ],
         ],
       ),
@@ -239,6 +248,8 @@ class _PostsScreenState extends State<PostsScreen> {
         builder: (_) => MyPostsScreen(
           posts: _posts.where((post) => post.isMine).toList(),
           avatarPath: _profileController.profile.avatarPath,
+          displayName: _profileController.profile.displayName,
+          headline: _profileController.profile.headline,
         ),
       ),
     );
@@ -246,10 +257,18 @@ class _PostsScreenState extends State<PostsScreen> {
 }
 
 class MyPostsScreen extends StatelessWidget {
-  const MyPostsScreen({required this.posts, required this.avatarPath, super.key});
+  const MyPostsScreen({
+    required this.posts,
+    required this.avatarPath,
+    required this.displayName,
+    required this.headline,
+    super.key,
+  });
 
   final List<_DemoPost> posts;
   final String? avatarPath;
+  final String displayName;
+  final String headline;
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +308,13 @@ class MyPostsScreen extends StatelessWidget {
             NivexCard(child: Text('Bạn chưa có bài đăng nào.', style: TextStyle(color: theme.textSecondary)))
           else
             for (final post in posts) ...[
-              _PostCard(post: post, ownAvatarPath: avatarPath, onOpenProfile: () {}),
+              _PostCard(
+                post: post,
+                ownAvatarPath: avatarPath,
+                ownDisplayName: displayName,
+                ownHeadline: headline,
+                onOpenProfile: () {},
+              ),
               const SizedBox(height: 10),
             ],
         ],
@@ -361,6 +386,7 @@ class _PostComposer extends StatelessWidget {
   const _PostComposer({
     required this.controller,
     required this.images,
+    required this.displayName,
     required this.avatarPath,
     required this.isPublishing,
     required this.onPickImages,
@@ -370,6 +396,7 @@ class _PostComposer extends StatelessWidget {
 
   final TextEditingController controller;
   final List<XFile> images;
+  final String displayName;
   final String? avatarPath;
   final bool isPublishing;
   final VoidCallback onPickImages;
@@ -380,47 +407,49 @@ class _PostComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     return NivexCard(
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 21,
-                backgroundColor: theme.primary.withValues(alpha: 0.16),
-                foregroundImage:
-                    avatarPath == null ? null : FileImage(File(avatarPath!)),
-                child: avatarPath == null
-                    ? Icon(Icons.person_outline_rounded, color: theme.primary)
-                    : null,
+              Semantics(
+                label: 'Ảnh đại diện của $displayName',
+                child: CircleAvatar(
+                  radius: 22,
+                  backgroundColor: theme.primary.withValues(alpha: 0.16),
+                  foregroundImage:
+                      avatarPath == null ? null : FileImage(File(avatarPath!)),
+                  child: avatarPath == null
+                      ? Icon(Icons.person_outline_rounded, color: theme.primary)
+                      : null,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('Minh Anh',
-                    style: TextStyle(
-                      color: theme.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    )),
+                child: TextField(
+                  controller: controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'Bắt đầu một bài đăng',
+                    filled: true,
+                    fillColor: theme.surfaceSubtle,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: theme.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(color: theme.border),
+                    ),
+                  ),
+                ),
               ),
-              Icon(Icons.public_rounded,
-                  size: 16, color: theme.textSecondary),
-              const SizedBox(width: 5),
-              Text('Công khai',
-                  style: TextStyle(color: theme.textSecondary, fontSize: 11)),
             ],
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: controller,
-            minLines: 3,
-            maxLines: 7,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              hintText: 'Bạn đang làm gì, xây dựng gì hoặc muốn chia sẻ điều gì?',
-              border: InputBorder.none,
-              filled: false,
-              contentPadding: EdgeInsets.zero,
-            ),
           ),
           if (images.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -428,28 +457,28 @@ class _PostComposer extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           Divider(height: 1, color: theme.divider),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: isPublishing ? null : onPickImages,
-                  icon: const Icon(Icons.photo_library_outlined, size: 19),
-                  label: Text(images.isEmpty
-                      ? 'Thêm ảnh'
-                      : 'Thêm ảnh (${images.length}/10)'),
-                ),
+              TextButton.icon(
+                onPressed: isPublishing ? null : onPickImages,
+                icon: Icon(Icons.image_outlined, size: 20, color: theme.success),
+                label: Text(images.isEmpty ? 'Ảnh' : 'Ảnh (${images.length}/10)'),
               ),
-              const SizedBox(width: 10),
-              FilledButton.icon(
+              TextButton.icon(
+                onPressed: () {},
+                icon: Icon(Icons.tag_rounded, size: 19, color: theme.primary),
+                label: const Text('Chủ đề'),
+              ),
+              const Spacer(),
+              FilledButton(
                 onPressed: isPublishing ? null : onPublish,
-                icon: isPublishing
+                child: isPublishing
                     ? const SizedBox.square(
                         dimension: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.send_rounded, size: 17),
-                label: const Text('Đăng bài'),
+                    : const Text('Đăng'),
               ),
             ],
           ),
@@ -519,86 +548,186 @@ class _PostCard extends StatelessWidget {
   const _PostCard({
     required this.post,
     required this.ownAvatarPath,
+    required this.ownDisplayName,
+    required this.ownHeadline,
     required this.onOpenProfile,
   });
   final _DemoPost post;
   final String? ownAvatarPath;
+  final String ownDisplayName;
+  final String ownHeadline;
   final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    return NivexCard(
+    final authorName = post.isMine ? ownDisplayName : post.author.displayName;
+    final authorHeadline = post.isMine ? ownHeadline : post.author.headline;
+    return Material(
+      color: theme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: onOpenProfile,
-            borderRadius: BorderRadius.circular(8),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: theme.primary.withValues(alpha: 0.16),
-                  foregroundImage: post.isMine && ownAvatarPath != null
-                      ? FileImage(File(ownAvatarPath!))
-                      : null,
-                  child: post.isMine && ownAvatarPath != null
-                      ? null
-                      : Icon(
-                          post.author.kind == PublicProfileKind.business
-                              ? Icons.business_outlined
-                              : Icons.person_outline_rounded,
-                          color: theme.primary,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 10, 0),
+            child: InkWell(
+              onTap: onOpenProfile,
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 23,
+                    backgroundColor: theme.primary.withValues(alpha: 0.16),
+                    foregroundImage: post.isMine && ownAvatarPath != null
+                        ? FileImage(File(ownAvatarPath!))
+                        : null,
+                    child: post.isMine && ownAvatarPath != null
+                        ? null
+                        : Icon(
+                            post.author.kind == PublicProfileKind.business
+                                ? Icons.business_outlined
+                                : Icons.person_outline_rounded,
+                            color: theme.primary,
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                authorName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: theme.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Icon(Icons.verified_rounded,
+                                color: theme.primary, size: 15),
+                          ],
                         ),
-                ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(post.isMine ? 'Minh Anh' : post.author.displayName,
-                        style: TextStyle(
-                            color: theme.textPrimary,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    Text(post.timeLabel,
-                        style: TextStyle(
-                            color: theme.textSecondary, fontSize: 11)),
-                  ],
-                ),
+                        const SizedBox(height: 2),
+                        Text(
+                          authorHeadline,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: theme.textSecondary, fontSize: 11.5),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Text(post.timeLabel,
+                                style: TextStyle(
+                                    color: theme.textSecondary, fontSize: 10.5)),
+                            const SizedBox(width: 5),
+                            Icon(Icons.public_rounded,
+                                color: theme.textSecondary, size: 12),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!post.isMine)
+                    TextButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.add_rounded, size: 17),
+                      label: const Text('Theo dõi'),
+                    )
+                  else
+                    IconButton(
+                      tooltip: 'Tùy chọn bài đăng',
+                      onPressed: () {},
+                      icon: const Icon(Icons.more_horiz_rounded),
+                    ),
+                ],
               ),
-              ],
             ),
           ),
           if (post.content.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(post.content,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                post.content,
                 style: TextStyle(
-                    color: theme.textPrimary, height: 1.45, fontSize: 14)),
+                    color: theme.textPrimary, height: 1.45, fontSize: 14),
+              ),
+            ),
           ],
           if (post.images.isNotEmpty) ...[
             const SizedBox(height: 12),
             _PostGallery(images: post.images),
           ],
-          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.thumb_up_alt_rounded, color: theme.primary, size: 15),
+                const SizedBox(width: 5),
+                Text(post.isMine ? '12' : '83',
+                    style: TextStyle(color: theme.textSecondary, fontSize: 11)),
+                const Spacer(),
+                Text(post.isMine ? '3 bình luận' : '17 bình luận · 3 lượt chia sẻ',
+                    style: TextStyle(color: theme.textSecondary, fontSize: 11)),
+              ],
+            ),
+          ),
           Divider(height: 1, color: theme.divider),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.favorite_border_rounded, size: 18),
-                label: const Text('Thích'),
-              ),
-              TextButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.mode_comment_outlined, size: 18),
-                label: const Text('Bình luận'),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            child: Row(
+              children: const [
+                Expanded(child: _PostAction(icon: Icons.thumb_up_alt_outlined, label: 'Thích')),
+                Expanded(child: _PostAction(icon: Icons.chat_bubble_outline_rounded, label: 'Bình luận')),
+                Expanded(child: _PostAction(icon: Icons.repeat_rounded, label: 'Đăng lại')),
+                Expanded(child: _PostAction(icon: Icons.send_outlined, label: 'Gửi')),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PostAction extends StatelessWidget {
+  const _PostAction({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return InkWell(
+      onTap: () {},
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        height: 48,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 19, color: theme.textSecondary),
+            const SizedBox(height: 3),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: theme.textSecondary,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }

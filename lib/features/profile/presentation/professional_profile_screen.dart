@@ -1221,7 +1221,7 @@ class _EditProfessionalProfileScreenState
     if (entry != null && mounted) setState(() => _education[index] = entry);
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_skills.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1230,7 +1230,7 @@ class _EditProfessionalProfileScreenState
       return;
     }
     final current = widget.controller.profile;
-    widget.controller.update(
+    await widget.controller.update(
       current.copyWith(
         headline: _headlineController.text.trim(),
         bio: _bioController.text.trim(),
@@ -1246,6 +1246,7 @@ class _EditProfessionalProfileScreenState
         profileHeaderTheme: _headerTheme,
       ),
     );
+    if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Đã cập nhật hồ sơ nghề nghiệp')),
