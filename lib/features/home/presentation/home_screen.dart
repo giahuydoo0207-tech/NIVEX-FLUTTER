@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
+import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,6 +15,7 @@ class HomeScreen extends StatefulWidget {
     required this.onQuote,
     required this.onHelp,
     required this.onProfile,
+    required this.onCreatePost,
     super.key,
   });
 
@@ -24,6 +26,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onQuote;
   final VoidCallback onHelp;
   final VoidCallback onProfile;
+  final VoidCallback onCreatePost;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -60,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onQuote: widget.onQuote,
               onHelp: widget.onHelp,
             ),
+            _CommunityPostEntry(onTap: widget.onCreatePost),
             Divider(color: theme.divider, height: 1, thickness: 1),
             const NivexEducationSection(),
             SizedBox(
@@ -77,6 +81,56 @@ class _HomeScreenState extends State<HomeScreen> {
       useSafeArea: true,
       showDragHandle: true,
       builder: (context) => _NotificationsSheet(onJobs: widget.onJobs),
+    );
+  }
+}
+
+class _CommunityPostEntry extends StatelessWidget {
+  const _CommunityPostEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+      child: NivexCard(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: theme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.edit_note_rounded, color: theme.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Chia sẻ với cộng đồng',
+                        style: TextStyle(
+                            color: theme.textPrimary,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 3),
+                    Text('Đăng tiến độ, sản phẩm hoặc cơ hội hợp tác',
+                        style: TextStyle(
+                            color: theme.textSecondary, fontSize: 11.5)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: theme.textSecondary),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

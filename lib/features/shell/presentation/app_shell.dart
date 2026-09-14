@@ -8,6 +8,7 @@ import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
 import 'package:nivex_flutter/features/jobs/presentation/jobs_screen.dart';
 import 'package:nivex_flutter/features/messages/presentation/messages_screen.dart';
+import 'package:nivex_flutter/features/posts/presentation/posts_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
@@ -60,6 +61,7 @@ class _AppShellState extends State<AppShell> {
         onQuote: _openQuickQuote,
         onHelp: _openHelp,
         onProfile: _openProfile,
+        onCreatePost: _openPosts,
       ),
       const JobsScreen(),
       WalletScreen(onReceive: _openReceive, onCashout: _openCashout),
@@ -154,6 +156,12 @@ class _AppShellState extends State<AppShell> {
       MaterialPageRoute(
         builder: (_) => ProfileScreen(themeController: widget.themeController),
       ),
+    );
+  }
+
+  Future<void> _openPosts() {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const PostsScreen()),
     );
   }
 }
