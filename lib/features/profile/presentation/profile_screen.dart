@@ -8,6 +8,7 @@ import 'package:nivex_flutter/features/profile/presentation/bank_account_screen.
 import 'package:nivex_flutter/features/profile/presentation/legal_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/notification_settings_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/personal_info_screen.dart';
+import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/verification_screen.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/features/profile/widgets/profile_row.dart';
@@ -198,6 +199,27 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 20),
+
+                ProfileSection(
+                  title: 'HỒ SƠ NGHỀ NGHIỆP',
+                  children: [
+                    ProfileRow(
+                      title: 'Hồ sơ freelancer',
+                      subtitle: 'Kỹ năng, portfolio và khả năng nhận việc',
+                      icon: Icons.badge_outlined,
+                      trailing: const StatusBadge(
+                        label: '86%',
+                        isSuccess: false,
+                      ),
+                      onTap: () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => const ProfessionalProfileScreen(),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
 
