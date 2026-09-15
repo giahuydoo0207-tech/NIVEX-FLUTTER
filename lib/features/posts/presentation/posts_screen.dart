@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
@@ -23,12 +24,14 @@ class _PostsScreenState extends State<PostsScreen> {
   final List<XFile> _selectedImages = [];
   final List<_DemoPost> _posts = [
     const _DemoPost(
+      id: 'post-mine-001',
       content:
           'Mình vừa hoàn thiện một flow thanh toán mới cho ứng dụng mobile. Rất vui được kết nối với các dự án fintech phù hợp.',
       images: [],
       timeLabel: 'Hôm nay, 09:24',
     ),
     const _DemoPost(
+      id: 'post-nivex-002',
       content:
           'NIVEX Labs đang tìm thêm freelancer cho các dự án fintech và sản phẩm Web3. Xem hồ sơ để tìm hiểu cơ hội hợp tác.',
       images: [],
@@ -156,6 +159,7 @@ class _PostsScreenState extends State<PostsScreen> {
       _posts.insert(
         0,
         _DemoPost(
+          id: 'post-${DateTime.now().millisecondsSinceEpoch}',
           content: content,
           images: List<XFile>.from(_selectedImages),
           timeLabel: 'Vừa xong',
@@ -637,16 +641,21 @@ class _PostCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (!post.isMine)
+                  if (!post.isMine) ...[
                     TextButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.add_rounded, size: 17),
                       label: const Text('Theo dõi'),
-                    )
-                  else
+                    ),
                     IconButton(
                       tooltip: 'Tùy chọn bài đăng',
-                      onPressed: () {},
+                      onPressed: () => _showPostOptionsSheet(context, post),
+                      icon: const Icon(Icons.more_horiz_rounded),
+                    ),
+                  ] else
+                    IconButton(
+                      tooltip: 'Tùy chọn bài đăng',
+                      onPressed: () => _showPostOptionsSheet(context, post),
                       icon: const Icon(Icons.more_horiz_rounded),
                     ),
                 ],
@@ -1003,6 +1012,7 @@ class _DemoPost {
     required this.content,
     required this.images,
     required this.timeLabel,
+    this.id,
     this.isMine = true,
     this.author = const PublicProfileData(
       kind: PublicProfileKind.business,
@@ -1015,9 +1025,212 @@ class _DemoPost {
       stats: [],
     ),
   });
+  final String? id;
   final String content;
   final List<XFile> images;
   final String timeLabel;
   final bool isMine;
   final PublicProfileData author;
+}
+
+String _postPermalink(_DemoPost post) {
+  // TODO: replace demo permalink with backend post id.
+  final postId = post.id ?? 'demo-${post.hashCode.abs()}';
+  return 'https://nivex.app/posts/$postId';
+}
+
+void _showPostOptionsSheet(BuildContext context, _DemoPost post) {
+  final theme = context.nivexTheme;
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: theme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    showDragHandle: true,
+    builder: (sheetContext) {
+      void handleAction(String message) {
+        Navigator.of(sheetContext).pop();
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
+      }
+
+      if (post.isMine) {
+        return _OwnerPostOptionsSheet(
+          post: post,
+          onAction: handleAction,
+        );
+      } else {
+        return _ViewerPostOptionsSheet(
+          post: post,
+          onAction: handleAction,
+        );
+      }
+    },
+  );
+}
+
+class _OwnerPostOptionsSheet extends StatelessWidget {
+  const _OwnerPostOptionsSheet({
+    required this.post,
+    required this.onAction,
+  });
+
+  final _DemoPost post;
+  final ValueChanged<String> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _PostOptionTile(
+              icon: Icons.push_pin_outlined,
+              title: 'Ghim bài viết',
+              onTap: () => onAction('Đã ghim bài viết lên đầu trang cá nhân'),
+            ),
+            _PostOptionTile(
+              icon: Icons.bookmark_border_rounded,
+              title: 'Lưu bài viết',
+              subtitle: 'Thêm vào danh sách các mục đã lưu.',
+              onTap: () => onAction('Đã lưu bài viết vào mục Đã lưu'),
+            ),
+            _PostOptionTile(
+              icon: Icons.edit_outlined,
+              title: 'Chỉnh sửa bài viết',
+              onTap: () => onAction('Tính năng chỉnh sửa bài viết sẽ được kết nối sau'),
+            ),
+            _PostOptionTile(
+              icon: Icons.lock_outline_rounded,
+              title: 'Chỉnh sửa quyền riêng tư',
+              onTap: () => onAction('Tính năng quyền riêng tư sẽ được kết nối sau'),
+            ),
+            _PostOptionTile(
+              icon: Icons.copy_rounded,
+              title: 'Sao chép liên kết',
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: _postPermalink(post)));
+                onAction('Đã sao chép liên kết bài viết');
+              },
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.surfaceSubtle,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _PostOptionTile(
+                icon: Icons.disabled_by_default_outlined,
+                title: 'Ẩn khỏi trang cá nhân',
+                subtitle: 'Bài viết này có thể vẫn xuất hiện ở các nơi khác.',
+                onTap: () => onAction('Đã ẩn bài viết khỏi trang cá nhân'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ViewerPostOptionsSheet extends StatelessWidget {
+  const _ViewerPostOptionsSheet({
+    required this.post,
+    required this.onAction,
+  });
+
+  final _DemoPost post;
+  final ValueChanged<String> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _PostOptionTile(
+              icon: Icons.bookmark_border_rounded,
+              title: 'Lưu bài viết',
+              subtitle: 'Thêm vào danh sách bài viết đã lưu.',
+              onTap: () => onAction('Đã lưu bài viết vào mục Đã lưu'),
+            ),
+            _PostOptionTile(
+              icon: Icons.notifications_outlined,
+              title: 'Bật thông báo về bài viết này',
+              onTap: () => onAction('Đã bật thông báo cho bài viết này'),
+            ),
+            _PostOptionTile(
+              icon: Icons.copy_rounded,
+              title: 'Sao chép liên kết',
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: _postPermalink(post)));
+                onAction('Đã sao chép liên kết bài viết');
+              },
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.surfaceSubtle,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: _PostOptionTile(
+                icon: Icons.feedback_outlined,
+                title: 'Tìm hỗ trợ hoặc báo cáo',
+                onTap: () => onAction('Cảm ơn bạn. Báo cáo đã được gửi đến ban quản trị'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PostOptionTile extends StatelessWidget {
+  const _PostOptionTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      leading: Icon(icon, color: theme.textPrimary, size: 23),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: theme.textPrimary,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              style: TextStyle(
+                color: theme.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+      onTap: onTap,
+    );
+  }
 }
