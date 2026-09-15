@@ -25,8 +25,7 @@ class _PostsScreenState extends State<PostsScreen> {
   final List<_DemoPost> _posts = [
     _DemoPost(
       id: 'post-mine-001',
-      content:
-          'Mình vừa hoàn thiện một flow thanh toán mới cho ứng dụng mobile. Rất vui được kết nối với các dự án fintech phù hợp.',
+      content: 'Mình vừa hoàn thiện một flow thanh toán mới cho ứng dụng mobile. Rất vui được kết nối với các dự án fintech phù hợp.',
       images: const [],
       timeLabel: 'Hôm nay, 09:24',
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
@@ -36,8 +35,7 @@ class _PostsScreenState extends State<PostsScreen> {
           id: 'c-mine-1',
           authorName: 'Trần Bảo Long',
           headline: 'Senior Product Manager @ Fintech VN',
-          content:
-              'Flow thanh toán rất mượt, đặc biệt là phần xác thực hai lớp. Rất ấn tượng!',
+          content: 'Flow thanh toán rất mượt, đặc biệt là phần xác thực hai lớp. Rất ấn tượng!',
           timeLabel: '1 giờ trước',
           likeCount: 4,
         ),
@@ -54,8 +52,7 @@ class _PostsScreenState extends State<PostsScreen> {
     ),
     _DemoPost(
       id: 'post-nivex-002',
-      content:
-          'NIVEX Labs đang tìm thêm freelancer cho các dự án fintech và sản phẩm Web3. Xem hồ sơ để tìm hiểu cơ hội hợp tác.',
+      content: 'NIVEX Labs đang tìm thêm freelancer cho các dự án fintech và sản phẩm Web3. Xem hồ sơ để tìm hiểu cơ hội hợp tác.',
       images: const [],
       timeLabel: 'Hôm qua, 18:40',
       isMine: false,
@@ -74,13 +71,12 @@ class _PostsScreenState extends State<PostsScreen> {
           id: 'c-nivex-2',
           authorName: 'NIVEX Labs',
           headline: 'Fintech · Web3 · Remote-first',
-          content:
-              'Chào bạn, bên mình đang ưu tiên cả Flutter Dev và Solana Rust Dev nhé!',
+          content: 'Chào bạn, bên mình đang ưu tiên cả Flutter Dev và Solana Rust Dev nhé!',
           timeLabel: '1 giờ trước',
           likeCount: 8,
         ),
       ],
-      author: const PublicProfileData(
+      author: PublicProfileData(
         kind: PublicProfileKind.business,
         displayName: 'NIVEX Labs',
         handle: 'nivex.labs',
@@ -93,10 +89,92 @@ class _PostsScreenState extends State<PostsScreen> {
           (label: 'Đã kết nối', value: '126'),
         ],
         status: 'Đang tuyển',
+        isVerified: true,
+        followerCount: 312,
+        followingCount: 45,
+        postCount: 18,
+        openings: [
+          BusinessOpening(
+            title: 'Flutter Developer',
+            type: 'Remote · Full-time',
+            description: 'Xây dựng tính năng Wallet và Payment cho ứng dụng NIVEX Mobile.',
+          ),
+          BusinessOpening(
+            title: 'Solana Rust Developer',
+            type: 'Remote · Contract',
+            description:
+                'Phát triển smart contract cho hệ sinh thái DeFi của NIVEX.',
+          ),
+        ],
+      ),
+    ),
+    _DemoPost(
+      id: 'post-baolong-003',
+      content: 'Sau 6 tháng dẫn dắt team product, mình nhận ra rằng clarity beats cleverness. Spec rõ ràng giúp cả team tiết kiệm hàng tuần làm lại.',
+      images: const [],
+      timeLabel: '3 ngày trước',
+      isMine: false,
+      createdAt: DateTime.now().subtract(const Duration(days: 3)),
+      reactionCount: 41,
+      comments: const [
+        PostComment(
+          id: 'c-baolong-1',
+          authorName: 'Lê Thảo My',
+          headline: 'UI/UX Designer',
+          content: 'Đồng ý! Spec mơ hồ là nguyên nhân 90% lần mình phải thiết kế lại.',
+          timeLabel: '2 ngày trước',
+          likeCount: 7,
+        ),
+      ],
+      author: PublicProfileData(
+        kind: PublicProfileKind.freelancer,
+        displayName: 'Trần Bảo Long',
+        handle: 'baolong.pm',
+        headline: 'Senior Product Manager @ Fintech VN',
+        location: 'Hà Nội, Việt Nam',
+        bio: 'Product Manager với 5 năm kinh nghiệm trong lĩnh vực Fintech. Đam mê xây dựng sản phẩm rõ ràng và có tác động thực sự.',
+        tags: [
+          'Product Management',
+          'Agile',
+          'Fintech',
+          'OKRs',
+          'User Research',
+        ],
+        stats: [
+          (label: 'Dự án đã dẫn dắt', value: '14'),
+          (label: 'Tỷ lệ on-time', value: '91%'),
+        ],
+        status: 'Đang mở cơ hội',
+        isVerified: false,
+        followerCount: 183,
+        followingCount: 67,
+        postCount: 29,
+        experiences: [
+          ProfileExperience(
+            title: 'Senior Product Manager',
+            organization: 'Fintech VN',
+            period: '2022 - nay',
+            summary: 'Quản lý roadmap sản phẩm payment và lending. Dẫn dắt nhóm 8 người cross-functional.',
+          ),
+          ProfileExperience(
+            title: 'Product Manager',
+            organization: 'VNG Corporation',
+            period: '2019 - 2022',
+            summary: 'Xây dựng tính năng ZaloPay B2B từ 0 đến 50K merchants.',
+          ),
+        ],
+        education: [
+          ProfileEducation(
+            program: 'Quản trị Kinh doanh',
+            institution: 'Đại học Ngoại thương Hà Nội',
+            period: '2015 - 2019',
+          ),
+        ],
       ),
     ),
   ];
   bool _isPublishing = false;
+  final Set<String> _followedHandles = {};
 
   @override
   void initState() {
@@ -159,15 +237,20 @@ class _PostsScreenState extends State<PostsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
             child: Row(
               children: [
-                Icon(Icons.dynamic_feed_outlined,
-                    size: 19, color: context.nivexTheme.primary),
+                Icon(
+                  Icons.dynamic_feed_outlined,
+                  size: 19,
+                  color: context.nivexTheme.primary,
+                ),
                 const SizedBox(width: 8),
-                Text('Dành cho bạn',
-                    style: TextStyle(
-                      color: context.nivexTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    )),
+                Text(
+                  'Dành cho bạn',
+                  style: TextStyle(
+                    color: context.nivexTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ],
             ),
           ),
@@ -186,9 +269,11 @@ class _PostsScreenState extends State<PostsScreen> {
           else
             for (final post in visiblePosts) ...[
               _PostCard(
-                key: ValueKey(post.id ??
-                    post.createdAt?.millisecondsSinceEpoch ??
-                    post.content),
+                key: ValueKey(
+                  post.id ??
+                      post.createdAt?.millisecondsSinceEpoch ??
+                      post.content,
+                ),
                 post: post,
                 ownAvatarPath: _profileController.profile.avatarPath,
                 ownDisplayName: _profileController.profile.displayName,
@@ -224,7 +309,9 @@ class _PostsScreenState extends State<PostsScreen> {
       if (!mounted || images.isEmpty) return;
       setState(() => _selectedImages.addAll(images.take(remaining)));
     } catch (_) {
-      if (mounted) _showMessage('Không thể mở thư viện ảnh. Hãy kiểm tra quyền truy cập.');
+      if (mounted) {
+        _showMessage('Không thể mở thư viện ảnh. Hãy kiểm tra quyền truy cập.');
+      }
     }
   }
 
@@ -275,7 +362,9 @@ class _PostsScreenState extends State<PostsScreen> {
           behavior: SnackBarBehavior.floating,
           duration: const Duration(milliseconds: 2200),
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
   }
@@ -361,8 +450,9 @@ class _PostsScreenState extends State<PostsScreen> {
       final updatedComments = currentPost.comments.map((c) {
         if (c.id == commentId) {
           final isLiked = !c.isLiked;
-          final newLikes =
-              isLiked ? c.likeCount + 1 : (c.likeCount - 1).clamp(0, 999999);
+          final newLikes = isLiked
+              ? c.likeCount + 1
+              : (c.likeCount - 1).clamp(0, 999999);
           return c.copyWith(isLiked: isLiked, likeCount: newLikes);
         }
         return c;
@@ -375,9 +465,57 @@ class _PostsScreenState extends State<PostsScreen> {
     return _buildAuthorForPost(post);
   }
 
+  void _toggleFollow(String handle) {
+    setState(() {
+      if (_followedHandles.contains(handle)) {
+        _followedHandles.remove(handle);
+      } else {
+        _followedHandles.add(handle);
+      }
+    });
+  }
+
   void _openProfile(PublicProfileData profile) {
+    final postsForProfile = profile.isSelf
+        ? _posts
+              .where((p) => p.isMine && !p.isHidden)
+              .map(
+                (p) => CompactPost(
+                  content: p.content,
+                  timeLabel: p.timeLabel,
+                  reactionCount: p.reactionCount,
+                  commentCount: p.comments.length,
+                  imageCount: p.images.length,
+                ),
+              )
+              .toList()
+        : _posts
+              .where(
+                (p) =>
+                    !p.isMine &&
+                    p.author.handle == profile.handle &&
+                    !p.isHidden,
+              )
+              .map(
+                (p) => CompactPost(
+                  content: p.content,
+                  timeLabel: p.timeLabel,
+                  reactionCount: p.reactionCount,
+                  commentCount: p.comments.length,
+                  imageCount: p.images.length,
+                ),
+              )
+              .toList();
+
     Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => PublicProfileScreen(profile: profile)),
+      MaterialPageRoute(
+        builder: (_) => PublicProfileScreen(
+          profile: profile,
+          profilePosts: postsForProfile,
+          isFollowing: _followedHandles.contains(profile.handle),
+          onToggleFollow: () => _toggleFollow(profile.handle),
+        ),
+      ),
     );
   }
 
@@ -424,46 +562,80 @@ class _PostsScreenState extends State<PostsScreen> {
   }
 
   void _openMyPosts() {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => _MyPostsScreen(
-          allPosts: _posts,
-          avatarPath: _profileController.profile.avatarPath,
-          displayName: _profileController.profile.displayName,
-          headline: _profileController.profile.headline,
-          onTogglePin: _togglePinPost,
-          onToggleSave: _toggleSavePost,
-          onHide: _hidePost,
-          onRestore: _restorePost,
-          onOpenProfile: _openProfile,
-          onReact: _reactToPost,
-          onAddComment: _addCommentToPost,
-          onToggleCommentLike: _toggleCommentLike,
-        ),
-      ),
-    ).then((_) {
-      if (mounted) setState(() {});
-    });
+    Navigator.of(context)
+        .push<void>(
+          MaterialPageRoute(
+            builder: (_) => _MyPostsScreen(
+              allPosts: _posts,
+              avatarPath: _profileController.profile.avatarPath,
+              displayName: _profileController.profile.displayName,
+              headline: _profileController.profile.headline,
+              onTogglePin: _togglePinPost,
+              onToggleSave: _toggleSavePost,
+              onHide: _hidePost,
+              onRestore: _restorePost,
+              onOpenProfile: _openProfile,
+              onReact: _reactToPost,
+              onAddComment: _addCommentToPost,
+              onToggleCommentLike: _toggleCommentLike,
+            ),
+          ),
+        )
+        .then((_) {
+          if (mounted) setState(() {});
+        });
   }
 }
 
 PublicProfileData _buildAuthorForPost(_DemoPost post) {
   if (!post.isMine) return post.author;
-  final profile = DemoFreelancerProfileController.instance.profile;
+  final p = DemoFreelancerProfileController.instance.profile;
   return PublicProfileData(
     kind: PublicProfileKind.freelancer,
-    displayName: profile.displayName,
-    handle: profile.username,
-    headline: profile.headline,
-    location: profile.location,
-    bio: profile.bio,
-    tags: profile.skills,
-    avatarPath: profile.avatarPath,
+    displayName: p.displayName,
+    handle: p.username,
+    headline: p.headline,
+    location: p.location,
+    bio: p.bio,
+    tags: p.skills,
+    avatarPath: p.avatarPath,
+    isSelf: true,
+    isVerified: true,
+    followerCount: 48,
+    followingCount: 12,
+    postCount: 5,
     stats: [
-      (label: 'Năng lực mỗi tuần', value: '${profile.weeklyCapacityHours} giờ'),
-      (label: 'Hình thức', value: profile.workPreference),
+      (label: 'Năng lực mỗi tuần', value: '${p.weeklyCapacityHours} giờ'),
+      (label: 'Hình thức', value: p.workPreference),
     ],
-    status: profile.isAvailable ? 'Sẵn sàng' : 'Đang bận',
+    status: p.isAvailable ? 'Sẵn sàng nhận việc' : 'Đang bận',
+    experiences: [
+      for (final e in p.experiences)
+        ProfileExperience(
+          title: e.title,
+          organization: e.organization,
+          period: e.period,
+          summary: e.summary,
+        ),
+    ],
+    education: [
+      for (final e in p.education)
+        ProfileEducation(
+          program: e.program,
+          institution: e.institution,
+          period: e.period,
+        ),
+    ],
+    portfolio: [
+      for (final proj in p.projects)
+        ProfilePortfolio(
+          title: proj.title,
+          role: proj.role,
+          summary: proj.summary,
+          technologies: proj.technologies,
+          status: proj.status,
+        ),
+    ],
   );
 }
 
@@ -523,8 +695,9 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
       return timeB.compareTo(timeA);
     });
 
-    final hiddenPosts =
-        widget.allPosts.where((p) => p.isHidden && p.isMine).toList();
+    final hiddenPosts = widget.allPosts
+        .where((p) => p.isHidden && p.isMine)
+        .toList();
     hiddenPosts.sort((a, b) {
       final timeA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final timeB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -595,9 +768,13 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Đã đăng',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        const Text(
+                          'Đã đăng',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
                         if (publishedPosts.isNotEmpty) ...[
                           const SizedBox(width: 5),
                           _TabBadge(count: publishedPosts.length),
@@ -609,9 +786,13 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Đã lưu',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        const Text(
+                          'Đã lưu',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
                         if (savedPosts.isNotEmpty) ...[
                           const SizedBox(width: 5),
                           _TabBadge(count: savedPosts.length),
@@ -623,9 +804,13 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text('Đã ẩn',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        const Text(
+                          'Đã ẩn',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
                         if (hiddenPosts.isNotEmpty) ...[
                           const SizedBox(width: 5),
                           _TabBadge(count: hiddenPosts.length),
@@ -644,28 +829,28 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                       ? const _EmptyTabState(
                           icon: Icons.article_outlined,
                           title: 'Chưa có bài đăng nào',
-                          subtitle:
-                              'Các bài đăng bạn chia sẻ với cộng đồng sẽ xuất hiện tại đây.',
+                          subtitle: 'Các bài đăng bạn chia sẻ với cộng đồng sẽ xuất hiện tại đây.',
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.only(top: 8, bottom: 32),
                           itemCount: publishedPosts.length,
-                          separatorBuilder: (_, _) => Container(
-                            height: 7,
-                            color: theme.surfaceSubtle,
-                          ),
+                          separatorBuilder: (_, _) =>
+                              Container(height: 7, color: theme.surfaceSubtle),
                           itemBuilder: (context, index) {
                             final post = publishedPosts[index];
                             return _PostCard(
-                              key: ValueKey(post.id ??
-                                  post.createdAt?.millisecondsSinceEpoch ??
-                                  post.content),
+                              key: ValueKey(
+                                post.id ??
+                                    post.createdAt?.millisecondsSinceEpoch ??
+                                    post.content,
+                              ),
                               post: post,
                               ownAvatarPath: widget.avatarPath,
                               ownDisplayName: widget.displayName,
                               ownHeadline: widget.headline,
-                              onOpenProfile: () => widget.onOpenProfile
-                                  ?.call(_buildAuthorForPost(post)),
+                              onOpenProfile: () => widget.onOpenProfile?.call(
+                                _buildAuthorForPost(post),
+                              ),
                               onTogglePin: () {
                                 widget.onTogglePin?.call(post);
                                 setState(() {});
@@ -687,7 +872,10 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                                 setState(() {});
                               },
                               onToggleCommentLike: (commentId) {
-                                widget.onToggleCommentLike?.call(post, commentId);
+                                widget.onToggleCommentLike?.call(
+                                  post,
+                                  commentId,
+                                );
                                 setState(() {});
                               },
                             );
@@ -699,28 +887,28 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                       ? const _EmptyTabState(
                           icon: Icons.bookmark_border_rounded,
                           title: 'Chưa có bài viết đã lưu',
-                          subtitle:
-                              'Lưu các bài viết quan trọng từ bảng tin để xem lại sau bất cứ lúc nào.',
+                          subtitle: 'Lưu các bài viết quan trọng từ bảng tin để xem lại sau bất cứ lúc nào.',
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.only(top: 8, bottom: 32),
                           itemCount: savedPosts.length,
-                          separatorBuilder: (_, _) => Container(
-                            height: 7,
-                            color: theme.surfaceSubtle,
-                          ),
+                          separatorBuilder: (_, _) =>
+                              Container(height: 7, color: theme.surfaceSubtle),
                           itemBuilder: (context, index) {
                             final post = savedPosts[index];
                             return _PostCard(
-                              key: ValueKey(post.id ??
-                                  post.createdAt?.millisecondsSinceEpoch ??
-                                  post.content),
+                              key: ValueKey(
+                                post.id ??
+                                    post.createdAt?.millisecondsSinceEpoch ??
+                                    post.content,
+                              ),
                               post: post,
                               ownAvatarPath: widget.avatarPath,
                               ownDisplayName: widget.displayName,
                               ownHeadline: widget.headline,
-                              onOpenProfile: () => widget.onOpenProfile
-                                  ?.call(_buildAuthorForPost(post)),
+                              onOpenProfile: () => widget.onOpenProfile?.call(
+                                _buildAuthorForPost(post),
+                              ),
                               onTogglePin: () {
                                 widget.onTogglePin?.call(post);
                                 setState(() {});
@@ -742,7 +930,10 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                                 setState(() {});
                               },
                               onToggleCommentLike: (commentId) {
-                                widget.onToggleCommentLike?.call(post, commentId);
+                                widget.onToggleCommentLike?.call(
+                                  post,
+                                  commentId,
+                                );
                                 setState(() {});
                               },
                             );
@@ -754,8 +945,7 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                       ? const _EmptyTabState(
                           icon: Icons.visibility_off_outlined,
                           title: 'Không có bài viết nào bị ẩn',
-                          subtitle:
-                              'Các bài viết bạn đã ẩn khỏi bảng tin và trang cá nhân sẽ hiển thị ở đây.',
+                          subtitle: 'Các bài viết bạn đã ẩn khỏi bảng tin và trang cá nhân sẽ hiển thị ở đây.',
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -776,15 +966,21 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                                   ..showSnackBar(
                                     SnackBar(
                                       content: const Text(
-                                          'Đã khôi phục bài viết về bảng tin.'),
+                                        'Đã khôi phục bài viết về bảng tin.',
+                                      ),
                                       behavior: SnackBarBehavior.floating,
-                                      duration:
-                                          const Duration(milliseconds: 2200),
+                                      duration: const Duration(
+                                        milliseconds: 2200,
+                                      ),
                                       margin: const EdgeInsets.fromLTRB(
-                                          16, 0, 16, 24),
+                                        16,
+                                        0,
+                                        16,
+                                        24,
+                                      ),
                                       shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10)),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                   );
                               },
@@ -958,8 +1154,11 @@ class _HiddenPostCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.visibility_off_outlined,
-                        size: 12, color: Colors.amber.shade800),
+                    Icon(
+                      Icons.visibility_off_outlined,
+                      size: 12,
+                      color: Colors.amber.shade800,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'Đã ẩn',
@@ -991,8 +1190,11 @@ class _HiddenPostCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.image_outlined,
-                    size: 14, color: theme.textSecondary),
+                Icon(
+                  Icons.image_outlined,
+                  size: 14,
+                  color: theme.textSecondary,
+                ),
                 const SizedBox(width: 5),
                 Text(
                   '${post.images.length} hình ảnh đính kèm',
@@ -1008,10 +1210,13 @@ class _HiddenPostCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.primary,
                 side: BorderSide(color: theme.primary.withValues(alpha: 0.4)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: onRestore,
               icon: const Icon(Icons.restore_rounded, size: 16),
@@ -1040,10 +1245,21 @@ class _PostStat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: TextStyle(color: theme.primary, fontSize: 19, fontWeight: FontWeight.w800)),
+          Text(
+            value,
+            style: TextStyle(
+              color: theme.primary,
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 3),
-          Text(label, maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: theme.textSecondary, fontSize: 10.5)),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: theme.textSecondary, fontSize: 10.5),
+          ),
         ],
       ),
     );
@@ -1065,17 +1281,33 @@ class _ProfilePickerSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Khám phá hồ sơ', style: TextStyle(color: theme.textPrimary, fontSize: 18, fontWeight: FontWeight.w800)),
+            Text(
+              'Khám phá hồ sơ',
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             const SizedBox(height: 8),
             for (final profile in profiles)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
                   backgroundColor: theme.primary.withValues(alpha: 0.14),
-                  child: Icon(profile.kind == PublicProfileKind.business ? Icons.business_outlined : Icons.person_outline_rounded, color: theme.primary),
+                  child: Icon(
+                    profile.kind == PublicProfileKind.business
+                        ? Icons.business_outlined
+                        : Icons.person_outline_rounded,
+                    color: theme.primary,
+                  ),
                 ),
                 title: Text(profile.displayName),
-                subtitle: Text(profile.headline, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  profile.headline,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => onSelected(profile),
               ),
@@ -1122,8 +1354,9 @@ class _PostComposer extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 22,
                   backgroundColor: theme.primary.withValues(alpha: 0.16),
-                  foregroundImage:
-                      avatarPath == null ? null : FileImage(File(avatarPath!)),
+                  foregroundImage: avatarPath == null
+                      ? null
+                      : FileImage(File(avatarPath!)),
                   child: avatarPath == null
                       ? Icon(Icons.person_outline_rounded, color: theme.primary)
                       : null,
@@ -1140,8 +1373,10 @@ class _PostComposer extends StatelessWidget {
                     hintText: 'Bắt đầu một bài đăng',
                     filled: true,
                     fillColor: theme.surfaceSubtle,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 12,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide(color: theme.border),
@@ -1166,8 +1401,14 @@ class _PostComposer extends StatelessWidget {
             children: [
               TextButton.icon(
                 onPressed: isPublishing ? null : onPickImages,
-                icon: Icon(Icons.image_outlined, size: 20, color: theme.success),
-                label: Text(images.isEmpty ? 'Ảnh' : 'Ảnh (${images.length}/10)'),
+                icon: Icon(
+                  Icons.image_outlined,
+                  size: 20,
+                  color: theme.success,
+                ),
+                label: Text(
+                  images.isEmpty ? 'Ảnh' : 'Ảnh (${images.length}/10)',
+                ),
               ),
               TextButton.icon(
                 onPressed: () {},
@@ -1228,8 +1469,10 @@ class _ImagePreviewStrip extends StatelessWidget {
                   width: 86,
                   height: 86,
                   color: context.nivexTheme.surfaceSubtle,
-                  child: Icon(Icons.broken_image_outlined,
-                      color: context.nivexTheme.textSecondary),
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: context.nivexTheme.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -1290,16 +1533,28 @@ class _PostCard extends StatefulWidget {
 
 class _PostCardState extends State<_PostCard> {
   bool _showReactionPicker = false;
+  DateTime? _lastReactionTapAt;
 
-  void _handleQuickTap() {
-    if (_showReactionPicker) {
-      setState(() => _showReactionPicker = false);
-    }
-    if (widget.post.myReaction == null) {
-      widget.onReact?.call(PostReaction.like);
-    } else {
+  void _openReactionPicker() {
+    HapticFeedback.selectionClick();
+    setState(() => _showReactionPicker = true);
+  }
+
+  void _handleReactionTap() {
+    final now = DateTime.now();
+    final isSecondTap =
+        _lastReactionTapAt != null &&
+        now.difference(_lastReactionTapAt!) < const Duration(milliseconds: 320);
+    _lastReactionTapAt = now;
+
+    if (widget.post.myReaction != null && isSecondTap) {
+      HapticFeedback.lightImpact();
       widget.onReact?.call(widget.post.myReaction!);
+      setState(() => _showReactionPicker = false);
+      return;
     }
+
+    _openReactionPicker();
   }
 
   void _openComments(BuildContext context) {
@@ -1327,8 +1582,9 @@ class _PostCardState extends State<_PostCard> {
           behavior: SnackBarBehavior.floating,
           duration: const Duration(milliseconds: 1800),
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
   }
@@ -1337,10 +1593,12 @@ class _PostCardState extends State<_PostCard> {
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     final post = widget.post;
-    final authorName =
-        post.isMine ? widget.ownDisplayName : post.author.displayName;
-    final authorHeadline =
-        post.isMine ? widget.ownHeadline : post.author.headline;
+    final authorName = post.isMine
+        ? widget.ownDisplayName
+        : post.author.displayName;
+    final authorHeadline = post.isMine
+        ? widget.ownHeadline
+        : post.author.headline;
 
     return Material(
       color: theme.surface,
@@ -1412,8 +1670,11 @@ class _PostCardState extends State<_PostCard> {
                               ),
                             ),
                             const SizedBox(width: 5),
-                            Icon(Icons.verified_rounded,
-                                color: theme.primary, size: 15),
+                            Icon(
+                              Icons.verified_rounded,
+                              color: theme.primary,
+                              size: 15,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 2),
@@ -1422,18 +1683,26 @@ class _PostCardState extends State<_PostCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                              color: theme.textSecondary, fontSize: 11.5),
+                            color: theme.textSecondary,
+                            fontSize: 11.5,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Row(
                           children: [
-                            Text(post.timeLabel,
-                                style: TextStyle(
-                                    color: theme.textSecondary,
-                                    fontSize: 10.5)),
+                            Text(
+                              post.timeLabel,
+                              style: TextStyle(
+                                color: theme.textSecondary,
+                                fontSize: 10.5,
+                              ),
+                            ),
                             const SizedBox(width: 5),
-                            Icon(Icons.public_rounded,
-                                color: theme.textSecondary, size: 12),
+                            Icon(
+                              Icons.public_rounded,
+                              color: theme.textSecondary,
+                              size: 12,
+                            ),
                           ],
                         ),
                       ],
@@ -1496,12 +1765,16 @@ class _PostCardState extends State<_PostCard> {
                   onTap: () => _openComments(context),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 2,
+                      horizontal: 4,
+                    ),
                     child: Text(
                       '${post.comments.length} bình luận',
-                      style:
-                          TextStyle(color: theme.textSecondary, fontSize: 11.5),
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: 11.5,
+                      ),
                     ),
                   ),
                 ),
@@ -1519,7 +1792,7 @@ class _PostCardState extends State<_PostCard> {
                     Expanded(
                       child: _ReactionButton(
                         myReaction: post.myReaction,
-                        onTap: _handleQuickTap,
+                        onTap: _handleReactionTap,
                         onLongPress: () {
                           HapticFeedback.mediumImpact();
                           setState(() => _showReactionPicker = true);
@@ -1639,16 +1912,23 @@ class _ReactionPickerPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     return Material(
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.28),
-      borderRadius: BorderRadius.circular(28),
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.35),
+      borderRadius: BorderRadius.circular(32),
       color: theme.surface,
       child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: theme.border.withValues(alpha: 0.7)),
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: theme.primary.withValues(alpha: 0.55)),
+          boxShadow: [
+            BoxShadow(
+              color: theme.primary.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1675,38 +1955,60 @@ class _ReactionItem extends StatefulWidget {
 }
 
 class _ReactionItemState extends State<_ReactionItem> {
-  bool _isHovered = false;
+  bool _isPressed = false;
+
+  Future<void> _select() async {
+    setState(() => _isPressed = true);
+    await Future<void>.delayed(const Duration(milliseconds: 110));
+    if (!mounted) return;
+    setState(() => _isPressed = false);
+    widget.onTap();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: widget.reaction.label,
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _isHovered = true),
-        onTapUp: (_) {
-          setState(() => _isHovered = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _isHovered = false),
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => _select(),
+        onTapCancel: () => setState(() => _isPressed = false),
         child: AnimatedScale(
-          scale: _isHovered ? 1.35 : 1.0,
-          duration: const Duration(milliseconds: 140),
+          scale: _isPressed ? 1.48 : 1.0,
+          duration: const Duration(milliseconds: 135),
           curve: Curves.easeOutBack,
-          child: Container(
-            width: 38,
-            height: 38,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 135),
+            curve: Curves.easeOut,
+            width: 42,
+            height: 42,
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _isHovered
-                  ? widget.reaction.color.withValues(alpha: 0.15)
-                  : Colors.transparent,
+              color: _isPressed
+                  ? widget.reaction.color.withValues(alpha: 0.2)
+                  : widget.reaction.color.withValues(alpha: 0.08),
+              border: Border.all(
+                color: _isPressed
+                    ? widget.reaction.color.withValues(alpha: 0.72)
+                    : Colors.transparent,
+              ),
+              boxShadow: _isPressed
+                  ? [
+                      BoxShadow(
+                        color: widget.reaction.color.withValues(alpha: 0.26),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : const [],
             ),
             alignment: Alignment.center,
             child: Icon(
               widget.reaction.icon,
               color: widget.reaction.color,
-              size: 24,
+              size: _isPressed ? 27 : 23,
             ),
           ),
         ),
@@ -1716,10 +2018,7 @@ class _ReactionItemState extends State<_ReactionItem> {
 }
 
 class _ReactionBadgesStack extends StatelessWidget {
-  const _ReactionBadgesStack({
-    required this.count,
-    this.myReaction,
-  });
+  const _ReactionBadgesStack({required this.count, this.myReaction});
 
   final int count;
   final PostReaction? myReaction;
@@ -1737,10 +2036,10 @@ class _ReactionBadgesStack extends StatelessWidget {
     } else {
       badges.add(PostReaction.like);
     }
-    if (badges.first != PostReaction.love && count > 1) {
-      badges.add(PostReaction.love);
-    } else if (badges.first != PostReaction.celebrate && count > 1) {
-      badges.add(PostReaction.celebrate);
+    if (badges.first != PostReaction.trust && count > 1) {
+      badges.add(PostReaction.trust);
+    } else if (badges.first != PostReaction.launch && count > 1) {
+      badges.add(PostReaction.launch);
     }
 
     return Row(
@@ -1788,11 +2087,7 @@ class _ReactionBadgesStack extends StatelessWidget {
 }
 
 class _PostAction extends StatelessWidget {
-  const _PostAction({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+  const _PostAction({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
@@ -1934,10 +2229,7 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
         final count = isLiked
             ? current.likeCount + 1
             : (current.likeCount - 1).clamp(0, 999999);
-        _comments[index] = current.copyWith(
-          isLiked: isLiked,
-          likeCount: count,
-        );
+        _comments[index] = current.copyWith(isLiked: isLiked, likeCount: count);
       }
     });
   }
@@ -2091,7 +2383,9 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 4),
+                          horizontal: 14,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: theme.surfaceSubtle,
                           borderRadius: BorderRadius.circular(20),
@@ -2112,8 +2406,9 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                             ),
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 6),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 6,
+                            ),
                           ),
                           style: TextStyle(
                             color: theme.textPrimary,
@@ -2197,8 +2492,10 @@ class _CommentItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: theme.surfaceSubtle,
                   borderRadius: const BorderRadius.only(
@@ -2228,7 +2525,9 @@ class _CommentItem extends StatelessWidget {
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: theme.primary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
@@ -2439,10 +2738,8 @@ class _PostGallery extends StatelessWidget {
   void _openViewer(BuildContext context, int initialIndex) {
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => _FullScreenImageViewer(
-          images: images,
-          initialIndex: initialIndex,
-        ),
+        builder: (_) =>
+            _FullScreenImageViewer(images: images, initialIndex: initialIndex),
       ),
     );
   }
@@ -2512,8 +2809,10 @@ class _PostGallery extends StatelessWidget {
                 child: SizedBox(
                   height: 200,
                   child: Center(
-                    child: Icon(Icons.broken_image_outlined,
-                        color: context.nivexTheme.textSecondary),
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: context.nivexTheme.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -2548,10 +2847,7 @@ class _PostGallery extends StatelessWidget {
           height: 290,
           child: Row(
             children: [
-              Expanded(
-                flex: 3,
-                child: _buildTile(context, 0),
-              ),
+              Expanded(flex: 3, child: _buildTile(context, 0)),
               const SizedBox(width: 4),
               Expanded(
                 flex: 2,
@@ -2700,9 +2996,11 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
 enum PostReaction {
   like('Thích', Icons.thumb_up_alt_rounded, Color(0xFF38BDF8)),
   love('Yêu thích', Icons.favorite_rounded, Color(0xFFF43F5E)),
-  celebrate('Chúc mừng', Icons.celebration_rounded, Color(0xFFF59E0B)),
+  trust('Tin cậy', Icons.verified_user_rounded, Color(0xFF22C55E)),
+  build('Đang xây', Icons.construction_rounded, Color(0xFFF59E0B)),
   insightful('Hay', Icons.lightbulb_rounded, Color(0xFF06B6D4)),
-  support('Ủng hộ', Icons.handshake_rounded, Color(0xFFA855F7));
+  deal('Hợp tác', Icons.handshake_rounded, Color(0xFFA855F7)),
+  launch('Bứt phá', Icons.rocket_launch_rounded, Color(0xFFF43F5E));
 
   const PostReaction(this.label, this.icon, this.color);
   final String label;
@@ -2865,7 +3163,9 @@ void _showPostOptionsSheet(
               behavior: SnackBarBehavior.floating,
               duration: const Duration(milliseconds: 2200),
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
       }
@@ -2920,30 +3220,38 @@ class _OwnerPostOptionsSheet extends StatelessWidget {
               icon: isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
               title: isPinned ? 'Bỏ ghim bài viết' : 'Ghim bài viết',
               onTap: () => onAction(
-                isPinned ? 'Đã bỏ ghim bài viết' : 'Đã ghim bài viết lên đầu trang cá nhân',
+                isPinned
+                    ? 'Đã bỏ ghim bài viết'
+                    : 'Đã ghim bài viết lên đầu trang cá nhân',
                 onTogglePin,
               ),
             ),
             _PostOptionTile(
-              icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              icon: isSaved
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
               title: isSaved ? 'Bỏ lưu bài viết' : 'Lưu bài viết',
               subtitle: isSaved
                   ? 'Xóa khỏi danh sách các mục đã lưu.'
                   : 'Thêm vào danh sách các mục đã lưu.',
               onTap: () => onAction(
-                isSaved ? 'Đã bỏ lưu bài viết' : 'Đã lưu bài viết vào mục Đã lưu',
+                isSaved
+                    ? 'Đã bỏ lưu bài viết'
+                    : 'Đã lưu bài viết vào mục Đã lưu',
                 onToggleSave,
               ),
             ),
             _PostOptionTile(
               icon: Icons.edit_outlined,
               title: 'Chỉnh sửa bài viết',
-              onTap: () => onAction('Tính năng chỉnh sửa bài viết sẽ được kết nối sau'),
+              onTap: () =>
+                  onAction('Tính năng chỉnh sửa bài viết sẽ được kết nối sau'),
             ),
             _PostOptionTile(
               icon: Icons.lock_outline_rounded,
               title: 'Chỉnh sửa quyền riêng tư',
-              onTap: () => onAction('Tính năng quyền riêng tư sẽ được kết nối sau'),
+              onTap: () =>
+                  onAction('Tính năng quyền riêng tư sẽ được kết nối sau'),
             ),
             _PostOptionTile(
               icon: Icons.copy_rounded,
@@ -2963,7 +3271,8 @@ class _OwnerPostOptionsSheet extends StatelessWidget {
                 icon: Icons.disabled_by_default_outlined,
                 title: 'Ẩn khỏi trang cá nhân',
                 subtitle: 'Bài viết này có thể vẫn xuất hiện ở các nơi khác.',
-                onTap: () => onAction('Đã ẩn bài viết khỏi trang cá nhân', onHide),
+                onTap: () =>
+                    onAction('Đã ẩn bài viết khỏi trang cá nhân', onHide),
               ),
             ),
           ],
@@ -2996,13 +3305,17 @@ class _ViewerPostOptionsSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _PostOptionTile(
-              icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              icon: isSaved
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
               title: isSaved ? 'Bỏ lưu bài viết' : 'Lưu bài viết',
               subtitle: isSaved
                   ? 'Xóa khỏi danh sách bài viết đã lưu.'
                   : 'Thêm vào danh sách bài viết đã lưu.',
               onTap: () => onAction(
-                isSaved ? 'Đã bỏ lưu bài viết' : 'Đã lưu bài viết vào mục Đã lưu',
+                isSaved
+                    ? 'Đã bỏ lưu bài viết'
+                    : 'Đã lưu bài viết vào mục Đã lưu',
                 onToggleSave,
               ),
             ),
@@ -3028,7 +3341,9 @@ class _ViewerPostOptionsSheet extends StatelessWidget {
               child: _PostOptionTile(
                 icon: Icons.feedback_outlined,
                 title: 'Tìm hỗ trợ hoặc báo cáo',
-                onTap: () => onAction('Cảm ơn bạn. Báo cáo đã được gửi đến ban quản trị'),
+                onTap: () => onAction(
+                  'Cảm ơn bạn. Báo cáo đã được gửi đến ban quản trị',
+                ),
               ),
             ),
           ],
@@ -3069,10 +3384,7 @@ class _PostOptionTile extends StatelessWidget {
           ? null
           : Text(
               subtitle!,
-              style: TextStyle(
-                color: theme.textSecondary,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: theme.textSecondary, fontSize: 12),
             ),
       onTap: onTap,
     );
