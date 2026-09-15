@@ -737,41 +737,262 @@ class _PostGallery extends StatelessWidget {
   const _PostGallery({required this.images});
   final List<XFile> images;
 
+  void _openViewer(BuildContext context, int initialIndex) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _FullScreenImageViewer(
+          images: images,
+          initialIndex: initialIndex,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTile(
+    BuildContext context,
+    int index, {
+    bool showOverlay = false,
+    int extraCount = 0,
+  }) {
+    return GestureDetector(
+      onTap: () => _openViewer(context, index),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(
+            File(images[index].path),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => ColoredBox(
+              color: context.nivexTheme.surfaceSubtle,
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: context.nivexTheme.textSecondary,
+              ),
+            ),
+          ),
+          if (showOverlay && extraCount > 0)
+            ColoredBox(
+              color: Colors.black.withValues(alpha: 0.55),
+              child: Center(
+                child: Text(
+                  '+$extraCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = images.length;
-    final height = count == 1 ? 260.0 : 210.0;
-    return SizedBox(
-      height: height,
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: count == 1 ? 1 : 2,
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
-        ),
-        itemCount: count > 4 ? 4 : count,
-        itemBuilder: (context, index) => Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.file(File(images[index].path), fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => ColoredBox(
-                    color: context.nivexTheme.surfaceSubtle,
+    if (count == 0) return const SizedBox.shrink();
+
+    // 1 ảnh: ảnh lớn full width, trần an toàn 460px trong feed, bấm mở xem toàn bộ
+    if (count == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: GestureDetector(
+          onTap: () => _openViewer(context, 0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 460),
+            child: Image.file(
+              File(images.first.path),
+              width: double.infinity,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              errorBuilder: (_, _, _) => ColoredBox(
+                color: context.nivexTheme.surfaceSubtle,
+                child: SizedBox(
+                  height: 200,
+                  child: Center(
                     child: Icon(Icons.broken_image_outlined,
-                        color: context.nivexTheme.textSecondary))),
-            if (index == 3 && count > 4)
-              ColoredBox(
-                color: Colors.black54,
-                child: Center(
-                  child: Text('+${count - 4}',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800)),
+                        color: context.nivexTheme.textSecondary),
+                  ),
                 ),
               ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 2 ảnh: 2 cột ngang đều nhau (cao 220px)
+    if (count == 2) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: 220,
+          child: Row(
+            children: [
+              Expanded(child: _buildTile(context, 0)),
+              const SizedBox(width: 4),
+              Expanded(child: _buildTile(context, 1)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 3 ảnh: 1 ảnh lớn bên trái (flex 3), 2 ảnh nhỏ xếp dọc bên phải (flex 2, cao 290px)
+    if (count == 3) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: 290,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildTile(context, 0),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    Expanded(child: _buildTile(context, 1)),
+                    const SizedBox(height: 4),
+                    Expanded(child: _buildTile(context, 2)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 4 ảnh hoặc > 4 ảnh: Grid 2x2 cao 320px
+    // Nếu > 4 ảnh: ô thứ 4 có overlay "+(count - 4)", bấm vào mở viewer tại ảnh thứ 4
+    final isMoreThanFour = count > 4;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 320,
+        child: Column(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _buildTile(context, 0)),
+                  const SizedBox(width: 4),
+                  Expanded(child: _buildTile(context, 1)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(child: _buildTile(context, 2)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildTile(
+                      context,
+                      3,
+                      showOverlay: isMoreThanFour,
+                      extraCount: count - 4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FullScreenImageViewer extends StatefulWidget {
+  const _FullScreenImageViewer({
+    required this.images,
+    required this.initialIndex,
+  });
+
+  final List<XFile> images;
+  final int initialIndex;
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.images.length;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          tooltip: 'Đóng',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          '${_currentIndex + 1}/$total',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: total,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (index) => setState(() => _currentIndex = index),
+        itemBuilder: (context, index) {
+          return Center(
+            child: InteractiveViewer(
+              minScale: 1.0,
+              maxScale: 3.5,
+              clipBehavior: Clip.none,
+              child: Image.file(
+                File(widget.images[index].path),
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: double.infinity,
+                errorBuilder: (_, _, _) => const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
