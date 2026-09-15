@@ -23,20 +23,77 @@ class _PostsScreenState extends State<PostsScreen> {
   final _composerController = TextEditingController();
   final List<XFile> _selectedImages = [];
   final List<_DemoPost> _posts = [
-    const _DemoPost(
+    _DemoPost(
       id: 'post-mine-001',
       content:
           'Mình vừa hoàn thiện một flow thanh toán mới cho ứng dụng mobile. Rất vui được kết nối với các dự án fintech phù hợp.',
-      images: [],
+      images: const [],
       timeLabel: 'Hôm nay, 09:24',
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      reactionCount: 12,
+      comments: const [
+        PostComment(
+          id: 'c-mine-1',
+          authorName: 'Trần Bảo Long',
+          headline: 'Senior Product Manager @ Fintech VN',
+          content:
+              'Flow thanh toán rất mượt, đặc biệt là phần xác thực hai lớp. Rất ấn tượng!',
+          timeLabel: '1 giờ trước',
+          likeCount: 4,
+        ),
+        PostComment(
+          id: 'c-mine-2',
+          authorName: 'Lê Thảo My',
+          headline: 'UI/UX Designer',
+          content:
+              'Màu sắc và spacing trong flow nhìn rất gọn gàng và dễ theo dõi.',
+          timeLabel: '45 phút trước',
+          likeCount: 2,
+        ),
+      ],
     ),
-    const _DemoPost(
+    _DemoPost(
       id: 'post-nivex-002',
       content:
           'NIVEX Labs đang tìm thêm freelancer cho các dự án fintech và sản phẩm Web3. Xem hồ sơ để tìm hiểu cơ hội hợp tác.',
-      images: [],
+      images: const [],
       timeLabel: 'Hôm qua, 18:40',
       isMine: false,
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      reactionCount: 83,
+      comments: const [
+        PostComment(
+          id: 'c-nivex-1',
+          authorName: 'Phạm Hoàng Nam',
+          headline: 'Web3 Developer · Solana ecosystem',
+          content: 'Dự án đang tìm vị trí smart contract hay mobile vậy admin?',
+          timeLabel: '2 giờ trước',
+          likeCount: 5,
+        ),
+        PostComment(
+          id: 'c-nivex-2',
+          authorName: 'NIVEX Labs',
+          headline: 'Fintech · Web3 · Remote-first',
+          content:
+              'Chào bạn, bên mình đang ưu tiên cả Flutter Dev và Solana Rust Dev nhé!',
+          timeLabel: '1 giờ trước',
+          likeCount: 8,
+        ),
+      ],
+      author: const PublicProfileData(
+        kind: PublicProfileKind.business,
+        displayName: 'NIVEX Labs',
+        handle: 'nivex.labs',
+        headline: 'Fintech · Web3 · Remote-first',
+        location: 'Đà Nẵng, Việt Nam',
+        bio: 'Đội ngũ xây dựng sản phẩm tài chính số minh bạch cho freelancer và doanh nghiệp.',
+        tags: ['Fintech', 'Solana', 'Remote-first'],
+        stats: [
+          (label: 'Cơ hội đang mở', value: '3'),
+          (label: 'Đã kết nối', value: '126'),
+        ],
+        status: 'Đang tuyển',
+      ),
     ),
   ];
   bool _isPublishing = false;
@@ -44,6 +101,7 @@ class _PostsScreenState extends State<PostsScreen> {
   @override
   void initState() {
     super.initState();
+    _sortPosts();
     _profileController.addListener(_refreshProfile);
   }
 
@@ -60,6 +118,7 @@ class _PostsScreenState extends State<PostsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final visiblePosts = _posts.where((p) => !p.isHidden).toList();
     return NivexPage(
       title: 'Cộng đồng',
       subtitle: 'Chia sẻ tiến độ, sản phẩm và cơ hội hợp tác',
@@ -112,16 +171,39 @@ class _PostsScreenState extends State<PostsScreen> {
               ],
             ),
           ),
-          for (final post in _posts) ...[
-            _PostCard(
-              post: post,
-              ownAvatarPath: _profileController.profile.avatarPath,
-              ownDisplayName: _profileController.profile.displayName,
-              ownHeadline: _profileController.profile.headline,
-              onOpenProfile: () => _openProfile(_postAuthor(post)),
-            ),
-            Container(height: 7, color: context.nivexTheme.surfaceSubtle),
-          ],
+          if (visiblePosts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: NivexCard(
+                child: Center(
+                  child: Text(
+                    'Hiện chưa có bài đăng nào trong bảng tin.',
+                    style: TextStyle(color: context.nivexTheme.textSecondary),
+                  ),
+                ),
+              ),
+            )
+          else
+            for (final post in visiblePosts) ...[
+              _PostCard(
+                key: ValueKey(post.id ??
+                    post.createdAt?.millisecondsSinceEpoch ??
+                    post.content),
+                post: post,
+                ownAvatarPath: _profileController.profile.avatarPath,
+                ownDisplayName: _profileController.profile.displayName,
+                ownHeadline: _profileController.profile.headline,
+                onOpenProfile: () => _openProfile(_postAuthor(post)),
+                onTogglePin: () => _togglePinPost(post),
+                onToggleSave: () => _toggleSavePost(post),
+                onHide: () => _hidePost(post),
+                onReact: (reaction) => _reactToPost(post, reaction),
+                onAddComment: (comment) => _addCommentToPost(post, comment),
+                onToggleCommentLike: (commentId) =>
+                    _toggleCommentLike(post, commentId),
+              ),
+              Container(height: 7, color: context.nivexTheme.surfaceSubtle),
+            ],
         ],
       ),
     );
@@ -163,8 +245,10 @@ class _PostsScreenState extends State<PostsScreen> {
           content: content,
           images: List<XFile>.from(_selectedImages),
           timeLabel: 'Vừa xong',
+          createdAt: DateTime.now(),
         ),
       );
+      _sortPosts();
       _composerController.clear();
       _selectedImages.clear();
       _isPublishing = false;
@@ -172,30 +256,123 @@ class _PostsScreenState extends State<PostsScreen> {
     _showMessage('Đã đăng bài trong bản thử nghiệm.');
   }
 
+  void _sortPosts() {
+    _posts.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      final timeA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final timeB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return timeB.compareTo(timeA);
+    });
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 2200),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+  }
+
+  void _togglePinPost(_DemoPost targetPost) {
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (index == -1) return;
+      _posts[index] = _posts[index].copyWith(isPinned: !_posts[index].isPinned);
+      _sortPosts();
+    });
+  }
+
+  void _toggleSavePost(_DemoPost targetPost) {
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (index == -1) return;
+      _posts[index] = _posts[index].copyWith(isSaved: !_posts[index].isSaved);
+    });
+  }
+
+  void _hidePost(_DemoPost targetPost) {
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (index == -1) return;
+      _posts[index] = _posts[index].copyWith(isHidden: true);
+    });
+  }
+
+  void _restorePost(_DemoPost targetPost) {
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (index == -1) return;
+      _posts[index] = _posts[index].copyWith(isHidden: false);
+    });
+  }
+
+  void _reactToPost(_DemoPost targetPost, PostReaction selectedReaction) {
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (index == -1) return;
+      final current = _posts[index];
+
+      int newCount = current.reactionCount;
+      PostReaction? newReaction;
+      bool clearMyReaction = false;
+
+      if (current.myReaction == null) {
+        newCount += 1;
+        newReaction = selectedReaction;
+      } else if (current.myReaction == selectedReaction) {
+        newCount = (newCount - 1).clamp(0, 999999);
+        newReaction = null;
+        clearMyReaction = true;
+      } else {
+        newReaction = selectedReaction;
+      }
+
+      _posts[index] = current.copyWith(
+        reactionCount: newCount,
+        myReaction: newReaction,
+        clearMyReaction: clearMyReaction,
+      );
+    });
+  }
+
+  void _addCommentToPost(_DemoPost targetPost, PostComment comment) {
+    setState(() {
+      final index = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (index == -1) return;
+      final current = _posts[index];
+      final updatedComments = List<PostComment>.from(current.comments)
+        ..insert(0, comment);
+      _posts[index] = current.copyWith(comments: updatedComments);
+    });
+  }
+
+  void _toggleCommentLike(_DemoPost targetPost, String commentId) {
+    setState(() {
+      final postIndex = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (postIndex == -1) return;
+      final currentPost = _posts[postIndex];
+      final updatedComments = currentPost.comments.map((c) {
+        if (c.id == commentId) {
+          final isLiked = !c.isLiked;
+          final newLikes =
+              isLiked ? c.likeCount + 1 : (c.likeCount - 1).clamp(0, 999999);
+          return c.copyWith(isLiked: isLiked, likeCount: newLikes);
+        }
+        return c;
+      }).toList();
+      _posts[postIndex] = currentPost.copyWith(comments: updatedComments);
+    });
   }
 
   PublicProfileData _postAuthor(_DemoPost post) {
-    if (!post.isMine) return post.author;
-    final profile = _profileController.profile;
-    return PublicProfileData(
-      kind: PublicProfileKind.freelancer,
-      displayName: profile.displayName,
-      handle: profile.username,
-      headline: profile.headline,
-      location: profile.location,
-      bio: profile.bio,
-      tags: profile.skills,
-      avatarPath: profile.avatarPath,
-      stats: [
-        (label: 'Năng lực mỗi tuần', value: '${profile.weeklyCapacityHours} giờ'),
-        (label: 'Hình thức', value: profile.workPreference),
-      ],
-      status: profile.isAvailable ? 'Sẵn sàng' : 'Đang bận',
-    );
+    return _buildAuthorForPost(post);
   }
 
   void _openProfile(PublicProfileData profile) {
@@ -249,78 +426,601 @@ class _PostsScreenState extends State<PostsScreen> {
   void _openMyPosts() {
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => MyPostsScreen(
-          posts: _posts.where((post) => post.isMine).toList(),
+        builder: (_) => _MyPostsScreen(
+          allPosts: _posts,
           avatarPath: _profileController.profile.avatarPath,
           displayName: _profileController.profile.displayName,
           headline: _profileController.profile.headline,
+          onTogglePin: _togglePinPost,
+          onToggleSave: _toggleSavePost,
+          onHide: _hidePost,
+          onRestore: _restorePost,
+          onOpenProfile: _openProfile,
+          onReact: _reactToPost,
+          onAddComment: _addCommentToPost,
+          onToggleCommentLike: _toggleCommentLike,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) setState(() {});
+    });
+  }
+}
+
+PublicProfileData _buildAuthorForPost(_DemoPost post) {
+  if (!post.isMine) return post.author;
+  final profile = DemoFreelancerProfileController.instance.profile;
+  return PublicProfileData(
+    kind: PublicProfileKind.freelancer,
+    displayName: profile.displayName,
+    handle: profile.username,
+    headline: profile.headline,
+    location: profile.location,
+    bio: profile.bio,
+    tags: profile.skills,
+    avatarPath: profile.avatarPath,
+    stats: [
+      (label: 'Năng lực mỗi tuần', value: '${profile.weeklyCapacityHours} giờ'),
+      (label: 'Hình thức', value: profile.workPreference),
+    ],
+    status: profile.isAvailable ? 'Sẵn sàng' : 'Đang bận',
+  );
+}
+
+class _MyPostsScreen extends StatefulWidget {
+  const _MyPostsScreen({
+    required this.allPosts,
+    required this.avatarPath,
+    required this.displayName,
+    required this.headline,
+    this.onTogglePin,
+    this.onToggleSave,
+    this.onHide,
+    this.onRestore,
+    this.onOpenProfile,
+    this.onReact,
+    this.onAddComment,
+    this.onToggleCommentLike,
+  });
+
+  final List<_DemoPost> allPosts;
+  final String? avatarPath;
+  final String displayName;
+  final String headline;
+  final void Function(_DemoPost post)? onTogglePin;
+  final void Function(_DemoPost post)? onToggleSave;
+  final void Function(_DemoPost post)? onHide;
+  final void Function(_DemoPost post)? onRestore;
+  final ValueChanged<PublicProfileData>? onOpenProfile;
+  final void Function(_DemoPost post, PostReaction reaction)? onReact;
+  final void Function(_DemoPost post, PostComment comment)? onAddComment;
+  final void Function(_DemoPost post, String commentId)? onToggleCommentLike;
+
+  @override
+  State<_MyPostsScreen> createState() => _MyPostsScreenState();
+}
+
+class _MyPostsScreenState extends State<_MyPostsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+
+    final publishedPosts = widget.allPosts
+        .where((p) => p.isMine && !p.isHidden)
+        .toList();
+    publishedPosts.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      final timeA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final timeB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return timeB.compareTo(timeA);
+    });
+
+    final savedPosts = widget.allPosts.where((p) => p.isSaved).toList();
+    savedPosts.sort((a, b) {
+      final timeA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final timeB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return timeB.compareTo(timeA);
+    });
+
+    final hiddenPosts =
+        widget.allPosts.where((p) => p.isHidden && p.isMine).toList();
+    hiddenPosts.sort((a, b) {
+      final timeA = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final timeB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return timeB.compareTo(timeA);
+    });
+
+    return DefaultTabController(
+      length: 3,
+      child: NivexPage(
+        title: 'Bài đăng của tôi',
+        subtitle: 'Quản lý lịch sử, bài đã lưu và bài ẩn',
+        showBackButton: true,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _PostStat(
+                      label: 'Đã đăng',
+                      value: '${publishedPosts.length}',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _PostStat(
+                      label: 'Đã lưu',
+                      value: '${savedPosts.length}',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _PostStat(
+                      label: 'Đã ẩn',
+                      value: '${hiddenPosts.length}',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: theme.surfaceSubtle,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: theme.border),
+              ),
+              child: TabBar(
+                labelColor: theme.primary,
+                unselectedLabelColor: theme.textSecondary,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: theme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: theme.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                dividerColor: Colors.transparent,
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Đã đăng',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        if (publishedPosts.isNotEmpty) ...[
+                          const SizedBox(width: 5),
+                          _TabBadge(count: publishedPosts.length),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Đã lưu',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        if (savedPosts.isNotEmpty) ...[
+                          const SizedBox(width: 5),
+                          _TabBadge(count: savedPosts.length),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Đã ẩn',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        if (hiddenPosts.isNotEmpty) ...[
+                          const SizedBox(width: 5),
+                          _TabBadge(count: hiddenPosts.length),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // Tab 1: Đã đăng
+                  publishedPosts.isEmpty
+                      ? const _EmptyTabState(
+                          icon: Icons.article_outlined,
+                          title: 'Chưa có bài đăng nào',
+                          subtitle:
+                              'Các bài đăng bạn chia sẻ với cộng đồng sẽ xuất hiện tại đây.',
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.only(top: 8, bottom: 32),
+                          itemCount: publishedPosts.length,
+                          separatorBuilder: (_, _) => Container(
+                            height: 7,
+                            color: theme.surfaceSubtle,
+                          ),
+                          itemBuilder: (context, index) {
+                            final post = publishedPosts[index];
+                            return _PostCard(
+                              key: ValueKey(post.id ??
+                                  post.createdAt?.millisecondsSinceEpoch ??
+                                  post.content),
+                              post: post,
+                              ownAvatarPath: widget.avatarPath,
+                              ownDisplayName: widget.displayName,
+                              ownHeadline: widget.headline,
+                              onOpenProfile: () => widget.onOpenProfile
+                                  ?.call(_buildAuthorForPost(post)),
+                              onTogglePin: () {
+                                widget.onTogglePin?.call(post);
+                                setState(() {});
+                              },
+                              onToggleSave: () {
+                                widget.onToggleSave?.call(post);
+                                setState(() {});
+                              },
+                              onHide: () {
+                                widget.onHide?.call(post);
+                                setState(() {});
+                              },
+                              onReact: (reaction) {
+                                widget.onReact?.call(post, reaction);
+                                setState(() {});
+                              },
+                              onAddComment: (comment) {
+                                widget.onAddComment?.call(post, comment);
+                                setState(() {});
+                              },
+                              onToggleCommentLike: (commentId) {
+                                widget.onToggleCommentLike?.call(post, commentId);
+                                setState(() {});
+                              },
+                            );
+                          },
+                        ),
+
+                  // Tab 2: Đã lưu
+                  savedPosts.isEmpty
+                      ? const _EmptyTabState(
+                          icon: Icons.bookmark_border_rounded,
+                          title: 'Chưa có bài viết đã lưu',
+                          subtitle:
+                              'Lưu các bài viết quan trọng từ bảng tin để xem lại sau bất cứ lúc nào.',
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.only(top: 8, bottom: 32),
+                          itemCount: savedPosts.length,
+                          separatorBuilder: (_, _) => Container(
+                            height: 7,
+                            color: theme.surfaceSubtle,
+                          ),
+                          itemBuilder: (context, index) {
+                            final post = savedPosts[index];
+                            return _PostCard(
+                              key: ValueKey(post.id ??
+                                  post.createdAt?.millisecondsSinceEpoch ??
+                                  post.content),
+                              post: post,
+                              ownAvatarPath: widget.avatarPath,
+                              ownDisplayName: widget.displayName,
+                              ownHeadline: widget.headline,
+                              onOpenProfile: () => widget.onOpenProfile
+                                  ?.call(_buildAuthorForPost(post)),
+                              onTogglePin: () {
+                                widget.onTogglePin?.call(post);
+                                setState(() {});
+                              },
+                              onToggleSave: () {
+                                widget.onToggleSave?.call(post);
+                                setState(() {});
+                              },
+                              onHide: () {
+                                widget.onHide?.call(post);
+                                setState(() {});
+                              },
+                              onReact: (reaction) {
+                                widget.onReact?.call(post, reaction);
+                                setState(() {});
+                              },
+                              onAddComment: (comment) {
+                                widget.onAddComment?.call(post, comment);
+                                setState(() {});
+                              },
+                              onToggleCommentLike: (commentId) {
+                                widget.onToggleCommentLike?.call(post, commentId);
+                                setState(() {});
+                              },
+                            );
+                          },
+                        ),
+
+                  // Tab 3: Đã ẩn
+                  hiddenPosts.isEmpty
+                      ? const _EmptyTabState(
+                          icon: Icons.visibility_off_outlined,
+                          title: 'Không có bài viết nào bị ẩn',
+                          subtitle:
+                              'Các bài viết bạn đã ẩn khỏi bảng tin và trang cá nhân sẽ hiển thị ở đây.',
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                          itemCount: hiddenPosts.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final post = hiddenPosts[index];
+                            return _HiddenPostCard(
+                              post: post,
+                              ownAvatarPath: widget.avatarPath,
+                              ownDisplayName: widget.displayName,
+                              onRestore: () {
+                                widget.onRestore?.call(post);
+                                setState(() {});
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                          'Đã khôi phục bài viết về bảng tin.'),
+                                      behavior: SnackBarBehavior.floating,
+                                      duration:
+                                          const Duration(milliseconds: 2200),
+                                      margin: const EdgeInsets.fromLTRB(
+                                          16, 0, 16, 24),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10)),
+                                    ),
+                                  );
+                              },
+                            );
+                          },
+                        ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class MyPostsScreen extends StatelessWidget {
-  const MyPostsScreen({
-    required this.posts,
-    required this.avatarPath,
-    required this.displayName,
-    required this.headline,
-    super.key,
-  });
-
-  final List<_DemoPost> posts;
-  final String? avatarPath;
-  final String displayName;
-  final String headline;
+class _TabBadge extends StatelessWidget {
+  const _TabBadge({required this.count});
+  final int count;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    return NivexPage(
-      title: 'Bài đăng của tôi',
-      subtitle: 'Tổng hợp và lịch sử chia sẻ',
-      showBackButton: true,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: theme.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$count',
+        style: TextStyle(
+          color: theme.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyTabState extends StatelessWidget {
+  const _EmptyTabState({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: theme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 28, color: theme.primary),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: theme.textSecondary,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HiddenPostCard extends StatelessWidget {
+  const _HiddenPostCard({
+    required this.post,
+    required this.ownAvatarPath,
+    required this.ownDisplayName,
+    required this.onRestore,
+  });
+
+  final _DemoPost post;
+  final String? ownAvatarPath;
+  final String ownDisplayName;
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final authorName = post.isMine ? ownDisplayName : post.author.displayName;
+
+    return NivexCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: _PostStat(label: 'Tổng bài đăng', value: '${posts.length}')),
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: theme.primary.withValues(alpha: 0.16),
+                foregroundImage: post.isMine && ownAvatarPath != null
+                    ? FileImage(File(ownAvatarPath!))
+                    : null,
+                child: post.isMine && ownAvatarPath != null
+                    ? null
+                    : Icon(
+                        (!post.isMine &&
+                                post.author.kind == PublicProfileKind.business)
+                            ? Icons.business_outlined
+                            : Icons.person_outline_rounded,
+                        color: theme.primary,
+                        size: 18,
+                      ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: _PostStat(
-                  label: 'Ảnh đã chia sẻ',
-                  value: '${posts.fold<int>(0, (sum, post) => sum + post.images.length)}',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      authorName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      post.timeLabel,
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 10),
-              const Expanded(child: _PostStat(label: 'Lượt tương tác', value: '12')),
-            ],
-          ),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              Icon(Icons.history_rounded, size: 19, color: theme.primary),
-              const SizedBox(width: 8),
-              Text('Lịch sử bài đăng',
-                  style: TextStyle(color: theme.textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (posts.isEmpty)
-            NivexCard(child: Text('Bạn chưa có bài đăng nào.', style: TextStyle(color: theme.textSecondary)))
-          else
-            for (final post in posts) ...[
-              _PostCard(
-                post: post,
-                ownAvatarPath: avatarPath,
-                ownDisplayName: displayName,
-                ownHeadline: headline,
-                onOpenProfile: () {},
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.visibility_off_outlined,
+                        size: 12, color: Colors.amber.shade800),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Đã ẩn',
+                      style: TextStyle(
+                        color: Colors.amber.shade800,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
             ],
+          ),
+          if (post.content.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              post.content,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+          if (post.images.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.image_outlined,
+                    size: 14, color: theme.textSecondary),
+                const SizedBox(width: 5),
+                Text(
+                  '${post.images.length} hình ảnh đính kèm',
+                  style: TextStyle(color: theme.textSecondary, fontSize: 11.5),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.primary,
+                side: BorderSide(color: theme.primary.withValues(alpha: 0.4)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: onRestore,
+              icon: const Icon(Icons.restore_rounded, size: 16),
+              label: const Text(
+                'Khôi phục bài viết',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -475,14 +1175,22 @@ class _PostComposer extends StatelessWidget {
                 label: const Text('Chủ đề'),
               ),
               const Spacer(),
-              FilledButton(
-                onPressed: isPublishing ? null : onPublish,
-                child: isPublishing
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Đăng'),
+              ListenableBuilder(
+                listenable: controller,
+                builder: (context, _) {
+                  final hasContent =
+                      controller.text.trim().isNotEmpty || images.isNotEmpty;
+                  final canPublish = !isPublishing && hasContent;
+                  return FilledButton(
+                    onPressed: canPublish ? onPublish : null,
+                    child: isPublishing
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Đăng'),
+                  );
+                },
               ),
             ],
           ),
@@ -548,34 +1256,121 @@ class _ImagePreviewStrip extends StatelessWidget {
   }
 }
 
-class _PostCard extends StatelessWidget {
+class _PostCard extends StatefulWidget {
   const _PostCard({
+    super.key,
     required this.post,
     required this.ownAvatarPath,
     required this.ownDisplayName,
     required this.ownHeadline,
     required this.onOpenProfile,
+    this.onTogglePin,
+    this.onToggleSave,
+    this.onHide,
+    this.onReact,
+    this.onAddComment,
+    this.onToggleCommentLike,
   });
+
   final _DemoPost post;
   final String? ownAvatarPath;
   final String ownDisplayName;
   final String ownHeadline;
   final VoidCallback onOpenProfile;
+  final VoidCallback? onTogglePin;
+  final VoidCallback? onToggleSave;
+  final VoidCallback? onHide;
+  final ValueChanged<PostReaction>? onReact;
+  final ValueChanged<PostComment>? onAddComment;
+  final ValueChanged<String>? onToggleCommentLike;
+
+  @override
+  State<_PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<_PostCard> {
+  bool _showReactionPicker = false;
+
+  void _handleQuickTap() {
+    if (_showReactionPicker) {
+      setState(() => _showReactionPicker = false);
+    }
+    if (widget.post.myReaction == null) {
+      widget.onReact?.call(PostReaction.like);
+    } else {
+      widget.onReact?.call(widget.post.myReaction!);
+    }
+  }
+
+  void _openComments(BuildContext context) {
+    if (_showReactionPicker) {
+      setState(() => _showReactionPicker = false);
+    }
+    _showCommentSheet(
+      context,
+      post: widget.post,
+      ownAvatarPath: widget.ownAvatarPath,
+      ownDisplayName: widget.ownDisplayName,
+      ownHeadline: widget.ownHeadline,
+      onAddComment: (comment) => widget.onAddComment?.call(comment),
+      onToggleCommentLike: (commentId) =>
+          widget.onToggleCommentLike?.call(commentId),
+    );
+  }
+
+  void _showNotice(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 1800),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    final authorName = post.isMine ? ownDisplayName : post.author.displayName;
-    final authorHeadline = post.isMine ? ownHeadline : post.author.headline;
+    final post = widget.post;
+    final authorName =
+        post.isMine ? widget.ownDisplayName : post.author.displayName;
+    final authorHeadline =
+        post.isMine ? widget.ownHeadline : post.author.headline;
+
     return Material(
       color: theme.surface,
+      clipBehavior: Clip.none,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (post.isPinned) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Row(
+                children: [
+                  Icon(Icons.push_pin_rounded, size: 14, color: theme.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Bài viết đã ghim',
+                    style: TextStyle(
+                      color: theme.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 10, 0),
             child: InkWell(
-              onTap: onOpenProfile,
+              onTap: widget.onOpenProfile,
               borderRadius: BorderRadius.circular(8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,13 +1378,15 @@ class _PostCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 23,
                     backgroundColor: theme.primary.withValues(alpha: 0.16),
-                    foregroundImage: post.isMine && ownAvatarPath != null
-                        ? FileImage(File(ownAvatarPath!))
+                    foregroundImage: post.isMine && widget.ownAvatarPath != null
+                        ? FileImage(File(widget.ownAvatarPath!))
                         : null,
-                    child: post.isMine && ownAvatarPath != null
+                    child: post.isMine && widget.ownAvatarPath != null
                         ? null
                         : Icon(
-                            post.author.kind == PublicProfileKind.business
+                            (!post.isMine &&
+                                    post.author.kind ==
+                                        PublicProfileKind.business)
                                 ? Icons.business_outlined
                                 : Icons.person_outline_rounded,
                             color: theme.primary,
@@ -632,7 +1429,8 @@ class _PostCard extends StatelessWidget {
                           children: [
                             Text(post.timeLabel,
                                 style: TextStyle(
-                                    color: theme.textSecondary, fontSize: 10.5)),
+                                    color: theme.textSecondary,
+                                    fontSize: 10.5)),
                             const SizedBox(width: 5),
                             Icon(Icons.public_rounded,
                                 color: theme.textSecondary, size: 12),
@@ -649,13 +1447,25 @@ class _PostCard extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: 'Tùy chọn bài đăng',
-                      onPressed: () => _showPostOptionsSheet(context, post),
+                      onPressed: () => _showPostOptionsSheet(
+                        context,
+                        post,
+                        onTogglePin: widget.onTogglePin,
+                        onToggleSave: widget.onToggleSave,
+                        onHide: widget.onHide,
+                      ),
                       icon: const Icon(Icons.more_horiz_rounded),
                     ),
                   ] else
                     IconButton(
                       tooltip: 'Tùy chọn bài đăng',
-                      onPressed: () => _showPostOptionsSheet(context, post),
+                      onPressed: () => _showPostOptionsSheet(
+                        context,
+                        post,
+                        onTogglePin: widget.onTogglePin,
+                        onToggleSave: widget.onToggleSave,
+                        onHide: widget.onHide,
+                      ),
                       icon: const Icon(Icons.more_horiz_rounded),
                     ),
                 ],
@@ -666,11 +1476,7 @@ class _PostCard extends StatelessWidget {
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                post.content,
-                style: TextStyle(
-                    color: theme.textPrimary, height: 1.45, fontSize: 14),
-              ),
+              child: _ExpandablePostContent(text: post.content),
             ),
           ],
           if (post.images.isNotEmpty) ...[
@@ -681,27 +1487,95 @@ class _PostCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
-                Icon(Icons.thumb_up_alt_rounded, color: theme.primary, size: 15),
-                const SizedBox(width: 5),
-                Text(post.isMine ? '12' : '83',
-                    style: TextStyle(color: theme.textSecondary, fontSize: 11)),
+                _ReactionBadgesStack(
+                  count: post.reactionCount,
+                  myReaction: post.myReaction,
+                ),
                 const Spacer(),
-                Text(post.isMine ? '3 bình luận' : '17 bình luận · 3 lượt chia sẻ',
-                    style: TextStyle(color: theme.textSecondary, fontSize: 11)),
+                InkWell(
+                  onTap: () => _openComments(context),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                    child: Text(
+                      '${post.comments.length} bình luận',
+                      style:
+                          TextStyle(color: theme.textSecondary, fontSize: 11.5),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           Divider(height: 1, color: theme.divider),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            child: Row(
-              children: const [
-                Expanded(child: _PostAction(icon: Icons.thumb_up_alt_outlined, label: 'Thích')),
-                Expanded(child: _PostAction(icon: Icons.chat_bubble_outline_rounded, label: 'Bình luận')),
-                Expanded(child: _PostAction(icon: Icons.repeat_rounded, label: 'Đăng lại')),
-                Expanded(child: _PostAction(icon: Icons.send_outlined, label: 'Gửi')),
-              ],
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ReactionButton(
+                        myReaction: post.myReaction,
+                        onTap: _handleQuickTap,
+                        onLongPress: () {
+                          HapticFeedback.mediumImpact();
+                          setState(() => _showReactionPicker = true);
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: _PostAction(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        label: 'Bình luận',
+                        onTap: () => _openComments(context),
+                      ),
+                    ),
+                    Expanded(
+                      child: _PostAction(
+                        icon: Icons.repeat_rounded,
+                        label: 'Đăng lại',
+                        onTap: () => _showNotice(
+                          context,
+                          'Tính năng Đăng lại sẽ được kết nối sau.',
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: _PostAction(
+                        icon: Icons.send_outlined,
+                        label: 'Gửi',
+                        onTap: () => _showNotice(
+                          context,
+                          'Tính năng Gửi tin nhắn sẽ được kết nối sau.',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_showReactionPicker)
+                Positioned(
+                  left: 12,
+                  bottom: 50,
+                  child: TapRegion(
+                    onTapOutside: (_) {
+                      if (_showReactionPicker) {
+                        setState(() => _showReactionPicker = false);
+                      }
+                    },
+                    child: _ReactionPickerPill(
+                      onSelect: (reaction) {
+                        HapticFeedback.lightImpact();
+                        widget.onReact?.call(reaction);
+                        setState(() => _showReactionPicker = false);
+                      },
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -709,17 +1583,226 @@ class _PostCard extends StatelessWidget {
   }
 }
 
+class _ReactionButton extends StatelessWidget {
+  const _ReactionButton({
+    required this.myReaction,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final PostReaction? myReaction;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final isReacted = myReaction != null;
+    final color = isReacted ? myReaction!.color : theme.textSecondary;
+    final icon = isReacted ? myReaction!.icon : Icons.thumb_up_alt_outlined;
+    final label = isReacted ? myReaction!.label : 'Thích';
+
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        height: 48,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 19, color: color),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 9.5,
+                fontWeight: isReacted ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReactionPickerPill extends StatelessWidget {
+  const _ReactionPickerPill({required this.onSelect});
+
+  final ValueChanged<PostReaction> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return Material(
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.28),
+      borderRadius: BorderRadius.circular(28),
+      color: theme.surface,
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: theme.border.withValues(alpha: 0.7)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: PostReaction.values.map((reaction) {
+            return _ReactionItem(
+              reaction: reaction,
+              onTap: () => onSelect(reaction),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReactionItem extends StatefulWidget {
+  const _ReactionItem({required this.reaction, required this.onTap});
+
+  final PostReaction reaction;
+  final VoidCallback onTap;
+
+  @override
+  State<_ReactionItem> createState() => _ReactionItemState();
+}
+
+class _ReactionItemState extends State<_ReactionItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.reaction.label,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isHovered = true),
+        onTapUp: (_) {
+          setState(() => _isHovered = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _isHovered = false),
+        child: AnimatedScale(
+          scale: _isHovered ? 1.35 : 1.0,
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutBack,
+          child: Container(
+            width: 38,
+            height: 38,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _isHovered
+                  ? widget.reaction.color.withValues(alpha: 0.15)
+                  : Colors.transparent,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              widget.reaction.icon,
+              color: widget.reaction.color,
+              size: 24,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReactionBadgesStack extends StatelessWidget {
+  const _ReactionBadgesStack({
+    required this.count,
+    this.myReaction,
+  });
+
+  final int count;
+  final PostReaction? myReaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    if (count <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final List<PostReaction> badges = [];
+    if (myReaction != null) {
+      badges.add(myReaction!);
+    } else {
+      badges.add(PostReaction.like);
+    }
+    if (badges.first != PostReaction.love && count > 1) {
+      badges.add(PostReaction.love);
+    } else if (badges.first != PostReaction.celebrate && count > 1) {
+      badges.add(PostReaction.celebrate);
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: badges.length == 1 ? 20 : 33,
+          height: 20,
+          child: Stack(
+            children: [
+              for (int i = 0; i < badges.length; i++)
+                Positioned(
+                  left: i * 13.0,
+                  child: Container(
+                    width: 19,
+                    height: 19,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: badges[i].color,
+                      border: Border.all(color: theme.surface, width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      badges[i].icon,
+                      size: 10.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '$count',
+          style: TextStyle(
+            color: theme.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PostAction extends StatelessWidget {
-  const _PostAction({required this.icon, required this.label});
+  const _PostAction({
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: SizedBox(
         height: 48,
@@ -728,16 +1811,623 @@ class _PostAction extends StatelessWidget {
           children: [
             Icon(icon, size: 19, color: theme.textSecondary),
             const SizedBox(height: 3),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: theme.textSecondary,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.textSecondary,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+void _showCommentSheet(
+  BuildContext context, {
+  required _DemoPost post,
+  required String? ownAvatarPath,
+  required String ownDisplayName,
+  required String ownHeadline,
+  required ValueChanged<PostComment> onAddComment,
+  required ValueChanged<String> onToggleCommentLike,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: false,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _CommentSheetWidget(
+      post: post,
+      ownAvatarPath: ownAvatarPath,
+      ownDisplayName: ownDisplayName,
+      ownHeadline: ownHeadline,
+      onAddComment: onAddComment,
+      onToggleCommentLike: onToggleCommentLike,
+    ),
+  );
+}
+
+class _CommentSheetWidget extends StatefulWidget {
+  const _CommentSheetWidget({
+    required this.post,
+    required this.ownAvatarPath,
+    required this.ownDisplayName,
+    required this.ownHeadline,
+    required this.onAddComment,
+    required this.onToggleCommentLike,
+  });
+
+  final _DemoPost post;
+  final String? ownAvatarPath;
+  final String ownDisplayName;
+  final String ownHeadline;
+  final ValueChanged<PostComment> onAddComment;
+  final ValueChanged<String> onToggleCommentLike;
+
+  @override
+  State<_CommentSheetWidget> createState() => _CommentSheetWidgetState();
+}
+
+class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
+  late final List<PostComment> _comments;
+  final TextEditingController _textController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _comments = List<PostComment>.from(widget.post.comments);
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _sendComment() {
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+
+    final newComment = PostComment(
+      id: 'comment-${DateTime.now().millisecondsSinceEpoch}',
+      authorName: widget.ownDisplayName,
+      headline: widget.ownHeadline,
+      content: text,
+      timeLabel: 'Vừa xong',
+      avatarPath: widget.ownAvatarPath,
+      isMine: true,
+    );
+
+    widget.onAddComment(newComment);
+
+    setState(() {
+      _comments.insert(0, newComment);
+      _textController.clear();
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  void _toggleLike(PostComment comment) {
+    widget.onToggleCommentLike(comment.id);
+    setState(() {
+      final index = _comments.indexWhere((c) => c.id == comment.id);
+      if (index != -1) {
+        final current = _comments[index];
+        final isLiked = !current.isLiked;
+        final count = isLiked
+            ? current.likeCount + 1
+            : (current.likeCount - 1).clamp(0, 999999);
+        _comments[index] = current.copyWith(
+          isLiked: isLiked,
+          likeCount: count,
+        );
+      }
+    });
+  }
+
+  void _replyTo(PostComment comment) {
+    _textController.text = '@${comment.authorName} ';
+    _textController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _textController.text.length),
+    );
+    _focusNode.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final postAuthorName = widget.post.isMine
+        ? widget.ownDisplayName
+        : widget.post.author.displayName;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      decoration: BoxDecoration(
+        color: theme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                children: [
+                  Text(
+                    'Bình luận (${_comments.length})',
+                    style: TextStyle(
+                      color: theme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: theme.divider),
+            Expanded(
+              child: _comments.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline_rounded,
+                              size: 40,
+                              color: theme.textSecondary.withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Chưa có bình luận nào',
+                              style: TextStyle(
+                                color: theme.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Hãy là người đầu tiên để lại ý kiến của bạn!',
+                              style: TextStyle(
+                                color: theme.textSecondary,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      itemCount: _comments.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        final comment = _comments[index];
+                        final isAuthor = comment.authorName == postAuthorName;
+                        return _CommentItem(
+                          comment: comment,
+                          isAuthor: isAuthor,
+                          ownAvatarPath: widget.ownAvatarPath,
+                          onLike: () => _toggleLike(comment),
+                          onReply: () => _replyTo(comment),
+                        );
+                      },
+                    ),
+            ),
+            Divider(height: 1, color: theme.divider),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: theme.primary.withValues(alpha: 0.16),
+                      foregroundImage: widget.ownAvatarPath != null
+                          ? FileImage(File(widget.ownAvatarPath!))
+                          : null,
+                      child: widget.ownAvatarPath != null
+                          ? null
+                          : Icon(
+                              Icons.person_outline_rounded,
+                              color: theme.primary,
+                              size: 18,
+                            ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: theme.surfaceSubtle,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: theme.border),
+                        ),
+                        child: TextField(
+                          controller: _textController,
+                          focusNode: _focusNode,
+                          minLines: 1,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendComment(),
+                          decoration: InputDecoration(
+                            hintText: 'Viết bình luận...',
+                            hintStyle: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 13,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 6),
+                          ),
+                          style: TextStyle(
+                            color: theme.textPrimary,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _textController,
+                      builder: (context, value, _) {
+                        final hasText = value.text.trim().isNotEmpty;
+                        return IconButton(
+                          onPressed: hasText ? _sendComment : null,
+                          icon: Icon(
+                            Icons.send_rounded,
+                            color: hasText
+                                ? theme.primary
+                                : theme.textSecondary.withValues(alpha: 0.4),
+                            size: 20,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CommentItem extends StatelessWidget {
+  const _CommentItem({
+    required this.comment,
+    required this.isAuthor,
+    required this.ownAvatarPath,
+    required this.onLike,
+    required this.onReply,
+  });
+
+  final PostComment comment;
+  final bool isAuthor;
+  final String? ownAvatarPath;
+  final VoidCallback onLike;
+  final VoidCallback onReply;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final avatar =
+        comment.avatarPath ?? (comment.isMine ? ownAvatarPath : null);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 17,
+          backgroundColor: theme.primary.withValues(alpha: 0.14),
+          foregroundImage: avatar != null ? FileImage(File(avatar)) : null,
+          child: avatar != null
+              ? null
+              : Text(
+                  comment.authorName.isNotEmpty
+                      ? comment.authorName[0].toUpperCase()
+                      : 'U',
+                  style: TextStyle(
+                    color: theme.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.surfaceSubtle,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(14),
+                    bottomLeft: Radius.circular(14),
+                    bottomRight: Radius.circular(14),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            comment.authorName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        if (isAuthor) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: theme.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Tác giả',
+                              style: TextStyle(
+                                color: theme.primary,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (comment.headline.isNotEmpty) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        comment.headline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      comment.content,
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      comment.timeLabel,
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: onLike,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            comment.isLiked
+                                ? Icons.thumb_up_alt_rounded
+                                : Icons.thumb_up_alt_outlined,
+                            size: 13,
+                            color: comment.isLiked
+                                ? theme.primary
+                                : theme.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            comment.isLiked ? 'Đã thích' : 'Thích',
+                            style: TextStyle(
+                              color: comment.isLiked
+                                  ? theme.primary
+                                  : theme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: comment.isLiked
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                            ),
+                          ),
+                          if (comment.likeCount > 0) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '(${comment.likeCount})',
+                              style: TextStyle(
+                                color: comment.isLiked
+                                    ? theme.primary
+                                    : theme.textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    GestureDetector(
+                      onTap: onReply,
+                      child: Text(
+                        'Trả lời',
+                        style: TextStyle(
+                          color: theme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExpandablePostContent extends StatefulWidget {
+  const _ExpandablePostContent({required this.text});
+
+  final String text;
+
+  @override
+  State<_ExpandablePostContent> createState() => _ExpandablePostContentState();
+}
+
+class _ExpandablePostContentState extends State<_ExpandablePostContent> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final textStyle = TextStyle(
+      color: theme.textPrimary,
+      height: 1.45,
+      fontSize: 14,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final span = TextSpan(text: widget.text, style: textStyle);
+        final tp = TextPainter(
+          text: span,
+          maxLines: 3,
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        final isOverflowing = tp.didExceedMaxLines;
+        if (!isOverflowing) {
+          return Text.rich(span);
+        }
+
+        if (_isExpanded) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.text, style: textStyle),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: () => setState(() => _isExpanded = false),
+                child: Text(
+                  'Thu gọn',
+                  style: TextStyle(
+                    color: theme.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.text,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: textStyle,
+            ),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () => setState(() => _isExpanded = true),
+              child: Text(
+                '... xem thêm',
+                style: TextStyle(
+                  color: theme.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1007,6 +2697,67 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
   }
 }
 
+enum PostReaction {
+  like('Thích', Icons.thumb_up_alt_rounded, Color(0xFF38BDF8)),
+  love('Yêu thích', Icons.favorite_rounded, Color(0xFFF43F5E)),
+  celebrate('Chúc mừng', Icons.celebration_rounded, Color(0xFFF59E0B)),
+  insightful('Hay', Icons.lightbulb_rounded, Color(0xFF06B6D4)),
+  support('Ủng hộ', Icons.handshake_rounded, Color(0xFFA855F7));
+
+  const PostReaction(this.label, this.icon, this.color);
+  final String label;
+  final IconData icon;
+  final Color color;
+}
+
+class PostComment {
+  const PostComment({
+    required this.id,
+    required this.authorName,
+    required this.headline,
+    required this.content,
+    required this.timeLabel,
+    this.avatarPath,
+    this.isMine = false,
+    this.likeCount = 0,
+    this.isLiked = false,
+  });
+
+  final String id;
+  final String authorName;
+  final String headline;
+  final String content;
+  final String timeLabel;
+  final String? avatarPath;
+  final bool isMine;
+  final int likeCount;
+  final bool isLiked;
+
+  PostComment copyWith({
+    String? id,
+    String? authorName,
+    String? headline,
+    String? content,
+    String? timeLabel,
+    String? avatarPath,
+    bool? isMine,
+    int? likeCount,
+    bool? isLiked,
+  }) {
+    return PostComment(
+      id: id ?? this.id,
+      authorName: authorName ?? this.authorName,
+      headline: headline ?? this.headline,
+      content: content ?? this.content,
+      timeLabel: timeLabel ?? this.timeLabel,
+      avatarPath: avatarPath ?? this.avatarPath,
+      isMine: isMine ?? this.isMine,
+      likeCount: likeCount ?? this.likeCount,
+      isLiked: isLiked ?? this.isLiked,
+    );
+  }
+}
+
 class _DemoPost {
   const _DemoPost({
     required this.content,
@@ -1014,23 +2765,71 @@ class _DemoPost {
     required this.timeLabel,
     this.id,
     this.isMine = true,
+    this.isPinned = false,
+    this.isSaved = false,
+    this.isHidden = false,
+    this.createdAt,
+    this.reactionCount = 0,
+    this.myReaction,
+    this.comments = const [],
     this.author = const PublicProfileData(
-      kind: PublicProfileKind.business,
-      displayName: 'NIVEX Labs',
-      handle: 'nivex.labs',
-      headline: 'Fintech · Web3 · Remote-first',
+      kind: PublicProfileKind.freelancer,
+      displayName: 'Minh Anh',
+      handle: 'minhanh.nivex',
+      headline: 'Flutter Developer | Fintech Mobile Applications',
       location: 'Đà Nẵng, Việt Nam',
-      bio: 'Đội ngũ xây dựng sản phẩm tài chính số minh bạch cho freelancer và doanh nghiệp.',
-      tags: ['Fintech', 'Solana', 'Remote-first'],
+      bio: '',
+      tags: [],
       stats: [],
     ),
   });
+
   final String? id;
   final String content;
   final List<XFile> images;
   final String timeLabel;
   final bool isMine;
+  final bool isPinned;
+  final bool isSaved;
+  final bool isHidden;
+  final DateTime? createdAt;
+  final int reactionCount;
+  final PostReaction? myReaction;
+  final List<PostComment> comments;
   final PublicProfileData author;
+
+  _DemoPost copyWith({
+    String? id,
+    String? content,
+    List<XFile>? images,
+    String? timeLabel,
+    bool? isMine,
+    bool? isPinned,
+    bool? isSaved,
+    bool? isHidden,
+    DateTime? createdAt,
+    int? reactionCount,
+    PostReaction? myReaction,
+    bool clearMyReaction = false,
+    List<PostComment>? comments,
+    PublicProfileData? author,
+  }) {
+    return _DemoPost(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      images: images ?? this.images,
+      timeLabel: timeLabel ?? this.timeLabel,
+      isMine: isMine ?? this.isMine,
+      isPinned: isPinned ?? this.isPinned,
+      isSaved: isSaved ?? this.isSaved,
+      isHidden: isHidden ?? this.isHidden,
+      createdAt: createdAt ?? this.createdAt,
+      reactionCount: reactionCount ?? this.reactionCount,
+      myReaction: clearMyReaction ? null : (myReaction ?? this.myReaction),
+      comments: comments ?? this.comments,
+      author: author ?? this.author,
+    );
+  }
 }
 
 String _postPermalink(_DemoPost post) {
@@ -1039,7 +2838,13 @@ String _postPermalink(_DemoPost post) {
   return 'https://nivex.app/posts/$postId';
 }
 
-void _showPostOptionsSheet(BuildContext context, _DemoPost post) {
+void _showPostOptionsSheet(
+  BuildContext context,
+  _DemoPost post, {
+  VoidCallback? onTogglePin,
+  VoidCallback? onToggleSave,
+  VoidCallback? onHide,
+}) {
   final theme = context.nivexTheme;
   showModalBottomSheet<void>(
     context: context,
@@ -1049,22 +2854,35 @@ void _showPostOptionsSheet(BuildContext context, _DemoPost post) {
     ),
     showDragHandle: true,
     builder: (sheetContext) {
-      void handleAction(String message) {
+      void handleAction(String message, [VoidCallback? action]) {
         Navigator.of(sheetContext).pop();
+        action?.call();
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(message)));
+          ..showSnackBar(
+            SnackBar(
+              content: Text(message),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(milliseconds: 2200),
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
       }
 
       if (post.isMine) {
         return _OwnerPostOptionsSheet(
           post: post,
           onAction: handleAction,
+          onTogglePin: onTogglePin,
+          onToggleSave: onToggleSave,
+          onHide: onHide,
         );
       } else {
         return _ViewerPostOptionsSheet(
           post: post,
           onAction: handleAction,
+          onToggleSave: onToggleSave,
         );
       }
     },
@@ -1075,14 +2893,23 @@ class _OwnerPostOptionsSheet extends StatelessWidget {
   const _OwnerPostOptionsSheet({
     required this.post,
     required this.onAction,
+    this.onTogglePin,
+    this.onToggleSave,
+    this.onHide,
   });
 
   final _DemoPost post;
-  final ValueChanged<String> onAction;
+  final void Function(String message, [VoidCallback? action]) onAction;
+  final VoidCallback? onTogglePin;
+  final VoidCallback? onToggleSave;
+  final VoidCallback? onHide;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
+    final isPinned = post.isPinned;
+    final isSaved = post.isSaved;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -1090,15 +2917,23 @@ class _OwnerPostOptionsSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _PostOptionTile(
-              icon: Icons.push_pin_outlined,
-              title: 'Ghim bài viết',
-              onTap: () => onAction('Đã ghim bài viết lên đầu trang cá nhân'),
+              icon: isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+              title: isPinned ? 'Bỏ ghim bài viết' : 'Ghim bài viết',
+              onTap: () => onAction(
+                isPinned ? 'Đã bỏ ghim bài viết' : 'Đã ghim bài viết lên đầu trang cá nhân',
+                onTogglePin,
+              ),
             ),
             _PostOptionTile(
-              icon: Icons.bookmark_border_rounded,
-              title: 'Lưu bài viết',
-              subtitle: 'Thêm vào danh sách các mục đã lưu.',
-              onTap: () => onAction('Đã lưu bài viết vào mục Đã lưu'),
+              icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              title: isSaved ? 'Bỏ lưu bài viết' : 'Lưu bài viết',
+              subtitle: isSaved
+                  ? 'Xóa khỏi danh sách các mục đã lưu.'
+                  : 'Thêm vào danh sách các mục đã lưu.',
+              onTap: () => onAction(
+                isSaved ? 'Đã bỏ lưu bài viết' : 'Đã lưu bài viết vào mục Đã lưu',
+                onToggleSave,
+              ),
             ),
             _PostOptionTile(
               icon: Icons.edit_outlined,
@@ -1128,7 +2963,7 @@ class _OwnerPostOptionsSheet extends StatelessWidget {
                 icon: Icons.disabled_by_default_outlined,
                 title: 'Ẩn khỏi trang cá nhân',
                 subtitle: 'Bài viết này có thể vẫn xuất hiện ở các nơi khác.',
-                onTap: () => onAction('Đã ẩn bài viết khỏi trang cá nhân'),
+                onTap: () => onAction('Đã ẩn bài viết khỏi trang cá nhân', onHide),
               ),
             ),
           ],
@@ -1142,14 +2977,18 @@ class _ViewerPostOptionsSheet extends StatelessWidget {
   const _ViewerPostOptionsSheet({
     required this.post,
     required this.onAction,
+    this.onToggleSave,
   });
 
   final _DemoPost post;
-  final ValueChanged<String> onAction;
+  final void Function(String message, [VoidCallback? action]) onAction;
+  final VoidCallback? onToggleSave;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
+    final isSaved = post.isSaved;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -1157,10 +2996,15 @@ class _ViewerPostOptionsSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _PostOptionTile(
-              icon: Icons.bookmark_border_rounded,
-              title: 'Lưu bài viết',
-              subtitle: 'Thêm vào danh sách bài viết đã lưu.',
-              onTap: () => onAction('Đã lưu bài viết vào mục Đã lưu'),
+              icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              title: isSaved ? 'Bỏ lưu bài viết' : 'Lưu bài viết',
+              subtitle: isSaved
+                  ? 'Xóa khỏi danh sách bài viết đã lưu.'
+                  : 'Thêm vào danh sách bài viết đã lưu.',
+              onTap: () => onAction(
+                isSaved ? 'Đã bỏ lưu bài viết' : 'Đã lưu bài viết vào mục Đã lưu',
+                onToggleSave,
+              ),
             ),
             _PostOptionTile(
               icon: Icons.notifications_outlined,
