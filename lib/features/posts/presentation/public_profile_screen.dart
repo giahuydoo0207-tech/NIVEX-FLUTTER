@@ -265,14 +265,17 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             SliverPersistentHeader(
               pinned: true,
               delegate: _TabBarDelegate(
+                height: 64.0,
                 child: Container(
                   color: theme.surface,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Divider(height: 1, color: theme.divider),
+                      const SizedBox(height: 5),
                       Container(
-                        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        height: 44,
                         decoration: BoxDecoration(
                           color: theme.surfaceSubtle,
                           borderRadius: BorderRadius.circular(10),
@@ -310,7 +313,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
@@ -335,21 +337,23 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 // ---------------------------------------------------------------------------
 
 class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  _TabBarDelegate({required this.child});
+  _TabBarDelegate({required this.child, this.height = 64.0});
   final Widget child;
-  static const _h = 58.0;
+  final double height;
+
   @override
-  double get minExtent => _h;
+  double get minExtent => height;
   @override
-  double get maxExtent => _h;
+  double get maxExtent => height;
   @override
   Widget build(
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
-  ) => child;
+  ) => SizedBox(height: height, child: child);
   @override
-  bool shouldRebuild(_TabBarDelegate old) => old.child != child;
+  bool shouldRebuild(_TabBarDelegate old) =>
+      old.child != child || old.height != height;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -66,14 +67,17 @@ class _PostsScreenState extends State<PostsScreen> {
           content: 'Dự án đang tìm vị trí smart contract hay mobile vậy admin?',
           timeLabel: '2 giờ trước',
           likeCount: 5,
-        ),
-        PostComment(
-          id: 'c-nivex-2',
-          authorName: 'NIVEX Labs',
-          headline: 'Fintech · Web3 · Remote-first',
-          content: 'Chào bạn, bên mình đang ưu tiên cả Flutter Dev và Solana Rust Dev nhé!',
-          timeLabel: '1 giờ trước',
-          likeCount: 8,
+          replies: [
+            PostCommentReply(
+              id: 'r-nivex-1',
+              authorName: 'NIVEX Labs',
+              headline: 'Fintech · Web3 · Remote-first',
+              content: 'Chào bạn, bên mình đang ưu tiên cả Flutter Dev và Solana Rust Dev nhé!',
+              timeLabel: '1 giờ trước',
+              replyingToName: 'Phạm Hoàng Nam',
+              likeCount: 8,
+            ),
+          ],
         ),
       ],
       author: PublicProfileData(
@@ -284,6 +288,8 @@ class _PostsScreenState extends State<PostsScreen> {
                 onHide: () => _hidePost(post),
                 onReact: (reaction) => _reactToPost(post, reaction),
                 onAddComment: (comment) => _addCommentToPost(post, comment),
+                onAddReply: (parentId, reply) =>
+                    _addReplyToComment(post, parentId, reply),
                 onToggleCommentLike: (commentId) =>
                     _toggleCommentLike(post, commentId),
               ),
@@ -442,20 +448,49 @@ class _PostsScreenState extends State<PostsScreen> {
     });
   }
 
-  void _toggleCommentLike(_DemoPost targetPost, String commentId) {
+  void _addReplyToComment(
+    _DemoPost targetPost,
+    String parentCommentId,
+    PostCommentReply reply,
+  ) {
     setState(() {
       final postIndex = _posts.indexWhere((p) => p.id == targetPost.id);
       if (postIndex == -1) return;
       final currentPost = _posts[postIndex];
       final updatedComments = currentPost.comments.map((c) {
-        if (c.id == commentId) {
+        if (c.id == parentCommentId) {
+          return c.copyWith(replies: [...c.replies, reply]);
+        }
+        return c;
+      }).toList();
+      _posts[postIndex] = currentPost.copyWith(comments: updatedComments);
+    });
+  }
+
+  void _toggleCommentLike(_DemoPost targetPost, String commentOrReplyId) {
+    setState(() {
+      final postIndex = _posts.indexWhere((p) => p.id == targetPost.id);
+      if (postIndex == -1) return;
+      final currentPost = _posts[postIndex];
+      final updatedComments = currentPost.comments.map((c) {
+        if (c.id == commentOrReplyId) {
           final isLiked = !c.isLiked;
           final newLikes = isLiked
               ? c.likeCount + 1
               : (c.likeCount - 1).clamp(0, 999999);
           return c.copyWith(isLiked: isLiked, likeCount: newLikes);
         }
-        return c;
+        final updatedReplies = c.replies.map((r) {
+          if (r.id == commentOrReplyId) {
+            final isLiked = !r.isLiked;
+            final newLikes = isLiked
+                ? r.likeCount + 1
+                : (r.likeCount - 1).clamp(0, 999999);
+            return r.copyWith(isLiked: isLiked, likeCount: newLikes);
+          }
+          return r;
+        }).toList();
+        return c.copyWith(replies: updatedReplies);
       }).toList();
       _posts[postIndex] = currentPost.copyWith(comments: updatedComments);
     });
@@ -484,7 +519,10 @@ class _PostsScreenState extends State<PostsScreen> {
                   content: p.content,
                   timeLabel: p.timeLabel,
                   reactionCount: p.reactionCount,
-                  commentCount: p.comments.length,
+                  commentCount: p.comments.fold<int>(
+                    0,
+                    (sum, c) => sum + 1 + c.replies.length,
+                  ),
                   imageCount: p.images.length,
                 ),
               )
@@ -501,7 +539,10 @@ class _PostsScreenState extends State<PostsScreen> {
                   content: p.content,
                   timeLabel: p.timeLabel,
                   reactionCount: p.reactionCount,
-                  commentCount: p.comments.length,
+                  commentCount: p.comments.fold<int>(
+                    0,
+                    (sum, c) => sum + 1 + c.replies.length,
+                  ),
                   imageCount: p.images.length,
                 ),
               )
@@ -577,6 +618,7 @@ class _PostsScreenState extends State<PostsScreen> {
               onOpenProfile: _openProfile,
               onReact: _reactToPost,
               onAddComment: _addCommentToPost,
+              onAddReply: _addReplyToComment,
               onToggleCommentLike: _toggleCommentLike,
             ),
           ),
@@ -652,6 +694,7 @@ class _MyPostsScreen extends StatefulWidget {
     this.onOpenProfile,
     this.onReact,
     this.onAddComment,
+    this.onAddReply,
     this.onToggleCommentLike,
   });
 
@@ -666,6 +709,8 @@ class _MyPostsScreen extends StatefulWidget {
   final ValueChanged<PublicProfileData>? onOpenProfile;
   final void Function(_DemoPost post, PostReaction reaction)? onReact;
   final void Function(_DemoPost post, PostComment comment)? onAddComment;
+  final void Function(_DemoPost post, String parentId, PostCommentReply reply)?
+  onAddReply;
   final void Function(_DemoPost post, String commentId)? onToggleCommentLike;
 
   @override
@@ -871,6 +916,10 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                                 widget.onAddComment?.call(post, comment);
                                 setState(() {});
                               },
+                              onAddReply: (parentId, reply) {
+                                widget.onAddReply?.call(post, parentId, reply);
+                                setState(() {});
+                              },
                               onToggleCommentLike: (commentId) {
                                 widget.onToggleCommentLike?.call(
                                   post,
@@ -927,6 +976,10 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                               },
                               onAddComment: (comment) {
                                 widget.onAddComment?.call(post, comment);
+                                setState(() {});
+                              },
+                              onAddReply: (parentId, reply) {
+                                widget.onAddReply?.call(post, parentId, reply);
                                 setState(() {});
                               },
                               onToggleCommentLike: (commentId) {
@@ -1512,6 +1565,7 @@ class _PostCard extends StatefulWidget {
     this.onHide,
     this.onReact,
     this.onAddComment,
+    this.onAddReply,
     this.onToggleCommentLike,
   });
 
@@ -1525,6 +1579,7 @@ class _PostCard extends StatefulWidget {
   final VoidCallback? onHide;
   final ValueChanged<PostReaction>? onReact;
   final ValueChanged<PostComment>? onAddComment;
+  final void Function(String parentId, PostCommentReply reply)? onAddReply;
   final ValueChanged<String>? onToggleCommentLike;
 
   @override
@@ -1533,28 +1588,37 @@ class _PostCard extends StatefulWidget {
 
 class _PostCardState extends State<_PostCard> {
   bool _showReactionPicker = false;
-  DateTime? _lastReactionTapAt;
+  int? _hoveredIndex;
+  Timer? _longPressTimer;
+  Offset? _pointerDownPosition;
+  final GlobalKey _pickerKey = GlobalKey();
 
-  void _openReactionPicker() {
-    HapticFeedback.selectionClick();
-    setState(() => _showReactionPicker = true);
+  @override
+  void dispose() {
+    _longPressTimer?.cancel();
+    super.dispose();
   }
 
-  void _handleReactionTap() {
-    final now = DateTime.now();
-    final isSecondTap =
-        _lastReactionTapAt != null &&
-        now.difference(_lastReactionTapAt!) < const Duration(milliseconds: 320);
-    _lastReactionTapAt = now;
+  void _updateHoveredFromGlobal(Offset globalPos) {
+    final renderBox =
+        _pickerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final localPos = renderBox.globalToLocal(globalPos);
 
-    if (widget.post.myReaction != null && isSecondTap) {
-      HapticFeedback.lightImpact();
-      widget.onReact?.call(widget.post.myReaction!);
-      setState(() => _showReactionPicker = false);
-      return;
+    if (localPos.dy >= -70 && localPos.dy <= 100) {
+      final itemWidth = renderBox.size.width / PostReaction.values.length;
+      final rawIndex = (localPos.dx / itemWidth).floor();
+      if (rawIndex >= 0 && rawIndex < PostReaction.values.length) {
+        if (_hoveredIndex != rawIndex) {
+          HapticFeedback.selectionClick();
+          setState(() => _hoveredIndex = rawIndex);
+        }
+        return;
+      }
     }
-
-    _openReactionPicker();
+    if (_hoveredIndex != null) {
+      setState(() => _hoveredIndex = null);
+    }
   }
 
   void _openComments(BuildContext context) {
@@ -1568,6 +1632,7 @@ class _PostCardState extends State<_PostCard> {
       ownDisplayName: widget.ownDisplayName,
       ownHeadline: widget.ownHeadline,
       onAddComment: (comment) => widget.onAddComment?.call(comment),
+      onAddReply: (parentId, reply) => widget.onAddReply?.call(parentId, reply),
       onToggleCommentLike: (commentId) =>
           widget.onToggleCommentLike?.call(commentId),
     );
@@ -1770,7 +1835,7 @@ class _PostCardState extends State<_PostCard> {
                       horizontal: 4,
                     ),
                     child: Text(
-                      '${post.comments.length} bình luận',
+                      '${post.comments.fold<int>(0, (sum, c) => sum + 1 + c.replies.length)} bình luận',
                       style: TextStyle(
                         color: theme.textSecondary,
                         fontSize: 11.5,
@@ -1790,13 +1855,66 @@ class _PostCardState extends State<_PostCard> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: _ReactionButton(
-                        myReaction: post.myReaction,
-                        onTap: _handleReactionTap,
-                        onLongPress: () {
-                          HapticFeedback.mediumImpact();
-                          setState(() => _showReactionPicker = true);
+                      child: Listener(
+                        behavior: HitTestBehavior.opaque,
+                        onPointerDown: (event) {
+                          _pointerDownPosition = event.position;
+                          _longPressTimer?.cancel();
+                          _longPressTimer = Timer(
+                            const Duration(milliseconds: 260),
+                            () {
+                              HapticFeedback.mediumImpact();
+                              setState(() {
+                                _showReactionPicker = true;
+                                _hoveredIndex = null;
+                              });
+                            },
+                          );
                         },
+                        onPointerMove: (event) {
+                          if (!_showReactionPicker) {
+                            if (_pointerDownPosition != null &&
+                                (event.position - _pointerDownPosition!)
+                                        .distance >
+                                    14) {
+                              _longPressTimer?.cancel();
+                            }
+                          } else {
+                            _updateHoveredFromGlobal(event.position);
+                          }
+                        },
+                        onPointerUp: (event) {
+                          final wasTimerActive =
+                              _longPressTimer?.isActive ?? false;
+                          _longPressTimer?.cancel();
+
+                          if (_showReactionPicker) {
+                            if (_hoveredIndex != null) {
+                              HapticFeedback.lightImpact();
+                              widget.onReact?.call(
+                                PostReaction.values[_hoveredIndex!],
+                              );
+                              setState(() {
+                                _showReactionPicker = false;
+                                _hoveredIndex = null;
+                              });
+                            }
+                            return;
+                          }
+
+                          if (wasTimerActive) {
+                            HapticFeedback.selectionClick();
+                            if (widget.post.myReaction == null) {
+                              widget.onReact?.call(PostReaction.like);
+                            } else {
+                              widget.onReact?.call(widget.post.myReaction!);
+                            }
+                          }
+                        },
+                        onPointerCancel: (_) {
+                          _longPressTimer?.cancel();
+                        },
+                        child: _ReactionButton(myReaction: post.myReaction),
                       ),
                     ),
                     Expanded(
@@ -1831,19 +1949,33 @@ class _PostCardState extends State<_PostCard> {
               ),
               if (_showReactionPicker)
                 Positioned(
-                  left: 12,
-                  bottom: 50,
+                  left: 8,
+                  bottom: 52,
                   child: TapRegion(
                     onTapOutside: (_) {
                       if (_showReactionPicker) {
-                        setState(() => _showReactionPicker = false);
+                        setState(() {
+                          _showReactionPicker = false;
+                          _hoveredIndex = null;
+                        });
                       }
                     },
                     child: _ReactionPickerPill(
+                      key: _pickerKey,
+                      hoveredIndex: _hoveredIndex,
+                      onHoverChanged: (index) {
+                        if (_hoveredIndex != index) {
+                          if (index != null) HapticFeedback.selectionClick();
+                          setState(() => _hoveredIndex = index);
+                        }
+                      },
                       onSelect: (reaction) {
                         HapticFeedback.lightImpact();
                         widget.onReact?.call(reaction);
-                        setState(() => _showReactionPicker = false);
+                        setState(() {
+                          _showReactionPicker = false;
+                          _hoveredIndex = null;
+                        });
                       },
                     ),
                   ),
@@ -1857,15 +1989,9 @@ class _PostCardState extends State<_PostCard> {
 }
 
 class _ReactionButton extends StatelessWidget {
-  const _ReactionButton({
-    required this.myReaction,
-    required this.onTap,
-    required this.onLongPress,
-  });
+  const _ReactionButton({required this.myReaction});
 
   final PostReaction? myReaction;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1875,143 +2001,250 @@ class _ReactionButton extends StatelessWidget {
     final icon = isReacted ? myReaction!.icon : Icons.thumb_up_alt_outlined;
     final label = isReacted ? myReaction!.label : 'Thích';
 
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
-        height: 48,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 19, color: color),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 9.5,
-                fontWeight: isReacted ? FontWeight.w700 : FontWeight.w600,
-              ),
+    return SizedBox(
+      height: 48,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 19, color: color),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 9.5,
+              fontWeight: isReacted ? FontWeight.w700 : FontWeight.w600,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ReactionPickerPill extends StatelessWidget {
-  const _ReactionPickerPill({required this.onSelect});
+class _ReactionPickerPill extends StatefulWidget {
+  const _ReactionPickerPill({
+    required this.hoveredIndex,
+    required this.onHoverChanged,
+    required this.onSelect,
+    super.key,
+  });
 
+  final int? hoveredIndex;
+  final ValueChanged<int?> onHoverChanged;
   final ValueChanged<PostReaction> onSelect;
+
+  @override
+  State<_ReactionPickerPill> createState() => _ReactionPickerPillState();
+}
+
+class _ReactionPickerPillState extends State<_ReactionPickerPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animController;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutBack,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOut,
+    );
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  void _handlePointerMove(Offset globalPos) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+    final localPos = renderBox.globalToLocal(globalPos);
+    if (localPos.dy >= -70 && localPos.dy <= 100) {
+      final itemWidth = renderBox.size.width / PostReaction.values.length;
+      final rawIndex = (localPos.dx / itemWidth).floor();
+      if (rawIndex >= 0 && rawIndex < PostReaction.values.length) {
+        widget.onHoverChanged(rawIndex);
+        return;
+      }
+    }
+    widget.onHoverChanged(null);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    return Material(
-      elevation: 12,
-      shadowColor: Colors.black.withValues(alpha: 0.35),
-      borderRadius: BorderRadius.circular(32),
-      color: theme.surface,
-      child: Container(
-        height: 58,
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: theme.primary.withValues(alpha: 0.55)),
-          boxShadow: [
-            BoxShadow(
-              color: theme.primary.withValues(alpha: 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
+    return AnimatedBuilder(
+      animation: _animController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 10 * (1.0 - _scaleAnimation.value)),
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            alignment: const Alignment(-0.75, 1.0),
+            child: Opacity(
+              opacity: _fadeAnimation.value.clamp(0.0, 1.0),
+              child: child,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: PostReaction.values.map((reaction) {
-            return _ReactionItem(
-              reaction: reaction,
-              onTap: () => onSelect(reaction),
-            );
-          }).toList(),
+          ),
+        );
+      },
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) => _handlePointerMove(event.position),
+        onPointerMove: (event) => _handlePointerMove(event.position),
+        onPointerUp: (event) {
+          if (widget.hoveredIndex != null) {
+            widget.onSelect(PostReaction.values[widget.hoveredIndex!]);
+          }
+        },
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+            decoration: BoxDecoration(
+              color: theme.surface,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: theme.primary.withValues(alpha: 0.45),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: theme.primary.withValues(alpha: 0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(PostReaction.values.length, (index) {
+                final reaction = PostReaction.values[index];
+                final isHovered = widget.hoveredIndex == index;
+                return _ReactionItem(reaction: reaction, isHovered: isHovered);
+              }),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _ReactionItem extends StatefulWidget {
-  const _ReactionItem({required this.reaction, required this.onTap});
+class _ReactionItem extends StatelessWidget {
+  const _ReactionItem({required this.reaction, required this.isHovered});
 
   final PostReaction reaction;
-  final VoidCallback onTap;
-
-  @override
-  State<_ReactionItem> createState() => _ReactionItemState();
-}
-
-class _ReactionItemState extends State<_ReactionItem> {
-  bool _isPressed = false;
-
-  Future<void> _select() async {
-    setState(() => _isPressed = true);
-    await Future<void>.delayed(const Duration(milliseconds: 110));
-    if (!mounted) return;
-    setState(() => _isPressed = false);
-    widget.onTap();
-  }
+  final bool isHovered;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.reaction.label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) => _select(),
-        onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedScale(
-          scale: _isPressed ? 1.48 : 1.0,
-          duration: const Duration(milliseconds: 135),
-          curve: Curves.easeOutBack,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 135),
-            curve: Curves.easeOut,
-            width: 42,
-            height: 42,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _isPressed
-                  ? widget.reaction.color.withValues(alpha: 0.2)
-                  : widget.reaction.color.withValues(alpha: 0.08),
-              border: Border.all(
-                color: _isPressed
-                    ? widget.reaction.color.withValues(alpha: 0.72)
-                    : Colors.transparent,
+    return SizedBox(
+      width: 44,
+      height: 48,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          // Reaction Icon with Lift & Scale Animation
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutBack,
+            top: isHovered ? -24 : 4,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutBack,
+              scale: isHovered ? 1.85 : 1.0,
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isHovered
+                      ? reaction.color
+                      : reaction.color.withValues(alpha: 0.12),
+                  border: Border.all(
+                    color: isHovered
+                        ? Colors.white.withValues(alpha: 0.9)
+                        : Colors.transparent,
+                    width: isHovered ? 1.5 : 0,
+                  ),
+                  boxShadow: isHovered
+                      ? [
+                          BoxShadow(
+                            color: reaction.color.withValues(alpha: 0.65),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : const [],
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  reaction.icon,
+                  color: isHovered ? Colors.white : reaction.color,
+                  size: isHovered ? 23 : 21,
+                ),
               ),
-              boxShadow: _isPressed
-                  ? [
-                      BoxShadow(
-                        color: widget.reaction.color.withValues(alpha: 0.26),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : const [],
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              widget.reaction.icon,
-              color: widget.reaction.color,
-              size: _isPressed ? 27 : 23,
             ),
           ),
-        ),
+          // Floating Label Tooltip on hover (placed AFTER icon so it renders in front, top: -72 to sit above the enlarged icon)
+          if (isHovered)
+            Positioned(
+              top: -72,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: reaction.color.withValues(alpha: 0.6),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  reaction.label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -2130,6 +2363,7 @@ void _showCommentSheet(
   required String ownDisplayName,
   required String ownHeadline,
   required ValueChanged<PostComment> onAddComment,
+  required void Function(String parentId, PostCommentReply reply) onAddReply,
   required ValueChanged<String> onToggleCommentLike,
 }) {
   showModalBottomSheet<void>(
@@ -2143,6 +2377,7 @@ void _showCommentSheet(
       ownDisplayName: ownDisplayName,
       ownHeadline: ownHeadline,
       onAddComment: onAddComment,
+      onAddReply: onAddReply,
       onToggleCommentLike: onToggleCommentLike,
     ),
   );
@@ -2155,6 +2390,7 @@ class _CommentSheetWidget extends StatefulWidget {
     required this.ownDisplayName,
     required this.ownHeadline,
     required this.onAddComment,
+    required this.onAddReply,
     required this.onToggleCommentLike,
   });
 
@@ -2163,6 +2399,7 @@ class _CommentSheetWidget extends StatefulWidget {
   final String ownDisplayName;
   final String ownHeadline;
   final ValueChanged<PostComment> onAddComment;
+  final void Function(String parentId, PostCommentReply reply) onAddReply;
   final ValueChanged<String> onToggleCommentLike;
 
   @override
@@ -2174,6 +2411,9 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
+
+  String? _replyingToCommentId;
+  String? _replyingToAuthorName;
 
   @override
   void initState() {
@@ -2193,36 +2433,65 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    final newComment = PostComment(
-      id: 'comment-${DateTime.now().millisecondsSinceEpoch}',
-      authorName: widget.ownDisplayName,
-      headline: widget.ownHeadline,
-      content: text,
-      timeLabel: 'Vừa xong',
-      avatarPath: widget.ownAvatarPath,
-      isMine: true,
-    );
-
-    widget.onAddComment(newComment);
-
-    setState(() {
-      _comments.insert(0, newComment);
-      _textController.clear();
-    });
-
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
+    if (_replyingToCommentId != null) {
+      final parentId = _replyingToCommentId!;
+      final newReply = PostCommentReply(
+        id: 'reply-${DateTime.now().millisecondsSinceEpoch}',
+        authorName: widget.ownDisplayName,
+        headline: widget.ownHeadline,
+        content: text,
+        timeLabel: 'Vừa xong',
+        replyingToName: _replyingToAuthorName,
+        avatarPath: widget.ownAvatarPath,
+        isMine: true,
       );
+
+      widget.onAddReply(parentId, newReply);
+
+      setState(() {
+        final parentIndex = _comments.indexWhere((c) => c.id == parentId);
+        if (parentIndex != -1) {
+          final parent = _comments[parentIndex];
+          _comments[parentIndex] = parent.copyWith(
+            replies: [...parent.replies, newReply],
+          );
+        }
+        _replyingToCommentId = null;
+        _replyingToAuthorName = null;
+        _textController.clear();
+      });
+    } else {
+      final newComment = PostComment(
+        id: 'comment-${DateTime.now().millisecondsSinceEpoch}',
+        authorName: widget.ownDisplayName,
+        headline: widget.ownHeadline,
+        content: text,
+        timeLabel: 'Vừa xong',
+        avatarPath: widget.ownAvatarPath,
+        isMine: true,
+      );
+
+      widget.onAddComment(newComment);
+
+      setState(() {
+        _comments.insert(0, newComment);
+        _textController.clear();
+      });
+
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
     }
   }
 
-  void _toggleLike(PostComment comment) {
-    widget.onToggleCommentLike(comment.id);
+  void _toggleLike(String commentOrReplyId) {
+    widget.onToggleCommentLike(commentOrReplyId);
     setState(() {
-      final index = _comments.indexWhere((c) => c.id == comment.id);
+      final index = _comments.indexWhere((c) => c.id == commentOrReplyId);
       if (index != -1) {
         final current = _comments[index];
         final isLiked = !current.isLiked;
@@ -2230,16 +2499,52 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
             ? current.likeCount + 1
             : (current.likeCount - 1).clamp(0, 999999);
         _comments[index] = current.copyWith(isLiked: isLiked, likeCount: count);
+        return;
+      }
+      for (int i = 0; i < _comments.length; i++) {
+        final parent = _comments[i];
+        final replyIdx = parent.replies.indexWhere(
+          (r) => r.id == commentOrReplyId,
+        );
+        if (replyIdx != -1) {
+          final reply = parent.replies[replyIdx];
+          final isLiked = !reply.isLiked;
+          final count = isLiked
+              ? reply.likeCount + 1
+              : (reply.likeCount - 1).clamp(0, 999999);
+          final updatedReplies = List<PostCommentReply>.from(parent.replies);
+          updatedReplies[replyIdx] = reply.copyWith(
+            isLiked: isLiked,
+            likeCount: count,
+          );
+          _comments[i] = parent.copyWith(replies: updatedReplies);
+          return;
+        }
       }
     });
   }
 
   void _replyTo(PostComment comment) {
-    _textController.text = '@${comment.authorName} ';
-    _textController.selection = TextSelection.fromPosition(
-      TextPosition(offset: _textController.text.length),
-    );
+    setState(() {
+      _replyingToCommentId = comment.id;
+      _replyingToAuthorName = comment.authorName;
+    });
     _focusNode.requestFocus();
+  }
+
+  void _replyToReply(PostComment parentComment, PostCommentReply reply) {
+    setState(() {
+      _replyingToCommentId = parentComment.id;
+      _replyingToAuthorName = reply.authorName;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingToCommentId = null;
+      _replyingToAuthorName = null;
+    });
   }
 
   @override
@@ -2249,6 +2554,10 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
     final postAuthorName = widget.post.isMine
         ? widget.ownDisplayName
         : widget.post.author.displayName;
+    final totalCommentCount = _comments.fold<int>(
+      0,
+      (sum, c) => sum + 1 + c.replies.length,
+    );
 
     return Container(
       constraints: BoxConstraints(
@@ -2287,7 +2596,7 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
               child: Row(
                 children: [
                   Text(
-                    'Bình luận (${_comments.length})',
+                    'Bình luận ($totalCommentCount)',
                     style: TextStyle(
                       color: theme.textPrimary,
                       fontSize: 16,
@@ -2350,14 +2659,66 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                         return _CommentItem(
                           comment: comment,
                           isAuthor: isAuthor,
+                          postAuthorName: postAuthorName,
                           ownAvatarPath: widget.ownAvatarPath,
-                          onLike: () => _toggleLike(comment),
+                          onLike: () => _toggleLike(comment.id),
                           onReply: () => _replyTo(comment),
+                          onLikeReply: (replyId) => _toggleLike(replyId),
+                          onReplyToReply: (reply) =>
+                              _replyToReply(comment, reply),
                         );
                       },
                     ),
             ),
             Divider(height: 1, color: theme.divider),
+            if (_replyingToAuthorName != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 7,
+                ),
+                color: theme.surfaceSubtle.withValues(alpha: 0.7),
+                child: Row(
+                  children: [
+                    Icon(Icons.reply_rounded, size: 16, color: theme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'Đang trả lời ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.textSecondary,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: _replyingToAuthorName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: theme.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _cancelReply,
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: theme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             SafeArea(
               top: false,
               child: Padding(
@@ -2384,12 +2745,15 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
-                          vertical: 4,
+                          vertical: 2,
                         ),
                         decoration: BoxDecoration(
                           color: theme.surfaceSubtle,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: theme.border),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: theme.border.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
                         ),
                         child: TextField(
                           controller: _textController,
@@ -2399,15 +2763,21 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _sendComment(),
                           decoration: InputDecoration(
-                            hintText: 'Viết bình luận...',
+                            hintText: _replyingToAuthorName != null
+                                ? 'Trả lời $_replyingToAuthorName...'
+                                : 'Viết bình luận...',
                             hintStyle: TextStyle(
-                              color: theme.textSecondary,
+                              color: theme.textSecondary.withValues(alpha: 0.8),
                               fontSize: 13,
                             ),
                             border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(
-                              vertical: 6,
+                              vertical: 8,
                             ),
                           ),
                           style: TextStyle(
@@ -2449,16 +2819,22 @@ class _CommentItem extends StatelessWidget {
   const _CommentItem({
     required this.comment,
     required this.isAuthor,
+    required this.postAuthorName,
     required this.ownAvatarPath,
     required this.onLike,
     required this.onReply,
+    required this.onLikeReply,
+    required this.onReplyToReply,
   });
 
   final PostComment comment;
   final bool isAuthor;
+  final String postAuthorName;
   final String? ownAvatarPath;
   final VoidCallback onLike;
   final VoidCallback onReply;
+  final ValueChanged<String> onLikeReply;
+  final ValueChanged<PostCommentReply> onReplyToReply;
 
   @override
   Widget build(BuildContext context) {
@@ -2466,35 +2842,263 @@ class _CommentItem extends StatelessWidget {
     final avatar =
         comment.avatarPath ?? (comment.isMine ? ownAvatarPath : null);
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 17,
+              backgroundColor: theme.primary.withValues(alpha: 0.14),
+              foregroundImage: avatar != null ? FileImage(File(avatar)) : null,
+              child: avatar != null
+                  ? null
+                  : Text(
+                      comment.authorName.isNotEmpty
+                          ? comment.authorName[0].toUpperCase()
+                          : 'U',
+                      style: TextStyle(
+                        color: theme.primary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.surfaceSubtle,
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(14),
+                        bottomLeft: Radius.circular(14),
+                        bottomRight: Radius.circular(14),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                comment.authorName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: theme.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            if (isAuthor) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Tác giả',
+                                  style: TextStyle(
+                                    color: theme.primary,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (comment.headline.isNotEmpty) ...[
+                          const SizedBox(height: 1),
+                          Text(
+                            comment.headline,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Text(
+                          comment.content,
+                          style: TextStyle(
+                            color: theme.textPrimary,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Row(
+                      children: [
+                        Text(
+                          comment.timeLabel,
+                          style: TextStyle(
+                            color: theme.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: onLike,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                comment.isLiked
+                                    ? Icons.thumb_up_alt_rounded
+                                    : Icons.thumb_up_alt_outlined,
+                                size: 13,
+                                color: comment.isLiked
+                                    ? theme.primary
+                                    : theme.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                comment.isLiked ? 'Đã thích' : 'Thích',
+                                style: TextStyle(
+                                  color: comment.isLiked
+                                      ? theme.primary
+                                      : theme.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: comment.isLiked
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                ),
+                              ),
+                              if (comment.likeCount > 0) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '(${comment.likeCount})',
+                                  style: TextStyle(
+                                    color: comment.isLiked
+                                        ? theme.primary
+                                        : theme.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        GestureDetector(
+                          onTap: onReply,
+                          child: Text(
+                            'Trả lời',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (comment.replies.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final reply in comment.replies) ...[
+                  _CommentReplyItem(
+                    reply: reply,
+                    postAuthorName: postAuthorName,
+                    ownAvatarPath: ownAvatarPath,
+                    onLike: () => onLikeReply(reply.id),
+                    onReply: () => onReplyToReply(reply),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CommentReplyItem extends StatelessWidget {
+  const _CommentReplyItem({
+    required this.reply,
+    required this.postAuthorName,
+    required this.ownAvatarPath,
+    required this.onLike,
+    required this.onReply,
+  });
+
+  final PostCommentReply reply;
+  final String postAuthorName;
+  final String? ownAvatarPath;
+  final VoidCallback onLike;
+  final VoidCallback onReply;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final avatar = reply.avatarPath ?? (reply.isMine ? ownAvatarPath : null);
+    final isPostAuthor = reply.authorName == postAuthorName;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CircleAvatar(
-          radius: 17,
+          radius: 14,
           backgroundColor: theme.primary.withValues(alpha: 0.14),
           foregroundImage: avatar != null ? FileImage(File(avatar)) : null,
           child: avatar != null
               ? null
               : Text(
-                  comment.authorName.isNotEmpty
-                      ? comment.authorName[0].toUpperCase()
+                  reply.authorName.isNotEmpty
+                      ? reply.authorName[0].toUpperCase()
                       : 'U',
                   style: TextStyle(
                     color: theme.primary,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13,
+                    fontSize: 11,
                   ),
                 ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+                  horizontal: 11,
+                  vertical: 8,
                 ),
                 decoration: BoxDecoration(
                   color: theme.surfaceSubtle,
@@ -2511,21 +3115,21 @@ class _CommentItem extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            comment.authorName,
+                            reply.authorName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: theme.textPrimary,
                               fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                              fontSize: 12.5,
                             ),
                           ),
                         ),
-                        if (isAuthor) ...[
+                        if (isPostAuthor) ...[
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
+                              horizontal: 5,
                               vertical: 1,
                             ),
                             decoration: BoxDecoration(
@@ -2536,7 +3140,7 @@ class _CommentItem extends StatelessWidget {
                               'Tác giả',
                               style: TextStyle(
                                 color: theme.primary,
-                                fontSize: 9.5,
+                                fontSize: 9,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -2544,25 +3148,30 @@ class _CommentItem extends StatelessWidget {
                         ],
                       ],
                     ),
-                    if (comment.headline.isNotEmpty) ...[
-                      const SizedBox(height: 1),
-                      Text(
-                        comment.headline,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: theme.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Text(
-                      comment.content,
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontSize: 13,
-                        height: 1.35,
+                    const SizedBox(height: 4),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          if (reply.replyingToName != null &&
+                              reply.replyingToName!.isNotEmpty) ...[
+                            TextSpan(
+                              text: '@${reply.replyingToName} ',
+                              style: TextStyle(
+                                color: theme.primary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ],
+                          TextSpan(
+                            text: reply.content,
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontSize: 12.5,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -2574,10 +3183,10 @@ class _CommentItem extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                      comment.timeLabel,
+                      reply.timeLabel,
                       style: TextStyle(
                         color: theme.textSecondary,
-                        fontSize: 11,
+                        fontSize: 10.5,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -2587,36 +3196,36 @@ class _CommentItem extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            comment.isLiked
+                            reply.isLiked
                                 ? Icons.thumb_up_alt_rounded
                                 : Icons.thumb_up_alt_outlined,
-                            size: 13,
-                            color: comment.isLiked
+                            size: 12,
+                            color: reply.isLiked
                                 ? theme.primary
                                 : theme.textSecondary,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 3),
                           Text(
-                            comment.isLiked ? 'Đã thích' : 'Thích',
+                            reply.isLiked ? 'Đã thích' : 'Thích',
                             style: TextStyle(
-                              color: comment.isLiked
+                              color: reply.isLiked
                                   ? theme.primary
                                   : theme.textSecondary,
-                              fontSize: 11,
-                              fontWeight: comment.isLiked
+                              fontSize: 10.5,
+                              fontWeight: reply.isLiked
                                   ? FontWeight.w700
                                   : FontWeight.w600,
                             ),
                           ),
-                          if (comment.likeCount > 0) ...[
-                            const SizedBox(width: 4),
+                          if (reply.likeCount > 0) ...[
+                            const SizedBox(width: 3),
                             Text(
-                              '(${comment.likeCount})',
+                              '(${reply.likeCount})',
                               style: TextStyle(
-                                color: comment.isLiked
+                                color: reply.isLiked
                                     ? theme.primary
                                     : theme.textSecondary,
-                                fontSize: 11,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -2624,14 +3233,14 @@ class _CommentItem extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     GestureDetector(
                       onTap: onReply,
                       child: Text(
                         'Trả lời',
                         style: TextStyle(
                           color: theme.textSecondary,
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -3000,12 +3609,64 @@ enum PostReaction {
   build('Đang xây', Icons.construction_rounded, Color(0xFFF59E0B)),
   insightful('Hay', Icons.lightbulb_rounded, Color(0xFF06B6D4)),
   deal('Hợp tác', Icons.handshake_rounded, Color(0xFFA855F7)),
-  launch('Bứt phá', Icons.rocket_launch_rounded, Color(0xFFF43F5E));
+  launch('Bứt phá', Icons.rocket_launch_rounded, Color(0xFFEC4899));
 
   const PostReaction(this.label, this.icon, this.color);
   final String label;
   final IconData icon;
   final Color color;
+}
+
+class PostCommentReply {
+  const PostCommentReply({
+    required this.id,
+    required this.authorName,
+    required this.headline,
+    required this.content,
+    required this.timeLabel,
+    this.replyingToName,
+    this.avatarPath,
+    this.isMine = false,
+    this.likeCount = 0,
+    this.isLiked = false,
+  });
+
+  final String id;
+  final String authorName;
+  final String headline;
+  final String content;
+  final String timeLabel;
+  final String? replyingToName;
+  final String? avatarPath;
+  final bool isMine;
+  final int likeCount;
+  final bool isLiked;
+
+  PostCommentReply copyWith({
+    String? id,
+    String? authorName,
+    String? headline,
+    String? content,
+    String? timeLabel,
+    String? replyingToName,
+    String? avatarPath,
+    bool? isMine,
+    int? likeCount,
+    bool? isLiked,
+  }) {
+    return PostCommentReply(
+      id: id ?? this.id,
+      authorName: authorName ?? this.authorName,
+      headline: headline ?? this.headline,
+      content: content ?? this.content,
+      timeLabel: timeLabel ?? this.timeLabel,
+      replyingToName: replyingToName ?? this.replyingToName,
+      avatarPath: avatarPath ?? this.avatarPath,
+      isMine: isMine ?? this.isMine,
+      likeCount: likeCount ?? this.likeCount,
+      isLiked: isLiked ?? this.isLiked,
+    );
+  }
 }
 
 class PostComment {
@@ -3019,6 +3680,7 @@ class PostComment {
     this.isMine = false,
     this.likeCount = 0,
     this.isLiked = false,
+    this.replies = const [],
   });
 
   final String id;
@@ -3030,6 +3692,7 @@ class PostComment {
   final bool isMine;
   final int likeCount;
   final bool isLiked;
+  final List<PostCommentReply> replies;
 
   PostComment copyWith({
     String? id,
@@ -3041,6 +3704,7 @@ class PostComment {
     bool? isMine,
     int? likeCount,
     bool? isLiked,
+    List<PostCommentReply>? replies,
   }) {
     return PostComment(
       id: id ?? this.id,
@@ -3052,6 +3716,7 @@ class PostComment {
       isMine: isMine ?? this.isMine,
       likeCount: likeCount ?? this.likeCount,
       isLiked: isLiked ?? this.isLiked,
+      replies: replies ?? this.replies,
     );
   }
 }
