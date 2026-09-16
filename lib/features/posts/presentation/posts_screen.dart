@@ -2724,10 +2724,10 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     CircleAvatar(
-                      radius: 18,
+                      radius: 17,
                       backgroundColor: theme.primary.withValues(alpha: 0.16),
                       foregroundImage: widget.ownAvatarPath != null
                           ? FileImage(File(widget.ownAvatarPath!))
@@ -2743,17 +2743,13 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 2,
-                        ),
                         decoration: BoxDecoration(
                           color: theme.surfaceSubtle,
                           borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: theme.border.withValues(alpha: 0.5),
-                            width: 1.0,
-                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
                         ),
                         child: TextField(
                           controller: _textController,
@@ -2767,22 +2763,25 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                                 ? 'Trả lời $_replyingToAuthorName...'
                                 : 'Viết bình luận...',
                             hintStyle: TextStyle(
-                              color: theme.textSecondary.withValues(alpha: 0.8),
-                              fontSize: 13,
+                              color: theme.textSecondary.withValues(
+                                alpha: 0.75,
+                              ),
+                              fontSize: 14,
                             ),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
-                            errorBorder: InputBorder.none,
                             disabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                            ),
+                            filled: false,
+                            fillColor: Colors.transparent,
+                            contentPadding: EdgeInsets.zero,
                           ),
                           style: TextStyle(
                             color: theme.textPrimary,
-                            fontSize: 13.5,
+                            fontSize: 14,
                           ),
                         ),
                       ),
@@ -2792,14 +2791,20 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                       valueListenable: _textController,
                       builder: (context, value, _) {
                         final hasText = value.text.trim().isNotEmpty;
-                        return IconButton(
-                          onPressed: hasText ? _sendComment : null,
-                          icon: Icon(
-                            Icons.send_rounded,
-                            color: hasText
-                                ? theme.primary
-                                : theme.textSecondary.withValues(alpha: 0.4),
-                            size: 20,
+                        return GestureDetector(
+                          onTap: hasText ? _sendComment : null,
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(
+                              Icons.send_rounded,
+                              color: hasText
+                                  ? (theme.isDark
+                                        ? const Color(0xFF38BDF8)
+                                        : const Color(0xFF0064E0))
+                                  : theme.textSecondary.withValues(alpha: 0.35),
+                              size: 22,
+                            ),
                           ),
                         );
                       },
