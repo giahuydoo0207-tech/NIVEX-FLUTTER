@@ -1,121 +1,227 @@
-# NIVEX
+# Nova Mobile (NIVEX Flutter)
 
-NIVEX is a Flutter MVP that explores a recipient-facing experience for USDC payments, remote work opportunities, and simulated USDC-to-VND cashout in Vietnam.
+Nova Mobile is the freelancer-facing Flutter prototype for Nova, a professional social marketplace that connects Vietnamese freelancers with international businesses through profiles, community content, jobs, portfolios, messaging, invoices, and cross-border payment concepts.
 
-> **Prototype status:** The current build uses demo data and Solana Devnet labels. It does not submit on-chain transactions or transfer real USDC or VND.
+The repository is still named `NIVEX-FLUTTER` during the transition from the original NIVEX brand to Nova.
 
-## Overview
+> **Prototype status:** This mobile app is a UI demo with local/demo data. Solana, USDC, wallet, invoice, and payment screens are product simulations only. The app does not submit on-chain transactions, custody funds, convert USDC to VND, or process real payouts.
 
-NIVEX explores how a remote worker could receive a USDC payment request, inspect wallet activity, and review a local-currency cashout quote from one mobile interface. The project focuses on clear payment states, precise USDC amount handling, authentication UX, and explicit separation between implemented UI and future financial infrastructure.
+## Product Direction
 
-The companion [NIVEX Business](https://github.com/giahuydoo0207-tech/NIVEX-BUSINESS) portal represents the organization-facing side of the concept.
+Nova is no longer only a jobs and payments prototype. The current direction combines three product layers:
 
-## Screenshots
+- A professional social network for freelancers and businesses.
+- A freelance marketplace for jobs, portfolios, business opportunities, and applications.
+- A cross-border payment layer for USDC payment requests, invoices, wallet history, and settlement concepts.
 
-Project screenshots have not yet been committed to this repository. This section is intentionally left as a placeholder until screenshots from the current Flutter build are added.
+The mobile app focuses on the freelancer experience first: building reputation, publishing work, discovering jobs, interacting with businesses, and reviewing payment-related states in a safe demo environment.
 
-## Implemented Features
+## User Role
 
-- Login and registration flows with form validation.
-- On-device biometric authentication through the platform biometric prompt.
-- Session timeout, biometric unlock, and a six-digit demo PIN with persisted lockout state.
-- Demo wallet balance, transaction history, profile, verification, and linked-bank screens.
-- A QR code and copy action for a fixed demo Solana Devnet address.
-- Arbitrary positive USDC cashout amounts with up to six decimal places.
-- Mock USDC-to-VND quotes with fees, a 30-second expiry, review, processing, and receipt screens.
-- Remote job discovery with search, filters, saved jobs, job details, and a simulated application state.
-- Four visual themes, responsive layouts, reduced-motion support, and widget/integration tests.
+Nova Mobile currently represents the **Freelancer** role.
 
-## How It Works
+Freelancers can:
 
-1. The user enters the demo through credentials or the device biometric prompt.
-2. The home and wallet screens show sample USDC balances and activity.
-3. The receive flow displays a QR code containing the configured demo address.
-4. The cashout flow accepts a USDC amount, selects a sample bank account, and generates a local mock quote.
-5. The user reviews the rate and fees, then confirms with biometrics or the demo PIN.
-6. Processing and receipt screens complete the simulated USDC-to-VND flow.
-7. The Jobs tab presents local fixture data and simulates saving or applying for remote opportunities.
+- Build a professional profile.
+- Publish personal progress posts.
+- Publish product or portfolio posts.
+- Attach images and hashtags.
+- Browse a mixed community feed.
+- React, comment, reply, save, hide, and pin posts.
+- View public freelancer and business profiles.
+- Follow profiles during the session.
+- Discover jobs and inspect job details.
+- Simulate application, invoice, wallet, and payment request flows.
 
-## Solana Integration
+## Companion Business Portal
 
-| Area | Current implementation |
-| --- | --- |
-| Network | The interface is explicitly labeled **Solana Devnet**. |
-| USDC | Amounts are modeled with six-decimal fixed precision using integer minor units. |
-| Receive flow | The app renders a QR code for a fixed demo address and supports copying it. |
-| Wallet signing | Not implemented. The app does not hold a private key or sign transactions. |
-| RPC and indexing | Not implemented. No Solana RPC client or indexer is connected. |
-| Transactions | Wallet balances, confirmations, and history are demo data. |
-| VND payout | Fully simulated; no bank or payout provider is connected. |
+The organization-facing web portal lives in [NIVEX Business](https://github.com/giahuydoo0207-tech/NIVEX-BUSINESS).
 
-There is currently no Solana SDK dependency in the Flutter project. Real wallet ownership, token-account validation, transaction tracking, and payout infrastructure remain future work.
+The two products should eventually share the same backend contracts, but the current milestone prioritizes:
 
-## Tech Stack
+1. Completing the mobile UI demo.
+2. Completing the business web UI demo.
+3. Finalizing backend core design, ERD, API contracts, and local migrations.
 
-- **Application:** Flutter, Dart, Material
-- **Local state:** Stateful widgets, constructor-based dependency injection
-- **Device services:** `local_auth`, `flutter_secure_storage`, `shared_preferences`
-- **QR rendering:** `qr_flutter`
-- **Quality:** `flutter_test`, Flutter integration tests, `flutter_lints`
+## Current Mobile Features
+
+- Authentication, registration, session lock, biometric unlock, and demo PIN flows.
+- Freelancer profile, public profile, professional profile, portfolio, skills, reputation entry point, and activity tabs.
+- Community feed with personal posts, product/portfolio posts, business posts, and jobs.
+- Shared post composer with image selection, preview, hashtag input, and gallery layouts.
+- Facebook/LinkedIn-style media grid for multiple images, overlay count, and fullscreen image viewer.
+- Post options for owner and viewer contexts.
+- My Posts screen with posted, saved, and hidden tabs.
+- Reaction, comment, and reply UI patterns for demo social interaction.
+- Job discovery, saved jobs, job detail, and simulated application states.
+- Wallet, receive, payment request, invoice, transaction, and cashout concept screens.
+- Four visual themes and mobile-first layouts.
+
+## Content Model
+
+Nova content is organized around four primary feed item types:
+
+| Content type | Created by | Purpose | Primary CTA |
+| --- | --- | --- | --- |
+| Personal post | Freelancer | Share progress, thoughts, updates, and work moments | View profile |
+| Product / portfolio post | Freelancer | Showcase finished work, case studies, prototypes, and products | View product |
+| Business post | Business | Share company updates, events, hiring news, and announcements | View company |
+| Job post | Business | Publish freelance or remote opportunities | View job |
+
+The mobile `+` creation flow should support the freelancer side first:
+
+- **Personal post**
+- **Product / portfolio**
+
+The business web `+` flow should support:
+
+- **Business post**
+- **Job**
+
+Both sides should eventually use the same backend content primitives where possible.
+
+## Feed Rules
+
+The community feed should feel closer to Facebook and LinkedIn than a simple job board.
+
+- A feed can contain personal posts, product posts, business posts, and job posts together.
+- Images should preserve a polished layout in the feed and open full-size in a viewer.
+- Multiple images should use a social-style grid with a `+N` overlay when needed.
+- Owner actions and viewer actions must be different.
+- Public reputation should not be displayed as an obvious avatar ring or public hierarchy marker. Reputation details belong inside the profile/reputation section for users who choose to inspect them.
+
+## Hashtags
+
+Hashtags are a discovery layer, not a replacement for skills.
+
+Rules:
+
+- Maximum 5 hashtags per post.
+- No duplicates after normalization.
+- Normalize casing and spacing.
+- Hashtags can be used for feed discovery and topic grouping.
+- Skill tags remain separate from hashtags and belong to the profile/job matching layer.
+
+## Payment And Solana Scope
+
+Current payment-related screens are demo-only.
+
+In scope for this prototype:
+
+- Wallet UI.
+- Transaction history UI.
+- Invoice and payment request mock screens.
+- USDC amount formatting.
+- Receive/payment address demo states.
+- Local proof-of-concept flows.
+
+Out of scope before the current milestone:
+
+- Solana Mainnet.
+- Real USDC transfer.
+- Real custody.
+- Real bank payout.
+- KYC/AML production flow.
+- Custom Solana Program.
+- Production treasury operations.
 
 ## Architecture
 
-The source uses a feature-first structure:
+The Flutter app is organized around feature folders and demo controllers.
 
-```text
-lib/
-|-- app/                 # Application composition and theme system
-|-- features/
-|   |-- auth/            # Login and registration
-|   |-- cashout/         # Quote, authentication, processing, and receipt
-|   |-- home/            # Home experience and educational content
-|   |-- jobs/            # Remote job discovery demo
-|   |-- receive/         # Devnet address and QR flow
-|   |-- session/         # Session timeout and unlock
-|   |-- wallet/          # Wallet presentation
-|   +-- ...              # Profile, transactions, and help
-+-- shared/              # Shared constants and widgets
-```
+Important areas:
 
-Cashout logic separates presentation, domain value objects, and demo data/repositories. External services are injected behind small interfaces where device authentication or persistence needs to be replaceable in tests.
+- `lib/features/auth`
+- `lib/features/home`
+- `lib/features/jobs`
+- `lib/features/posts`
+- `lib/features/profile`
+- `lib/features/wallet`
+- `lib/features/theme`
+
+The current product work should stay small and focused:
+
+- Avoid broad refactors.
+- Preserve existing file structure unless a focused UI task requires a local widget.
+- Keep mobile UI work separate from backend production infrastructure.
+- Do not introduce Kubernetes, Kafka, microservices, or complex CI/CD for this milestone.
+
+## Backend Direction
+
+The future backend should support:
+
+- Auth
+- Users
+- Organizations
+- Freelancer profiles
+- Business profiles
+- Jobs
+- Applications
+- Posts
+- Post media
+- Hashtags
+- Comments
+- Reactions
+- Messaging
+- Files
+- Invoices
+- Payment requests
+- Wallets
+- Deposits
+- Ledger
+- Withdrawals
+- Notifications
+- Audit events
+- Moderation
+
+Expected backend artifacts for the current milestone:
+
+- ERD
+- Data dictionary
+- API contract
+- State machines
+- Flyway migrations if schema work has started
+- Minimal `docker-compose.yml` for PostgreSQL if backend work has started
+- `.env.example`
+- Local setup README
 
 ## Project Status
 
-This repository is a student-built MVP and is not production-ready.
+The current priority is a strong demo foundation:
 
-Current limitations include:
+1. Finish mobile UI demo for freelancers.
+2. Finish web UI demo for businesses.
+3. Align user flows between mobile and web.
+4. Finalize backend core design.
+5. Finalize API contracts.
+6. Add local setup and basic tests for implemented pieces.
 
-- Authentication and registration are not connected to an account backend.
-- Identity, balances, bank accounts, jobs, and transaction states are sample data.
-- Job notifications and applications do not use a remote API or push service.
-- No real Solana wallet connection, RPC verification, or USDC transfer exists.
-- Exchange rates, fees, settlement, and VND payout are simulated.
-- Security and compliance requirements for a financial product are not complete.
+Production DevOps work is intentionally deferred.
 
 ## Getting Started
 
-### Requirements
-
-- Flutter SDK compatible with Dart `^3.13.2`
-- An Android/iOS device, emulator, or another Flutter-supported target
-
-### Run locally
+Install Flutter and run:
 
 ```bash
-git clone https://github.com/giahuydoo0207-tech/NIVEX-FLUTTER.git
-cd NIVEX-FLUTTER
 flutter pub get
 flutter analyze
 flutter test
 flutter run
 ```
 
-The app defaults to demo mode. Do not use real funds or production wallet credentials with this build.
+Build a debug APK:
+
+```bash
+flutter build apk --debug
+```
+
+## Safety Notes
+
+- Do not treat demo balances, invoices, jobs, or wallet addresses as real financial data.
+- Do not add production payout, custody, or Mainnet behavior without a separate product and security review.
+- Do not expose reputation as a public class marker around avatars; keep it discoverable inside profile/reputation views.
+- Keep changes scoped and verify with format, analyze, and relevant tests.
 
 ## Author
 
-**Gia Huy Do**
-
-Software Engineering Student
-
-[GitHub](https://github.com/giahuydoo0207-tech)
+Nova is developed as a prototype by [Gia Huy Do](https://github.com/giahuydoo0207-tech).
