@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 // ---------------------------------------------------------------------------
@@ -909,6 +910,81 @@ class _FreelancerAbout extends StatelessWidget {
               color: theme.textSecondary,
               height: 1.5,
               fontSize: 13.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        _AboutSection(
+          title: 'Cấp bậc uy tín',
+          icon: Icons.shield_outlined,
+          child: InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ReputationBadgesScreen(),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: theme.primary.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.shield_outlined,
+                      size: 20,
+                      color: theme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chưa xếp hạng',
+                          style: TextStyle(
+                            color: theme.textPrimary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Cấp bậc uy tín Nova',
+                          style: TextStyle(
+                            color: theme.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tín hiệu tham khảo dựa trên dự án hoàn thành, review hợp lệ và mức độ xác thực.',
+                          style: TextStyle(
+                            color: theme.textSecondary,
+                            fontSize: 11.5,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: theme.textSecondary,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

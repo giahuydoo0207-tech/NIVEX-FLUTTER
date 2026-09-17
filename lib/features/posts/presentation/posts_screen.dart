@@ -283,6 +283,12 @@ class _PostsScreenState extends State<PostsScreen> {
                 ownDisplayName: _profileController.profile.displayName,
                 ownHeadline: _profileController.profile.headline,
                 onOpenProfile: () => _openProfile(_postAuthor(post)),
+                isFollowingAuthor:
+                    !post.isMine &&
+                    _followedHandles.contains(_postAuthor(post).handle),
+                onToggleFollowAuthor: !post.isMine
+                    ? () => _toggleFollow(_postAuthor(post).handle)
+                    : null,
                 onTogglePin: () => _togglePinPost(post),
                 onToggleSave: () => _toggleSavePost(post),
                 onHide: () => _hidePost(post),
@@ -501,13 +507,29 @@ class _PostsScreenState extends State<PostsScreen> {
   }
 
   void _toggleFollow(String handle) {
+    final wasFollowing = _followedHandles.contains(handle);
     setState(() {
-      if (_followedHandles.contains(handle)) {
+      if (wasFollowing) {
         _followedHandles.remove(handle);
       } else {
         _followedHandles.add(handle);
       }
     });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            wasFollowing ? 'Đã bỏ theo dõi @$handle' : 'Đã theo dõi @$handle',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 2000),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
   }
 
   void _openProfile(PublicProfileData profile) {
@@ -548,16 +570,20 @@ class _PostsScreenState extends State<PostsScreen> {
               )
               .toList();
 
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => PublicProfileScreen(
-          profile: profile,
-          profilePosts: postsForProfile,
-          isFollowing: _followedHandles.contains(profile.handle),
-          onToggleFollow: () => _toggleFollow(profile.handle),
-        ),
-      ),
-    );
+    Navigator.of(context)
+        .push<void>(
+          MaterialPageRoute(
+            builder: (_) => PublicProfileScreen(
+              profile: profile,
+              profilePosts: postsForProfile,
+              isFollowing: _followedHandles.contains(profile.handle),
+              onToggleFollow: () => _toggleFollow(profile.handle),
+            ),
+          ),
+        )
+        .then((_) {
+          if (mounted) setState(() {});
+        });
   }
 
   void _openExampleProfiles() {
@@ -1578,6 +1604,8 @@ class _PostCard extends StatefulWidget {
     required this.ownDisplayName,
     required this.ownHeadline,
     required this.onOpenProfile,
+    this.isFollowingAuthor = false,
+    this.onToggleFollowAuthor,
     this.onTogglePin,
     this.onToggleSave,
     this.onHide,
@@ -1592,6 +1620,8 @@ class _PostCard extends StatefulWidget {
   final String ownDisplayName;
   final String ownHeadline;
   final VoidCallback onOpenProfile;
+  final bool isFollowingAuthor;
+  final VoidCallback? onToggleFollowAuthor;
   final VoidCallback? onTogglePin;
   final VoidCallback? onToggleSave;
   final VoidCallback? onHide;
@@ -1804,9 +1834,26 @@ class _PostCardState extends State<_PostCard> {
                   ),
                   if (!post.isMine) ...[
                     TextButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.add_rounded, size: 17),
-                      label: const Text('Theo dõi'),
+                      onPressed: widget.onToggleFollowAuthor,
+                      icon: Icon(
+                        widget.isFollowingAuthor
+                            ? Icons.check_rounded
+                            : Icons.add_rounded,
+                        size: 17,
+                        color: widget.isFollowingAuthor
+                            ? theme.success
+                            : theme.primary,
+                      ),
+                      label: Text(
+                        widget.isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi',
+                        style: TextStyle(
+                          color: widget.isFollowingAuthor
+                              ? theme.textSecondary
+                              : theme.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                     IconButton(
                       tooltip: 'Tùy chọn bài đăng',
