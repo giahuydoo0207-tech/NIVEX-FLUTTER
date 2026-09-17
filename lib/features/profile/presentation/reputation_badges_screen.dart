@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_badge.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class ReputationBadgesScreen extends StatelessWidget {
@@ -15,11 +15,12 @@ class ReputationBadgesScreen extends StatelessWidget {
       ReputationTier.bronze,
       ReputationTier.silver,
       ReputationTier.gold,
+      ReputationTier.platinum,
     ];
 
     return NivexPage(
       title: 'Cấp bậc uy tín',
-      subtitle: 'Theo dõi uy tín nghề nghiệp trong NIVEX',
+      subtitle: 'Theo dõi uy tín nghề nghiệp trong Nova',
       showBackButton: true,
       child: Center(
         child: ConstrainedBox(
@@ -46,7 +47,7 @@ class ReputationBadgesScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Dữ liệu cấp bậc hiện đang được minh họa và chưa được cấp cho tài khoản. '
-                        'Cấp bậc chỉ phản ánh uy tín trong NIVEX và không mở khóa hạn mức tiền.',
+                        'Viền uy tín phản ánh lịch sử hoàn thành dự án, review hợp lệ và mức độ xác thực trong Nova.',
                         style: TextStyle(
                           color: theme.textSecondary,
                           fontSize: 12.5,
@@ -59,7 +60,7 @@ class ReputationBadgesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'HỆ THỐNG CẤP BẬC',
+                'HỆ THỐNG VIỀN UY TÍN',
                 style: TextStyle(
                   color: theme.textSecondary,
                   fontSize: 11,
@@ -87,10 +88,11 @@ class ReputationBadgesScreen extends StatelessWidget {
               const SizedBox(height: 10),
               const _TierCard(
                 tier: ReputationTier.verifiedExpert,
-                description: 'Chỉ được cấp sau khi NIVEX xác minh thủ công danh tính và chuyên môn.',
+                description:
+                    'Chỉ được cấp sau khi Nova xác minh thủ công danh tính và chuyên môn.',
               ),
               const SizedBox(height: 24),
-              _SafetyRules(),
+              const _SafetyRules(),
             ],
           ),
         ),
@@ -107,7 +109,10 @@ class ReputationBadgesScreen extends StatelessWidget {
       'Lịch sử hoàn thành ổn định và chất lượng được duy trì.',
     ReputationTier.gold =>
       'Mức uy tín cao, có thể được ưu tiên trong gợi ý ứng viên.',
-    _ => '',
+    ReputationTier.platinum =>
+      'Chuyên gia hàng đầu với hiệu suất và độ hài lòng xuất sắc.',
+    ReputationTier.verifiedExpert =>
+      'Chỉ được cấp sau khi Nova xác minh thủ công danh tính và chuyên môn.',
   };
 }
 
@@ -120,23 +125,63 @@ class _TierCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
+    final ringColors = ReputationAvatar.ringGradient(tier);
+    final accentColor = tier == ReputationTier.unranked
+        ? theme.textSecondary
+        : ringColors.first;
+
     return NivexCard(
       padding: const EdgeInsets.all(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ReputationBadge(
+          ReputationAvatar(
             tier: tier,
-            size: ReputationBadgeSize.large,
-            showLabel: false,
+            size: 54,
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ReputationBadge(tier: tier, size: ReputationBadgeSize.regular),
-                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      tier.label,
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: accentColor.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        tier.shortLabel.toUpperCase(),
+                        style: TextStyle(
+                          color: accentColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Text(
                   description,
                   style: TextStyle(
@@ -206,10 +251,10 @@ class _SafetyRules extends StatelessWidget {
           const SizedBox(height: 12),
           const _Rule(text: 'Chỉ tính review gắn với dự án hợp lệ.'),
           const _Rule(
-            text: 'Badge có thể bị hạ hoặc tạm ẩn khi có tranh chấp.',
+            text: 'Viền uy tín có thể bị hạ hoặc tạm ẩn khi có tranh chấp.',
           ),
           const _Rule(
-            text: 'Badge không thay thế KYC, AML hoặc xác minh chuyên môn.',
+            text: 'Viền uy tín không thay thế KYC, AML hoặc xác minh chuyên môn.',
           ),
         ],
       ),

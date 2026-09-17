@@ -1,12 +1,13 @@
-enum ReputationTier { unranked, bronze, silver, gold, verifiedExpert }
+enum ReputationTier { unranked, bronze, silver, gold, platinum, verifiedExpert }
 
 extension ReputationTierInfo on ReputationTier {
   String get label => switch (this) {
     ReputationTier.unranked => 'Chưa xếp hạng',
-    ReputationTier.bronze => 'NIVEX Bronze',
-    ReputationTier.silver => 'NIVEX Silver',
-    ReputationTier.gold => 'NIVEX Gold',
-    ReputationTier.verifiedExpert => 'Verified Expert',
+    ReputationTier.bronze => 'Viền Bronze',
+    ReputationTier.silver => 'Viền Silver',
+    ReputationTier.gold => 'Viền Gold',
+    ReputationTier.platinum => 'Viền Platinum',
+    ReputationTier.verifiedExpert => 'Xác minh chuyên môn',
   };
 
   String get shortLabel => switch (this) {
@@ -14,7 +15,8 @@ extension ReputationTierInfo on ReputationTier {
     ReputationTier.bronze => 'Bronze',
     ReputationTier.silver => 'Silver',
     ReputationTier.gold => 'Gold',
-    ReputationTier.verifiedExpert => 'Expert',
+    ReputationTier.platinum => 'Platinum',
+    ReputationTier.verifiedExpert => 'Verified',
   };
 
   String get requirement => switch (this) {
@@ -22,6 +24,8 @@ extension ReputationTierInfo on ReputationTier {
     ReputationTier.bronze => '60+ điểm · 5 review hợp lệ',
     ReputationTier.silver => '75+ điểm · 12 review hợp lệ',
     ReputationTier.gold => '88+ điểm · 20 review hợp lệ',
-    ReputationTier.verifiedExpert => 'Gold + xác minh chuyên môn thủ công',
+    ReputationTier.platinum => '95+ điểm · 35 review hợp lệ',
+    ReputationTier.verifiedExpert =>
+      'Gold/Platinum + xác minh chuyên môn thủ công',
   };
 }

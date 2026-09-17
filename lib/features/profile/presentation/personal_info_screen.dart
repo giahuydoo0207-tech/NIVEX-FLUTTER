@@ -37,7 +37,7 @@ class PersonalInfoScreen extends StatelessWidget {
                       Divider(height: 1, thickness: 1, color: theme.divider),
                       const _InfoRow(
                         label: 'Email',
-                        value: 'minh.anh@nivex.demo',
+                        value: 'minh.anh@nova.demo',
                         icon: Icons.email_outlined,
                       ),
                       Divider(height: 1, thickness: 1, color: theme.divider),

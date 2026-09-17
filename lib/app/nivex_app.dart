@@ -73,7 +73,7 @@ class _NivexAppState extends State<NivexApp> {
         return AppEnvironmentScope(
           environment: widget.environment,
           child: MaterialApp(
-            title: 'NIVEX',
+            title: 'Nova',
             debugShowCheckedModeBanner: false,
             theme: NivexTheme.forMode(_controller.mode),
             home: widget.showAuthentication && !_isAuthenticated

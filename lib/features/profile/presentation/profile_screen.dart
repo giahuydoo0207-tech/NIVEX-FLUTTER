@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
@@ -13,9 +11,11 @@ import 'package:nivex_flutter/features/profile/presentation/notification_setting
 import 'package:nivex_flutter/features/profile/presentation/personal_info_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/verification_screen.dart';
+import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/features/profile/widgets/profile_row.dart';
 import 'package:nivex_flutter/features/profile/widgets/profile_section.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/features/profile/widgets/status_badge.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/shared/constants/demo_data.dart';
@@ -57,25 +57,11 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundColor: theme.surfaceSubtle,
-                              foregroundImage:
-                                  profileController.profile.avatarPath == null
-                                  ? null
-                                  : FileImage(
-                                      File(
-                                        profileController.profile.avatarPath!,
-                                      ),
-                                    ),
-                              child:
-                                  profileController.profile.avatarPath == null
-                                  ? Icon(
-                                      Icons.person_outline_rounded,
-                                      color: theme.primary,
-                                      size: 24,
-                                    )
-                                  : null,
+                            ReputationAvatar(
+                              avatarPath: profileController.profile.avatarPath,
+                              initials: 'MA',
+                              tier: ReputationTier.unranked,
+                              size: 52,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -102,7 +88,7 @@ class ProfileScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'minh.anh@nivex.demo',
+                                    'minh.anh@nova.demo',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -119,7 +105,7 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         Divider(height: 1, thickness: 1, color: theme.divider),
                         const SizedBox(height: 8),
-                        // NIVEX ID Row with Copy button
+                        // Nova ID Row with Copy button
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -127,7 +113,7 @@ class ProfileScreen extends StatelessWidget {
                               child: Row(
                                 children: [
                                   Text(
-                                    'NIVEX ID: ',
+                                    'Nova ID: ',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: theme.textSecondary,
@@ -152,7 +138,7 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             Semantics(
                               button: true,
-                              label: 'Sao chép NIVEX ID',
+                              label: 'Sao chép Nova ID',
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
@@ -162,7 +148,7 @@ class ProfileScreen extends StatelessWidget {
                                     );
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Đã sao chép NIVEX ID'),
+                                        content: Text('Đã sao chép Nova ID'),
                                         duration: Duration(seconds: 2),
                                       ),
                                     );

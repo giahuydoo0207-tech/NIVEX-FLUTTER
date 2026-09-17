@@ -842,7 +842,7 @@ class _JobDetailSheetState extends State<_JobDetailSheet> {
                         const SizedBox(width: 11),
                         Expanded(
                           child: Text(
-                            'Tổ chức đã xác minh. Thanh toán dự kiến bằng USDC qua NIVEX.',
+                            'Tổ chức đã xác minh. Thanh toán dự kiến bằng USDC qua Nova.',
                             style: TextStyle(
                               color: theme.textSecondary,
                               height: 1.4,

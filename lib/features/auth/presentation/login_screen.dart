@@ -82,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isBiometricLoading = true);
 
     final result = await _biometricClient.authenticate(
-      localizedReason: 'Dùng vân tay để đăng nhập vào NIVEX',
+      localizedReason: 'Dùng vân tay để đăng nhập vào Nova',
     );
     if (!mounted) return;
     setState(() => _isBiometricLoading = false);
@@ -189,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Đăng nhập để tiếp tục sử dụng NIVEX.',
+                                      'Đăng nhập để tiếp tục sử dụng Nova.',
                                       style: TextStyle(
                                         color: theme.textSecondary,
                                         fontSize: 14,

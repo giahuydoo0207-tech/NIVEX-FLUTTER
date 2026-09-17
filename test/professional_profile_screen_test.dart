@@ -4,7 +4,7 @@ import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_badge.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 
 void main() {
   testWidgets('hồ sơ nghề nghiệp chỉnh sửa và hiển thị tốt ở 320dp', (
@@ -70,34 +70,34 @@ void main() {
       ),
     );
 
-    await tester.ensureVisible(find.text('Cấp bậc uy tín NIVEX'));
-    await tester.tap(find.text('Cấp bậc uy tín NIVEX'));
+    await tester.ensureVisible(find.text('Cấp bậc uy tín Nova'));
+    await tester.tap(find.text('Cấp bậc uy tín Nova'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ReputationBadgesScreen), findsOneWidget);
-    expect(find.byType(ReputationBadge), findsWidgets);
+    expect(find.byType(ReputationAvatar), findsWidgets);
     expect(find.text('Chưa xếp hạng'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('NIVEX Bronze'),
+      find.text('Viền Bronze'),
       240,
       scrollable: find.byType(Scrollable).last,
     );
-    expect(find.text('NIVEX Bronze'), findsOneWidget);
+    expect(find.text('Viền Bronze'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('NIVEX Gold'),
+      find.text('Viền Gold'),
       240,
       scrollable: find.byType(Scrollable).last,
     );
-    expect(find.text('NIVEX Gold'), findsOneWidget);
+    expect(find.text('Viền Gold'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('Verified Expert'),
+      find.text('Xác minh chuyên môn'),
       240,
       scrollable: find.byType(Scrollable).last,
     );
-    expect(find.text('Verified Expert'), findsOneWidget);
+    expect(find.text('Xác minh chuyên môn'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

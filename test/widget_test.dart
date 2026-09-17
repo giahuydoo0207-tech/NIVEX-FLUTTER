@@ -46,7 +46,7 @@ void main() {
   // 1. ORIGINAL FUNCTIONAL COVERAGE (13 TESTS)
   // =========================================================================
 
-  testWidgets('hiển thị Home NIVEX bằng tiếng Việt', (tester) async {
+  testWidgets('hiển thị Home Nova bằng tiếng Việt', (tester) async {
     await tester.pumpWidget(const NivexApp());
     expect(find.text('Trang chủ'), findsWidgets);
     expect(find.text('Công việc'), findsOneWidget);
@@ -56,8 +56,8 @@ void main() {
     expect(find.text('500.00 USDC'), findsOneWidget);
     expect(find.text('≈ 12.500.000 VND'), findsOneWidget);
     expect(find.text('Solana Devnet'), findsOneWidget);
-    expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
-    expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+    expect(find.text('Hiểu nhanh cùng Nova'), findsOneWidget);
+    expect(find.text('Nova hoạt động thế nào?'), findsOneWidget);
     expect(
       find.textContaining('Bản demo hackathon · Solana Devnet'),
       findsOneWidget,
@@ -118,7 +118,7 @@ void main() {
     await tester.tap(find.text('Minh Anh'));
     await tester.pumpAndSettle();
     expect(find.byType(ProfileScreen), findsOneWidget);
-    expect(find.text('minh.anh@nivex.demo'), findsOneWidget);
+    expect(find.text('minh.anh@nova.demo'), findsOneWidget);
   });
 
   testWidgets('ProfileScreen hiển thị đầy đủ các phần và thông tin', (
@@ -132,7 +132,7 @@ void main() {
     // Header info
     expect(find.text('MA'), findsOneWidget);
     expect(find.text('Minh Anh'), findsWidgets);
-    expect(find.text('minh.anh@nivex.demo'), findsOneWidget);
+    expect(find.text('minh.anh@nova.demo'), findsOneWidget);
     expect(find.text('Đã xác minh'), findsWidgets);
     expect(find.textContaining('NVX-000001'), findsOneWidget);
 
@@ -159,7 +159,7 @@ void main() {
     expect(find.text('Đăng xuất'), findsOneWidget);
   });
 
-  testWidgets('sao chép ID NIVEX trả đúng NVX-000001', (tester) async {
+  testWidgets('sao chép ID Nova trả đúng NVX-000001', (tester) async {
     String? copiedText;
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -181,7 +181,7 @@ void main() {
     await tester.tap(find.text('Sao chép'));
     await tester.pump();
     expect(copiedText, equals('NVX-000001'));
-    expect(find.text('Đã sao chép NIVEX ID'), findsOneWidget);
+    expect(find.text('Đã sao chép Nova ID'), findsOneWidget);
   });
 
   testWidgets('tất cả các hàng cài đặt mở đúng màn hình con', (tester) async {
@@ -840,16 +840,16 @@ void main() {
   });
 
   // =========================================================================
-  // 3. HIỂU NHANH CÙNG NIVEX (EDUCATION CAROUSEL & BANNER TESTS)
+  // 3. HIỂU NHANH CÙNG NOVA (EDUCATION CAROUSEL & BANNER TESTS)
   // =========================================================================
 
-  testWidgets('Home hiển thị Hiểu nhanh cùng NIVEX và dải minh họa đầu tiên', (
+  testWidgets('Home hiển thị Hiểu nhanh cùng Nova và dải minh họa đầu tiên', (
     tester,
   ) async {
     await tester.pumpWidget(const NivexApp());
-    expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
+    expect(find.text('Hiểu nhanh cùng Nova'), findsOneWidget);
     expect(find.text('1/6'), findsOneWidget);
-    expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+    expect(find.text('Nova hoạt động thế nào?'), findsOneWidget);
     expect(find.text('USDC Devnet'), findsOneWidget);
     expect(find.text('Bên gửi'), findsOneWidget);
     expect(find.text('VND demo'), findsOneWidget);
@@ -865,8 +865,15 @@ void main() {
     await tester.pumpWidget(const NivexApp());
     await tester.pumpAndSettle();
 
+    // Cuộn nhẹ để card nằm trong vùng tương tác
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('1/6'), findsOneWidget);
-    expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+    expect(find.text('Nova hoạt động thế nào?'), findsOneWidget);
 
     // Vuốt sang trái để chuyển trang kế tiếp
     await tester.drag(find.byType(PageView), const Offset(-300, 0));
@@ -1047,8 +1054,8 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
-      expect(find.text('NIVEX hoạt động thế nào?'), findsOneWidget);
+      expect(find.text('Hiểu nhanh cùng Nova'), findsOneWidget);
+      expect(find.text('Nova hoạt động thế nào?'), findsOneWidget);
       expect(find.byType(CustomPaint), findsWidgets);
       expect(tester.takeException(), isNull);
     },
@@ -1104,7 +1111,7 @@ void main() {
               (widget) =>
                   widget is Semantics &&
                   widget.properties.label ==
-                      'Tiến trình minh họa NIVEX hoạt động thế nào?',
+                      'Tiến trình minh họa Nova hoạt động thế nào?',
             )
             .first,
       );
@@ -1147,7 +1154,7 @@ void main() {
               (widget) =>
                   widget is Semantics &&
                   widget.properties.label ==
-                      'Tiến trình minh họa NIVEX hoạt động thế nào?',
+                      'Tiến trình minh họa Nova hoạt động thế nào?',
             )
             .first,
       );
@@ -1204,6 +1211,13 @@ void main() {
       await tester.pumpWidget(const NivexApp());
       await tester.pumpAndSettle();
 
+      // Cuộn nhẹ để card nằm trong vùng tương tác
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+
       // Vuốt liên tục 5 lần để đến card thứ 6
       for (int i = 0; i < 5; i++) {
         await tester.drag(find.byType(PageView), const Offset(-320, 0));
@@ -1212,13 +1226,6 @@ void main() {
 
       expect(find.text('6/6'), findsOneWidget);
       expect(find.text('Tình huống minh họa'), findsOneWidget);
-
-      // Cuộn nhẹ để card nằm trong vùng tương tác
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -180),
-      );
-      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Tình huống minh họa'));
       await tester.pumpAndSettle();
@@ -1644,7 +1651,7 @@ void main() {
         }
       }
 
-      const requiredLabels = ['Bên gửi', 'USDC Devnet', 'Ví NIVEX', 'VND demo'];
+      const requiredLabels = ['Bên gửi', 'USDC Devnet', 'Ví Nova', 'VND demo'];
       await tester.pumpWidget(
         MaterialApp(
           theme: NivexTheme.light,
@@ -1691,7 +1698,7 @@ void main() {
           );
           await tester.pump();
           expect(tester.takeException(), isNull);
-          expect(find.text('Hiểu nhanh cùng NIVEX'), findsOneWidget);
+          expect(find.text('Hiểu nhanh cùng Nova'), findsOneWidget);
 
           // Bottom sheet illustration band preview
           for (final topic in NivexEducationSection.topics) {

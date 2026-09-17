@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 // ---------------------------------------------------------------------------
@@ -399,27 +401,15 @@ class _ProfileHero extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: theme.surface, width: 3.5),
-                      ),
-                      child: CircleAvatar(
-                        radius: 40,
-                        backgroundColor: accent.withValues(alpha: 0.14),
-                        foregroundImage: profile.avatarPath == null
-                            ? null
-                            : FileImage(File(profile.avatarPath!)),
-                        child: profile.avatarPath == null
-                            ? Icon(
-                                isBusiness
-                                    ? Icons.business_outlined
-                                    : Icons.person_outline_rounded,
-                                color: accent,
-                                size: 38,
-                              )
-                            : null,
-                      ),
+                    ReputationAvatar(
+                      avatarPath: profile.avatarPath,
+                      tier: isBusiness
+                          ? ReputationTier.verifiedExpert
+                          : (profile.isVerified
+                              ? ReputationTier.gold
+                              : ReputationTier.silver),
+                      size: 86,
+                      isBusiness: isBusiness,
                     ),
                     const Spacer(),
                     if (isSelf)
@@ -716,7 +706,6 @@ class _ProfilePostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     final isBusiness = profile.kind == PublicProfileKind.business;
-    final accent = isBusiness ? theme.warning : theme.primary;
 
     return NivexCard(
       padding: const EdgeInsets.all(14),
@@ -735,21 +724,15 @@ class _ProfilePostCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: accent.withValues(alpha: 0.14),
-                  foregroundImage: profile.avatarPath == null
-                      ? null
-                      : FileImage(File(profile.avatarPath!)),
-                  child: profile.avatarPath == null
-                      ? Icon(
-                          isBusiness
-                              ? Icons.business_outlined
-                              : Icons.person_outline_rounded,
-                          color: accent,
-                          size: 15,
-                        )
-                      : null,
+                ReputationAvatar(
+                  avatarPath: profile.avatarPath,
+                  tier: isBusiness
+                      ? ReputationTier.verifiedExpert
+                      : (profile.isVerified
+                          ? ReputationTier.gold
+                          : ReputationTier.silver),
+                  size: 34,
+                  isBusiness: isBusiness,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -1104,7 +1087,7 @@ class _BusinessAbout extends StatelessWidget {
               Flexible(
                 child: Text(
                   profile.isVerified
-                      ? 'Doanh nghiệp đã được NIVEX xác minh'
+                      ? 'Doanh nghiệp đã được Nova xác minh'
                       : 'Chưa xác minh — đang chờ xét duyệt',
                   style: TextStyle(
                     color: profile.isVerified
@@ -1166,7 +1149,7 @@ class _ProfileActivityTab extends StatelessWidget {
         ProfileActivity(
           icon: Icons.celebration_rounded,
           color: Color(0xFFF43F5E),
-          title: 'Kỷ niệm 1 năm trên NIVEX',
+          title: 'Kỷ niệm 1 năm trên Nova',
           subtitle: 'Cột mốc đặc biệt của doanh nghiệp',
           timeLabel: '2 tuan truoc',
         ),
@@ -1184,14 +1167,14 @@ class _ProfileActivityTab extends StatelessWidget {
         icon: Icons.folder_open_outlined,
         color: Color(0xFFA855F7),
         title: 'Cập nhật portfolio',
-        subtitle: 'Thêm dự án NIVEX Mobile Prototype',
+        subtitle: 'Thêm dự án Nova Mobile Prototype',
         timeLabel: 'Hom qua',
       ),
       ProfileActivity(
         icon: Icons.chat_bubble_outline_rounded,
         color: Color(0xFF06B6D4),
         title: 'Bình luận bài viết',
-        subtitle: 'Bình luận về bài của NIVEX Labs',
+        subtitle: 'Bình luận về bài của Nova Labs',
         timeLabel: '2 ngay truoc',
       ),
       ProfileActivity(
@@ -1212,7 +1195,7 @@ class _ProfileActivityTab extends StatelessWidget {
         icon: Icons.celebration_rounded,
         color: Color(0xFFF43F5E),
         title: 'Hoàn thành dự án',
-        subtitle: 'NIVEX Wallet MVP — Flutter + Solana',
+        subtitle: 'Nova Wallet MVP — Flutter + Solana',
         timeLabel: '2 tuan truoc',
       ),
     ];
@@ -1327,9 +1310,9 @@ const _kFollowers = [
     handle: 'hoangnam.web3',
   ),
   _MockEntry(
-    name: 'NIVEX Labs',
+    name: 'Nova Labs',
     headline: 'Fintech Web3 Remote-first',
-    handle: 'nivex.labs',
+    handle: 'nova.labs',
     kind: PublicProfileKind.business,
   ),
   _MockEntry(
@@ -1341,9 +1324,9 @@ const _kFollowers = [
 
 const _kFollowing = [
   _MockEntry(
-    name: 'NIVEX Labs',
+    name: 'Nova Labs',
     headline: 'Fintech Web3 Remote-first',
-    handle: 'nivex.labs',
+    handle: 'nova.labs',
     kind: PublicProfileKind.business,
   ),
   _MockEntry(
@@ -1415,20 +1398,15 @@ class _FollowerListSheetState extends State<_FollowerListSheet> {
                 itemBuilder: (ctx, i) {
                   final e = entries[i];
                   final isBiz = e.kind == PublicProfileKind.business;
-                  final accent = isBiz ? theme.warning : theme.primary;
                   final isF = _followed.contains(e.handle);
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                    leading: CircleAvatar(
-                      radius: 22,
-                      backgroundColor: accent.withValues(alpha: 0.14),
-                      child: Icon(
-                        isBiz
-                            ? Icons.business_outlined
-                            : Icons.person_outline_rounded,
-                        color: accent,
-                        size: 20,
-                      ),
+                    leading: ReputationAvatar(
+                      tier: isBiz
+                          ? ReputationTier.verifiedExpert
+                          : ReputationTier.silver,
+                      size: 44,
+                      isBusiness: isBiz,
                     ),
                     title: Text(
                       e.name,

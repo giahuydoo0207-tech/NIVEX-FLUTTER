@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
+import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 import 'public_profile_screen.dart';
@@ -53,7 +55,7 @@ class _PostsScreenState extends State<PostsScreen> {
     ),
     _DemoPost(
       id: 'post-nivex-002',
-      content: 'NIVEX Labs đang tìm thêm freelancer cho các dự án fintech và sản phẩm Web3. Xem hồ sơ để tìm hiểu cơ hội hợp tác.',
+      content: 'Nova Labs đang tìm thêm freelancer cho các dự án fintech và sản phẩm Web3. Xem hồ sơ để tìm hiểu cơ hội hợp tác.',
       images: const [],
       timeLabel: 'Hôm qua, 18:40',
       isMine: false,
@@ -70,7 +72,7 @@ class _PostsScreenState extends State<PostsScreen> {
           replies: [
             PostCommentReply(
               id: 'r-nivex-1',
-              authorName: 'NIVEX Labs',
+              authorName: 'Nova Labs',
               headline: 'Fintech · Web3 · Remote-first',
               content: 'Chào bạn, bên mình đang ưu tiên cả Flutter Dev và Solana Rust Dev nhé!',
               timeLabel: '1 giờ trước',
@@ -82,8 +84,8 @@ class _PostsScreenState extends State<PostsScreen> {
       ],
       author: PublicProfileData(
         kind: PublicProfileKind.business,
-        displayName: 'NIVEX Labs',
-        handle: 'nivex.labs',
+        displayName: 'Nova Labs',
+        handle: 'nova.labs',
         headline: 'Fintech · Web3 · Remote-first',
         location: 'Đà Nẵng, Việt Nam',
         bio: 'Đội ngũ xây dựng sản phẩm tài chính số minh bạch cho freelancer và doanh nghiệp.',
@@ -101,13 +103,13 @@ class _PostsScreenState extends State<PostsScreen> {
           BusinessOpening(
             title: 'Flutter Developer',
             type: 'Remote · Full-time',
-            description: 'Xây dựng tính năng Wallet và Payment cho ứng dụng NIVEX Mobile.',
+            description: 'Xây dựng tính năng Wallet và Payment cho ứng dụng Nova Mobile.',
           ),
           BusinessOpening(
             title: 'Solana Rust Developer',
             type: 'Remote · Contract',
             description:
-                'Phát triển smart contract cho hệ sinh thái DeFi của NIVEX.',
+                'Phát triển smart contract cho hệ sinh thái DeFi của Nova.',
           ),
         ],
       ),
@@ -577,8 +579,8 @@ class _PostsScreenState extends State<PostsScreen> {
     );
     final business = PublicProfileData(
       kind: PublicProfileKind.business,
-      displayName: 'NIVEX Labs',
-      handle: 'nivex.labs',
+      displayName: 'Nova Labs',
+      handle: 'nova.labs',
       headline: 'Fintech · Web3 · Remote-first',
       location: 'Đà Nẵng, Việt Nam',
       bio: 'Đội ngũ xây dựng sản phẩm tài chính số minh bạch cho freelancer và doanh nghiệp.',
@@ -1156,22 +1158,18 @@ class _HiddenPostCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: theme.primary.withValues(alpha: 0.16),
-                foregroundImage: post.isMine && ownAvatarPath != null
-                    ? FileImage(File(ownAvatarPath!))
-                    : null,
-                child: post.isMine && ownAvatarPath != null
-                    ? null
-                    : Icon(
-                        (!post.isMine &&
-                                post.author.kind == PublicProfileKind.business)
-                            ? Icons.business_outlined
-                            : Icons.person_outline_rounded,
-                        color: theme.primary,
-                        size: 18,
-                      ),
+              ReputationAvatar(
+                avatarPath: post.isMine ? ownAvatarPath : null,
+                tier: post.isMine
+                    ? ReputationTier.gold
+                    : (post.author.kind == PublicProfileKind.business
+                        ? ReputationTier.verifiedExpert
+                        : (post.author.isVerified
+                            ? ReputationTier.gold
+                            : ReputationTier.silver)),
+                size: 38,
+                isBusiness: !post.isMine &&
+                    post.author.kind == PublicProfileKind.business,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1346,14 +1344,14 @@ class _ProfilePickerSheet extends StatelessWidget {
             for (final profile in profiles)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: theme.primary.withValues(alpha: 0.14),
-                  child: Icon(
-                    profile.kind == PublicProfileKind.business
-                        ? Icons.business_outlined
-                        : Icons.person_outline_rounded,
-                    color: theme.primary,
-                  ),
+                leading: ReputationAvatar(
+                  tier: profile.kind == PublicProfileKind.business
+                      ? ReputationTier.verifiedExpert
+                      : (profile.isVerified
+                          ? ReputationTier.gold
+                          : ReputationTier.silver),
+                  size: 40,
+                  isBusiness: profile.kind == PublicProfileKind.business,
                 ),
                 title: Text(profile.displayName),
                 subtitle: Text(
@@ -1404,15 +1402,10 @@ class _PostComposer extends StatelessWidget {
             children: [
               Semantics(
                 label: 'Ảnh đại diện của $displayName',
-                child: CircleAvatar(
-                  radius: 22,
-                  backgroundColor: theme.primary.withValues(alpha: 0.16),
-                  foregroundImage: avatarPath == null
-                      ? null
-                      : FileImage(File(avatarPath!)),
-                  child: avatarPath == null
-                      ? Icon(Icons.person_outline_rounded, color: theme.primary)
-                      : null,
+                child: ReputationAvatar(
+                  avatarPath: avatarPath,
+                  tier: ReputationTier.unranked,
+                  size: 46,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1698,22 +1691,18 @@ class _PostCardState extends State<_PostCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 23,
-                    backgroundColor: theme.primary.withValues(alpha: 0.16),
-                    foregroundImage: post.isMine && widget.ownAvatarPath != null
-                        ? FileImage(File(widget.ownAvatarPath!))
-                        : null,
-                    child: post.isMine && widget.ownAvatarPath != null
-                        ? null
-                        : Icon(
-                            (!post.isMine &&
-                                    post.author.kind ==
-                                        PublicProfileKind.business)
-                                ? Icons.business_outlined
-                                : Icons.person_outline_rounded,
-                            color: theme.primary,
-                          ),
+                  ReputationAvatar(
+                    avatarPath: post.isMine ? widget.ownAvatarPath : null,
+                    tier: post.isMine
+                        ? ReputationTier.gold
+                        : (post.author.kind == PublicProfileKind.business
+                            ? ReputationTier.verifiedExpert
+                            : (post.author.isVerified
+                                ? ReputationTier.gold
+                                : ReputationTier.silver)),
+                    size: 48,
+                    isBusiness: !post.isMine &&
+                        post.author.kind == PublicProfileKind.business,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -3743,7 +3732,7 @@ class _DemoPost {
     this.author = const PublicProfileData(
       kind: PublicProfileKind.freelancer,
       displayName: 'Minh Anh',
-      handle: 'minhanh.nivex',
+      handle: 'minhanh.nova',
       headline: 'Flutter Developer | Fintech Mobile Applications',
       location: 'Đà Nẵng, Việt Nam',
       bio: '',
@@ -3803,7 +3792,7 @@ class _DemoPost {
 String _postPermalink(_DemoPost post) {
   // TODO: replace demo permalink with backend post id.
   final postId = post.id ?? 'demo-${post.hashCode.abs()}';
-  return 'https://nivex.app/posts/$postId';
+  return 'https://nova.app/posts/$postId';
 }
 
 void _showPostOptionsSheet(

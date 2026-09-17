@@ -13,7 +13,7 @@ class NivexLogo extends StatelessWidget {
     final markColor = isLight ? Colors.white : theme.primary;
     final textColor = isLight ? Colors.white : theme.textPrimary;
     return Semantics(
-      label: 'NIVEX',
+      label: 'NOVA',
       child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -24,7 +24,7 @@ class NivexLogo extends StatelessWidget {
           ),
           SizedBox(width: height * 0.35),
           Text(
-            'NIVEX',
+            'NOVA',
             style: TextStyle(
               color: textColor,
               fontSize: height * 0.85,

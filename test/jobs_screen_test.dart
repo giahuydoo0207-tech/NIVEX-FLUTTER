@@ -39,7 +39,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Đã gửi hồ sơ'), findsOneWidget);
-    expect(find.textContaining('Đã gửi hồ sơ đến NIVEX Labs'), findsOneWidget);
+    expect(find.textContaining('Đã gửi hồ sơ đến Nova Labs'), findsOneWidget);
 
     await tester.tap(find.text('Đã gửi hồ sơ'));
     await tester.pumpAndSettle();
@@ -129,9 +129,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(MessagesScreen), findsOneWidget);
     expect(find.text('HỘI THOẠI GẦN ĐÂY'), findsOneWidget);
-    expect(find.text('NIVEX Labs'), findsWidgets);
+    expect(find.text('Nova Labs'), findsWidgets);
 
-    await tester.tap(find.text('NIVEX Labs').first);
+    await tester.tap(find.text('Nova Labs').first);
     await tester.pumpAndSettle();
     expect(find.byType(ApplicationThreadScreen), findsOneWidget);
     expect(find.byKey(const Key('application-message-input')), findsOneWidget);

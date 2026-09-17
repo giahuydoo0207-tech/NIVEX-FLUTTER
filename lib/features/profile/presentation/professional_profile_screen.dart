@@ -7,7 +7,7 @@ import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_cont
 import 'package:nivex_flutter/features/profile/domain/freelancer_profile.dart';
 import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_badge.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -197,41 +197,11 @@ class _ProfileHeader extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: theme.surfaceSubtle,
-                          foregroundImage: profile.avatarPath == null
-                              ? null
-                              : FileImage(File(profile.avatarPath!)),
-                          child: profile.avatarPath == null
-                              ? Icon(
-                                  Icons.person_outline_rounded,
-                                  color: theme.primary,
-                                  size: 30,
-                                )
-                              : null,
-                        ),
-                        if (profile.isAvailable)
-                          Positioned(
-                            right: 1,
-                            bottom: 1,
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: theme.success,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: theme.surface,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                    ReputationAvatar(
+                      avatarPath: profile.avatarPath,
+                      tier: ReputationTier.unranked,
+                      size: 68,
+                      showOnlineDot: profile.isAvailable,
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -575,10 +545,9 @@ class _ReputationEntry extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              const ReputationBadge(
+              const ReputationAvatar(
                 tier: ReputationTier.unranked,
-                size: ReputationBadgeSize.compact,
-                showLabel: false,
+                size: 34,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -595,7 +564,7 @@ class _ReputationEntry extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Cấp bậc uy tín NIVEX',
+                      'Cấp bậc uy tín Nova',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1429,7 +1398,12 @@ class _ExperienceEditorDialogState extends State<_ExperienceEditorDialog> {
     _period = TextEditingController(text: i?.period); _summary = TextEditingController(text: i?.summary);
   }
   @override
-  void dispose() { for (final c in [_title, _organization, _period, _summary]) c.dispose(); super.dispose(); }
+  void dispose() {
+    for (final c in [_title, _organization, _period, _summary]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) => _simpleDialog(
     context: context,
@@ -1453,7 +1427,12 @@ class _EducationEditorDialogState extends State<_EducationEditorDialog> {
   @override
   void initState() { super.initState(); final i = widget.initial; _program = TextEditingController(text: i?.program); _institution = TextEditingController(text: i?.institution); _period = TextEditingController(text: i?.period); _note = TextEditingController(text: i?.note); }
   @override
-  void dispose() { for (final c in [_program, _institution, _period, _note]) c.dispose(); super.dispose(); }
+  void dispose() {
+    for (final c in [_program, _institution, _period, _note]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) => _simpleDialog(
     context: context,

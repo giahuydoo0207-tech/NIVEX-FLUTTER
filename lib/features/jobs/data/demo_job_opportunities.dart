@@ -4,7 +4,7 @@ abstract final class DemoJobOpportunities {
   static const items = [
     JobOpportunity(
       id: 'job-flutter-payments',
-      organizationName: 'NIVEX Labs',
+      organizationName: 'Nova Labs',
       organizationVerified: true,
       title: 'Flutter Developer - Payment Experience',
       category: 'Mobile Development',
@@ -23,7 +23,7 @@ abstract final class DemoJobOpportunities {
     ),
     JobOpportunity(
       id: 'job-product-designer',
-      organizationName: 'NIVEX Labs',
+      organizationName: 'Nova Labs',
       organizationVerified: true,
       title: 'Product Designer - Remote Workflows',
       category: 'Product Design',

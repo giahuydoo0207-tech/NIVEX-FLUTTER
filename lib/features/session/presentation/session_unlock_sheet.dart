@@ -106,7 +106,7 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
     });
 
     final result = await widget.authService.authenticateBiometric(
-      reason: 'Xác thực để tiếp tục sử dụng NIVEX',
+      reason: 'Xác thực để tiếp tục sử dụng Nova',
       atTime: widget.clock(),
     );
     if (!mounted) return;
@@ -179,7 +179,7 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Xác thực lại để tiếp tục. NIVEX không lưu dữ liệu sinh trắc học của bạn.',
+                    'Xác thực lại để tiếp tục. Nova không lưu dữ liệu sinh trắc học của bạn.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: theme.textSecondary,

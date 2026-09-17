@@ -142,6 +142,15 @@ class _BadgePalette {
         bottomBand: Color(0xFFF4C95D),
         core: Color(0xFFF4C95D),
       ),
+      ReputationTier.platinum => const _BadgePalette(
+        foreground: Color(0xFF67E8F9),
+        background: Color(0xFF0C2A3A),
+        detail: Color(0xFF0891B2),
+        leadingBand: Color(0xFFA5F3FC),
+        trailingBand: Color(0xFF0E7490),
+        bottomBand: Color(0xFF22D3EE),
+        core: Color(0xFF67E8F9),
+      ),
       ReputationTier.verifiedExpert => _BadgePalette(
         foreground: theme.primary,
         background: theme.primary.withValues(alpha: 0.12),

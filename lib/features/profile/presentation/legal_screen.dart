@@ -42,7 +42,7 @@ class LegalScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Ứng dụng NIVEX phiên bản hiện tại là sản phẩm MVP phục vụ trình diễn giải pháp on/off-ramp crypto-fiat. Mọi giao dịch tiền tệ là mô phỏng và không phát sinh nghĩa vụ tài chính thực tế.',
+                        'Ứng dụng Nova phiên bản hiện tại là sản phẩm MVP phục vụ trình diễn giải pháp on/off-ramp crypto-fiat. Mọi giao dịch tiền tệ là mô phỏng và không phát sinh nghĩa vụ tài chính thực tế.',
                         style: TextStyle(
                           fontSize: 13,
                           color: theme.textSecondary,

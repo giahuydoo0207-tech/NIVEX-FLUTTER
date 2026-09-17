@@ -99,12 +99,12 @@ class NivexEducationSection extends StatefulWidget {
   final bool initialOpenDetail;
 
   static const topics = [
-    // 1. NIVEX hoạt động thế nào?
+    // 1. Nova hoạt động thế nào?
     EducationTopic(
       id: 'nivex_flow',
-      title: 'NIVEX hoạt động thế nào?',
-      shortDescription: 'NIVEX mô phỏng cách freelancer nhận USDC, xem tỷ giá/phí và theo dõi yêu cầu rút VND trong một giao diện tiếng Việt.',
-      definition: 'NIVEX là prototype giúp người dùng làm quen với một quy trình thanh toán quốc tế bằng dữ liệu mô phỏng và Solana Devnet.',
+      title: 'Nova hoạt động thế nào?',
+      shortDescription: 'Nova mô phỏng cách freelancer nhận USDC, xem tỷ giá/phí và theo dõi yêu cầu rút VND trong một giao diện tiếng Việt.',
+      definition: 'Nova là prototype giúp người dùng làm quen với một quy trình thanh toán quốc tế bằng dữ liệu mô phỏng và Solana Devnet.',
       steps: [
         EducationStepItem(label: 'Bên gửi', icon: Icons.public_rounded),
         EducationStepItem(
@@ -112,7 +112,7 @@ class NivexEducationSection extends StatefulWidget {
           icon: Icons.attach_money_rounded,
         ),
         EducationStepItem(
-          label: 'Ví NIVEX',
+          label: 'Ví Nova',
           icon: Icons.currency_exchange_rounded,
         ),
         EducationStepItem(
@@ -123,13 +123,13 @@ class NivexEducationSection extends StatefulWidget {
       howItWorks: [
         'Người gửi tạo khoản thanh toán.',
         'USDC được gửi qua Solana Devnet hoặc dùng dữ liệu mô phỏng.',
-        'NIVEX hiển thị số dư demo.',
+        'Nova hiển thị số dư demo.',
         'Người dùng xem tỷ giá, phí và số VND dự kiến nhận.',
         'Payout VND được mô phỏng.',
       ],
       keyNotes: [
-        'NIVEX hiện không xử lý tiền thật hoặc kết nối ngân hàng thật.',
-        'NIVEX chưa phải tổ chức cung cấp dịch vụ tài sản mã hóa được cấp phép.',
+        'Nova hiện không xử lý tiền thật hoặc kết nối ngân hàng thật.',
+        'Nova chưa phải tổ chức cung cấp dịch vụ tài sản mã hóa được cấp phép.',
         'Tỷ giá, phí và số VND trong luồng này đều là dữ liệu demo.',
       ],
       practicalExample: 'Minh Anh xem 500 USDC trong số dư demo, tạo báo giá tham khảo và theo dõi payout VND mô phỏng.',
@@ -159,7 +159,7 @@ class NivexEducationSection extends StatefulWidget {
         'Cần kiểm tra mạng, địa chỉ và nội dung trước khi xác nhận.',
         'Không chia sẻ private key hoặc seed phrase với ứng dụng hay người khác.',
       ],
-      practicalExample: 'NIVEX dùng dữ liệu mô phỏng hoặc Solana Devnet để minh họa cách một giao dịch có thể được theo dõi.',
+      practicalExample: 'Nova dùng dữ liệu mô phỏng hoặc Solana Devnet để minh họa cách một giao dịch có thể được theo dõi.',
     ),
 
     // 3. Blockchain là gì?
@@ -167,7 +167,7 @@ class NivexEducationSection extends StatefulWidget {
       id: 'blockchain_basics',
       title: 'Blockchain là gì?',
       shortDescription: 'Blockchain là một mạng lưới ghi nhận và xác nhận dữ liệu giao dịch giữa nhiều máy tính.',
-      definition: 'Một giao dịch blockchain thường có người gửi, người nhận, tài sản hoặc dữ liệu giao dịch, phí mạng, trạng thái xác nhận và mã giao dịch. Trong NIVEX, các ví dụ blockchain dùng Solana Devnet hoặc dữ liệu mô phỏng.',
+      definition: 'Một giao dịch blockchain thường có người gửi, người nhận, tài sản hoặc dữ liệu giao dịch, phí mạng, trạng thái xác nhận và mã giao dịch. Trong Nova, các ví dụ blockchain dùng Solana Devnet hoặc dữ liệu mô phỏng.',
       steps: [
         EducationStepItem(
           label: 'Giao dịch',
@@ -194,7 +194,7 @@ class NivexEducationSection extends StatefulWidget {
       id: 'solana_devnet',
       title: 'Solana Devnet là gì?',
       shortDescription: 'Solana Devnet là mạng thử nghiệm để phát triển và kiểm tra ứng dụng.',
-      definition: 'Devnet không phải mạng dùng cho tiền thật. Token và SOL trên Devnet chỉ dùng để thử nghiệm. Giao dịch Devnet giúp nhóm kiểm tra luồng kỹ thuật mà không sử dụng tài sản thật. NIVEX hiện không dùng Solana Mainnet.',
+      definition: 'Devnet không phải mạng dùng cho tiền thật. Token và SOL trên Devnet chỉ dùng để thử nghiệm. Giao dịch Devnet giúp nhóm kiểm tra luồng kỹ thuật mà không sử dụng tài sản thật. Nova hiện không dùng Solana Mainnet.',
       steps: [
         EducationStepItem(
           label: 'Solana',
@@ -214,7 +214,7 @@ class NivexEducationSection extends StatefulWidget {
         'Dữ liệu trạng thái mạng Devnet có thể được đặt lại định kỳ.',
         'Tuyệt đối không chuyển token thật từ sàn giao dịch vào mạng Devnet.',
       ],
-      practicalExample: 'Số dư 500 USDC trong NIVEX là dữ liệu demo hoặc token thử nghiệm, không phải tài sản thật.',
+      practicalExample: 'Số dư 500 USDC trong Nova là dữ liệu demo hoặc token thử nghiệm, không phải tài sản thật.',
     ),
 
     // 5. Sử dụng an toàn
@@ -242,7 +242,7 @@ class NivexEducationSection extends StatefulWidget {
       keyNotes: [
         'Không tin lời hứa lợi nhuận hoặc chuyển tiền chắc chắn.',
         'Chuyển token nhầm mạng hoặc địa chỉ có thể gây mất tài sản.',
-        'NIVEX demo không yêu cầu private key hoặc seed phrase.',
+        'Nova demo không yêu cầu private key hoặc seed phrase.',
       ],
       practicalExample: 'Địa chỉ ví Solana thử nghiệm của bạn có dạng 7xKXtg...sgAsU; hãy luôn đối chiếu địa chỉ trước khi xác nhận giao dịch mô phỏng.',
     ),
@@ -263,7 +263,7 @@ class NivexEducationSection extends StatefulWidget {
           label: 'Solana Devnet',
           icon: Icons.attach_money_rounded,
         ),
-        EducationStepItem(label: 'Ví NIVEX', icon: Icons.person_rounded),
+        EducationStepItem(label: 'Ví Nova', icon: Icons.person_rounded),
         EducationStepItem(
           label: 'VND demo',
           icon: Icons.account_balance_outlined,
@@ -272,12 +272,12 @@ class NivexEducationSection extends StatefulWidget {
       howItWorks: [
         'Bên gửi tạo khoản thanh toán 100 USDC.',
         'Giao dịch được mô phỏng hoặc kiểm tra trên Solana Devnet.',
-        'NIVEX cập nhật số dư demo và hiển thị báo giá mô phỏng.',
+        'Nova cập nhật số dư demo và hiển thị báo giá mô phỏng.',
       ],
       scenarioSteps: [
         'Bên gửi tạo khoản thanh toán 100 USDC',
         'Giao dịch được mô phỏng hoặc kiểm tra trên Solana Devnet',
-        'NIVEX cập nhật số dư demo của freelancer',
+        'Nova cập nhật số dư demo của freelancer',
         'Freelancer xem báo giá USDC/VND mô phỏng',
         'Freelancer chọn tài khoản nhận VND demo',
         'Payout VND được đánh dấu hoàn tất trong môi trường mô phỏng',
@@ -408,7 +408,7 @@ class _NivexEducationSectionState extends State<NivexEducationSection>
             children: [
               Expanded(
                 child: Text(
-                  'Hiểu nhanh cùng NIVEX',
+                  'Hiểu nhanh cùng Nova',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -1611,7 +1611,7 @@ class _EducationDetailSheetState extends State<_EducationDetailSheet>
 
                   // 6. Section "Ví dụ trong NIVEX (Mô phỏng Devnet)"
                   Text(
-                    'VÍ DỤ TRONG NIVEX (MÔ PHỎNG DEVNET)',
+                    'VÍ DỤ TRONG NOVA (MÔ PHỎNG DEVNET)',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,

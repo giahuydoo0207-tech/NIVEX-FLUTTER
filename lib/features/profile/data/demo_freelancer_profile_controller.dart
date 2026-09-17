@@ -14,7 +14,7 @@ class DemoFreelancerProfileController extends ChangeNotifier {
 
   FreelancerProfile profile = const FreelancerProfile(
     displayName: 'Minh Anh',
-    username: 'minhanh.nivex',
+    username: 'minhanh.nova',
     headline: 'Flutter Developer | Fintech Mobile Applications',
     bio:
         'Tôi xây dựng ứng dụng Flutter cho fintech và các sản phẩm thanh toán. '
@@ -50,7 +50,7 @@ class DemoFreelancerProfileController extends ChangeNotifier {
     ],
     projects: [
       FreelancerProject(
-        title: 'NIVEX Mobile Prototype',
+        title: 'Nova Mobile Prototype',
         role: 'Flutter Developer',
         summary: 'Ứng dụng hỗ trợ freelancer tìm việc, trao đổi và theo dõi thanh toán quốc tế.',
         technologies: ['Flutter', 'Dart', 'Solana Devnet'],
@@ -58,7 +58,7 @@ class DemoFreelancerProfileController extends ChangeNotifier {
         link: 'https://github.com/giahuydoo0207-tech/NIVEX-FLUTTER',
       ),
       FreelancerProject(
-        title: 'NIVEX Business',
+        title: 'Nova Business',
         role: 'Product & Frontend Developer',
         summary: 'Không gian doanh nghiệp để đăng cơ hội, xét duyệt ứng viên và quản lý yêu cầu thanh toán.',
         technologies: ['Next.js', 'TypeScript', 'UI/UX'],

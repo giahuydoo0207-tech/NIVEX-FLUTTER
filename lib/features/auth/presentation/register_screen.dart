@@ -144,7 +144,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Nhập thông tin để bắt đầu với NIVEX.',
+                                      'Nhập thông tin để bắt đầu với Nova.',
                                       style: TextStyle(
                                         color: theme.textSecondary,
                                         fontSize: 14,
@@ -382,7 +382,7 @@ class _RegisterHeader extends StatelessWidget {
     return const AuthVisualHeader(
       key: Key('register-theme-header'),
       height: 164,
-      subtitle: 'Mở tài khoản NIVEX',
+      subtitle: 'Mở tài khoản Nova',
     );
   }
 }

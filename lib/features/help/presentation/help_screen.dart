@@ -10,8 +10,8 @@ class HelpScreen extends StatelessWidget {
     final theme = context.nivexTheme;
     final faqs = [
       (
-        'NIVEX hoạt động như thế nào?',
-        'NIVEX mô phỏng cách nhận USDC bằng dữ liệu demo hoặc Solana Devnet, xem báo giá và theo dõi payout VND mô phỏng.',
+        'Nova hoạt động như thế nào?',
+        'Nova mô phỏng cách nhận USDC bằng dữ liệu demo hoặc Solana Devnet, xem báo giá và theo dõi payout VND mô phỏng.',
       ),
       (
         'Bao lâu thì nhận được VND?',
@@ -23,7 +23,7 @@ class HelpScreen extends StatelessWidget {
       ),
       (
         'Tôi cần hỗ trợ kỹ thuật?',
-        'Liên hệ đội ngũ hỗ trợ qua email support@nivex.demo hoặc kênh Telegram cộng đồng chính thức.',
+        'Liên hệ đội ngũ hỗ trợ qua email support@nova.demo hoặc kênh Telegram cộng đồng chính thức.',
       ),
     ];
 

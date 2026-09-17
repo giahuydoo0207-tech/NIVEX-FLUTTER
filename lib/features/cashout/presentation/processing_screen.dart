@@ -205,7 +205,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     switch (_status) {
       case CashoutProcessingStatus.processing:
         return simulated
-            ? 'NIVEX đang cập nhật các trạng thái demo. Không có kết nối ngân hàng hoặc tiền thật được chuyển.'
+            ? 'Nova đang cập nhật các trạng thái demo. Không có kết nối ngân hàng hoặc tiền thật được chuyển.'
             : 'Yêu cầu đang được xử lý. Vui lòng không thực hiện lại giao dịch.';
       case CashoutProcessingStatus.settled:
         return simulated
@@ -341,7 +341,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text(
-                      'Đang mở cổng liên hệ đội ngũ hỗ trợ NIVEX...',
+                      'Đang mở cổng liên hệ đội ngũ hỗ trợ Nova...',
                     ),
                     backgroundColor: theme.surfaceSubtle,
                   ),

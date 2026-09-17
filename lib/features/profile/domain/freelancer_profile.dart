@@ -15,7 +15,7 @@ extension ProfileHeaderThemeLabel on ProfileHeaderTheme {
 extension ProfileVisibilityLabel on ProfileVisibility {
   String get label => switch (this) {
     ProfileVisibility.public => 'Công khai',
-    ProfileVisibility.registeredUsers => 'Người dùng NIVEX',
+    ProfileVisibility.registeredUsers => 'Người dùng Nova',
     ProfileVisibility.connectedUsers => 'Doanh nghiệp đã kết nối',
     ProfileVisibility.private => 'Riêng tư',
   };

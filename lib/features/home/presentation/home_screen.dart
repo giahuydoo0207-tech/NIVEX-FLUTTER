@@ -572,7 +572,7 @@ class _NotificationsSheet extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'NIVEX Labs vừa đăng cơ hội Flutter và Product Design.',
+                            'Nova Labs vừa đăng cơ hội Flutter và Product Design.',
                             style: TextStyle(
                               fontSize: 12,
                               color: theme.textSecondary,
