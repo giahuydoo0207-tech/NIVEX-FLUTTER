@@ -9,12 +9,14 @@ class DemoBankItem {
     required this.code,
     required this.accountNumber,
     required this.accountHolder,
+    this.logoAsset,
   });
 
   final String name;
   final String code;
   final String accountNumber;
   final String accountHolder;
+  final String? logoAsset;
 }
 
 abstract final class DemoCashoutFixtures {
@@ -53,24 +55,28 @@ abstract final class DemoCashoutFixtures {
       code: 'VCB',
       accountNumber: '•••• 1092',
       accountHolder: 'MINH ANH',
+      logoAsset: 'assets/images/banks/vietcombank.png',
     ),
     DemoBankItem(
       name: 'Techcombank',
       code: 'TCB',
       accountNumber: '•••• 2868',
       accountHolder: 'MINH ANH',
+      logoAsset: 'assets/images/banks/techcombank.png',
     ),
     DemoBankItem(
       name: 'ACB',
       code: 'ACB',
       accountNumber: '•••• 7741',
       accountHolder: 'MINH ANH',
+      logoAsset: 'assets/images/banks/acb.png',
     ),
     DemoBankItem(
       name: 'MB Bank',
       code: 'MB',
       accountNumber: '•••• 5530',
       accountHolder: 'MINH ANH',
+      logoAsset: 'assets/images/banks/mb_bank.png',
     ),
   ];
 

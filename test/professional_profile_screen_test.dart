@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
+import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart';
 import 'package:nivex_flutter/features/posts/presentation/posts_screen.dart';
 import 'package:nivex_flutter/features/posts/presentation/public_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
@@ -345,6 +346,95 @@ void main() {
 
       // Xác nhận hiển thị thông báo đã làm mới bảng tin
       expect(find.text('Đã làm mới bảng tin.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'PublicProfile của chính mình (isSelf=true) không có nút Chỉnh sửa hồ sơ, của người khác vẫn có Theo dõi',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      const selfProfile = PublicProfileData(
+        kind: PublicProfileKind.freelancer,
+        displayName: 'Minh Anh',
+        handle: 'minhanh.nova',
+        headline: 'Flutter Dev',
+        location: 'Đà Nẵng',
+        bio: 'Hồ sơ của chính mình',
+        tags: ['Flutter'],
+        stats: [],
+        isSelf: true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const PublicProfileScreen(
+            profile: selfProfile,
+            profilePosts: [],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Không còn nút Chỉnh sửa hồ sơ
+      expect(find.text('Chỉnh sửa hồ sơ'), findsNothing);
+      expect(find.text('Theo dõi'), findsNothing);
+
+      // Mở profile người khác (isSelf=false)
+      const otherProfile = PublicProfileData(
+        kind: PublicProfileKind.freelancer,
+        displayName: 'Ngọc Lan',
+        handle: 'lan.design',
+        headline: 'UI/UX Designer',
+        location: 'Hà Nội',
+        bio: 'Hồ sơ người khác',
+        tags: ['Figma'],
+        stats: [],
+        isSelf: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const PublicProfileScreen(
+            profile: otherProfile,
+            profilePosts: [],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Vẫn có nút Theo dõi
+      expect(find.text('Theo dõi'), findsOneWidget);
+      expect(find.text('Chỉnh sửa hồ sơ'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'màn Rút VND hiển thị logo ngân hàng cho các tài khoản liên kết',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const CashoutScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tìm 4 ngân hàng
+      expect(find.text('Vietcombank'), findsOneWidget);
+      expect(find.text('Techcombank'), findsOneWidget);
+      expect(find.text('ACB'), findsOneWidget);
+      expect(find.text('MB Bank'), findsOneWidget);
+
+      // Xác nhận có Image widget hiển thị logo ngân hàng
+      expect(find.byType(Image), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );

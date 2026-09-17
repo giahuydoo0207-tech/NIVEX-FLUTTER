@@ -372,28 +372,48 @@ class _CashoutScreenState extends State<CashoutScreen> {
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: isSel
-                                    ? theme.primary
-                                    : theme.surfaceSubtle,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isSel ? theme.primary : theme.border,
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: theme.surfaceSubtle,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isSel ? theme.primary : theme.border,
+                                    width: isSel ? 1.6 : 1.0,
+                                  ),
                                 ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                b.code,
-                                style: TextStyle(
-                                  color: isSel
-                                      ? colorScheme.onPrimary
-                                      : theme.textPrimary,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                ),
+                                child: b.logoAsset != null
+                                    ? Image.asset(
+                                        b.logoAsset!,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, _, _) => Center(
+                                          child: Text(
+                                            b.code,
+                                            style: TextStyle(
+                                              color: isSel
+                                                  ? theme.primary
+                                                  : theme.textPrimary,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
+                                        child: Text(
+                                          b.code,
+                                          style: TextStyle(
+                                            color: isSel
+                                                ? theme.primary
+                                                : theme.textPrimary,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ),
                             const SizedBox(width: 12),

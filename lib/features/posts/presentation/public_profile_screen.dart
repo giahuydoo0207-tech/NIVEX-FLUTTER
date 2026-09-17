@@ -429,37 +429,7 @@ class _ProfileHero extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    if (isSelf)
-                      OutlinedButton.icon(
-                        onPressed: () => ScaffoldMessenger.of(context)
-                            .showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Màn hình chỉnh sửa hồ sơ đang mở.',
-                                ),
-                              ),
-                            ),
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        label: const Text('Chỉnh sửa hồ sơ'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: theme.primary,
-                          side: BorderSide(
-                            color: theme.primary.withValues(alpha: 0.4),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      )
-                    else ...[
+                    if (!isSelf) ...[
                       FilledButton.icon(
                         onPressed: onFollow,
                         icon: Icon(
