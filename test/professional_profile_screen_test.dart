@@ -320,4 +320,32 @@ void main() {
     expect(find.widgetWithText(TextButton, 'Theo dõi'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'kéo xuống từ đầu feed kích hoạt RefreshIndicator và làm mới bảng tin',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const PostsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+
+      // Kéo feed xuống từ đầu trang
+      await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Đợi hoàn thành refresh (delay 650ms + settle)
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+
+      // Xác nhận hiển thị thông báo đã làm mới bảng tin
+      expect(find.text('Đã làm mới bảng tin.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

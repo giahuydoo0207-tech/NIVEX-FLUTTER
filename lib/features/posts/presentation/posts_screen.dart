@@ -218,90 +218,99 @@ class _PostsScreenState extends State<PostsScreen> {
         ),
         const SizedBox(width: 6),
       ],
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: _PostComposer(
-              controller: _composerController,
-              images: _selectedImages,
-              displayName: _profileController.profile.displayName,
-              avatarPath: _profileController.profile.avatarPath,
-              isPublishing: _isPublishing,
-              onPickImages: _pickImages,
-              onRemoveImage: (index) =>
-                  setState(() => _selectedImages.removeAt(index)),
-              onPublish: _publish,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(height: 7, color: context.nivexTheme.surfaceSubtle),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.dynamic_feed_outlined,
-                  size: 19,
-                  color: context.nivexTheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Dành cho bạn',
-                  style: TextStyle(
-                    color: context.nivexTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (visiblePosts.isEmpty)
+      child: RefreshIndicator(
+        color: context.nivexTheme.primary,
+        backgroundColor: context.nivexTheme.surface,
+        onRefresh: _refreshFeed,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 32),
+          children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: NivexCard(
-                child: Center(
-                  child: Text(
-                    'Hiện chưa có bài đăng nào trong bảng tin.',
-                    style: TextStyle(color: context.nivexTheme.textSecondary),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: _PostComposer(
+                controller: _composerController,
+                images: _selectedImages,
+                displayName: _profileController.profile.displayName,
+                avatarPath: _profileController.profile.avatarPath,
+                isPublishing: _isPublishing,
+                onPickImages: _pickImages,
+                onRemoveImage: (index) =>
+                    setState(() => _selectedImages.removeAt(index)),
+                onPublish: _publish,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(height: 7, color: context.nivexTheme.surfaceSubtle),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.dynamic_feed_outlined,
+                    size: 19,
+                    color: context.nivexTheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Dành cho bạn',
+                    style: TextStyle(
+                      color: context.nivexTheme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (visiblePosts.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
+                child: NivexCard(
+                  child: Center(
+                    child: Text(
+                      'Hiện chưa có bài đăng nào trong bảng tin.',
+                      style: TextStyle(color: context.nivexTheme.textSecondary),
+                    ),
                   ),
                 ),
-              ),
-            )
-          else
-            for (final post in visiblePosts) ...[
-              _PostCard(
-                key: ValueKey(
-                  post.id ??
-                      post.createdAt?.millisecondsSinceEpoch ??
-                      post.content,
+              )
+            else
+              for (final post in visiblePosts) ...[
+                _PostCard(
+                  key: ValueKey(
+                    post.id ??
+                        post.createdAt?.millisecondsSinceEpoch ??
+                        post.content,
+                  ),
+                  post: post,
+                  ownAvatarPath: _profileController.profile.avatarPath,
+                  ownDisplayName: _profileController.profile.displayName,
+                  ownHeadline: _profileController.profile.headline,
+                  onOpenProfile: () => _openProfile(_postAuthor(post)),
+                  isFollowingAuthor:
+                      !post.isMine &&
+                      _followedHandles.contains(_postAuthor(post).handle),
+                  onToggleFollowAuthor: !post.isMine
+                      ? () => _toggleFollow(_postAuthor(post).handle)
+                      : null,
+                  onTogglePin: () => _togglePinPost(post),
+                  onToggleSave: () => _toggleSavePost(post),
+                  onHide: () => _hidePost(post),
+                  onReact: (reaction) => _reactToPost(post, reaction),
+                  onAddComment: (comment) => _addCommentToPost(post, comment),
+                  onAddReply: (parentId, reply) =>
+                      _addReplyToComment(post, parentId, reply),
+                  onToggleCommentLike: (commentId) =>
+                      _toggleCommentLike(post, commentId),
                 ),
-                post: post,
-                ownAvatarPath: _profileController.profile.avatarPath,
-                ownDisplayName: _profileController.profile.displayName,
-                ownHeadline: _profileController.profile.headline,
-                onOpenProfile: () => _openProfile(_postAuthor(post)),
-                isFollowingAuthor:
-                    !post.isMine &&
-                    _followedHandles.contains(_postAuthor(post).handle),
-                onToggleFollowAuthor: !post.isMine
-                    ? () => _toggleFollow(_postAuthor(post).handle)
-                    : null,
-                onTogglePin: () => _togglePinPost(post),
-                onToggleSave: () => _toggleSavePost(post),
-                onHide: () => _hidePost(post),
-                onReact: (reaction) => _reactToPost(post, reaction),
-                onAddComment: (comment) => _addCommentToPost(post, comment),
-                onAddReply: (parentId, reply) =>
-                    _addReplyToComment(post, parentId, reply),
-                onToggleCommentLike: (commentId) =>
-                    _toggleCommentLike(post, commentId),
-              ),
-              Container(height: 7, color: context.nivexTheme.surfaceSubtle),
-            ],
-        ],
+                Container(height: 7, color: context.nivexTheme.surfaceSubtle),
+              ],
+          ],
+        ),
       ),
     );
   }
@@ -363,6 +372,17 @@ class _PostsScreenState extends State<PostsScreen> {
       final timeB = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return timeB.compareTo(timeA);
     });
+  }
+
+  Future<void> _refreshFeed() async {
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+    if (!mounted) return;
+
+    setState(() {
+      _sortPosts();
+    });
+
+    _showMessage('Đã làm mới bảng tin.');
   }
 
   void _showMessage(String message) {
