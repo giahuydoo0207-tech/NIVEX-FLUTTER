@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_badge.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class ReputationBadgesScreen extends StatelessWidget {
@@ -20,7 +20,7 @@ class ReputationBadgesScreen extends StatelessWidget {
 
     return NivexPage(
       title: 'Cấp bậc uy tín',
-      subtitle: 'Theo dõi uy tín nghề nghiệp trong Nova',
+      subtitle: 'Theo dõi tín hiệu nghề nghiệp trong Nova',
       showBackButton: true,
       child: Center(
         child: ConstrainedBox(
@@ -46,8 +46,8 @@ class ReputationBadgesScreen extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Dữ liệu cấp bậc hiện đang được minh họa và chưa được cấp cho tài khoản. '
-                        'Viền uy tín phản ánh lịch sử hoàn thành dự án, review hợp lệ và mức độ xác thực trong Nova.',
+                        'Cấp bậc chỉ là tín hiệu tham khảo dựa trên dự án hoàn thành, review hợp lệ và mức độ xác thực. '
+                        'Thông tin này không giới hạn cơ hội hay quyền truy cập của người dùng.',
                         style: TextStyle(
                           color: theme.textSecondary,
                           fontSize: 12.5,
@@ -60,7 +60,7 @@ class ReputationBadgesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'HỆ THỐNG VIỀN UY TÍN',
+                'TÍN HIỆU UY TÍN',
                 style: TextStyle(
                   color: theme.textSecondary,
                   fontSize: 11,
@@ -89,7 +89,7 @@ class ReputationBadgesScreen extends StatelessWidget {
               const _TierCard(
                 tier: ReputationTier.verifiedExpert,
                 description:
-                    'Chỉ được cấp sau khi Nova xác minh thủ công danh tính và chuyên môn.',
+                    'Tín hiệu bổ trợ sau khi được xác minh chuyên môn độc lập.',
               ),
               const SizedBox(height: 24),
               const _SafetyRules(),
@@ -102,17 +102,17 @@ class ReputationBadgesScreen extends StatelessWidget {
 
   static String _descriptionFor(ReputationTier tier) => switch (tier) {
     ReputationTier.unranked =>
-      'Hoàn thành thêm dự án để bắt đầu xây dựng uy tín nghề nghiệp.',
+      'Bắt đầu từ việc hoàn thành dự án và nhận phản hồi ban đầu.',
     ReputationTier.bronze =>
-      'Tín hiệu uy tín ban đầu từ các dự án và review đã xác thực.',
+      'Tín hiệu ghi nhận bước đầu từ các dự án và review hợp lệ.',
     ReputationTier.silver =>
-      'Lịch sử hoàn thành ổn định và chất lượng được duy trì.',
+      'Lịch sử hoàn thành dự án đều đặn và duy trì phản hồi tích cực.',
     ReputationTier.gold =>
-      'Mức uy tín cao, có thể được ưu tiên trong gợi ý ứng viên.',
+      'Mức độ tín nhiệm cao dựa trên nhiều dự án chất lượng.',
     ReputationTier.platinum =>
-      'Chuyên gia hàng đầu với hiệu suất và độ hài lòng xuất sắc.',
+      'Hiệu suất và độ hài lòng nổi bật được duy trì lâu dài.',
     ReputationTier.verifiedExpert =>
-      'Chỉ được cấp sau khi Nova xác minh thủ công danh tính và chuyên môn.',
+      'Tín hiệu bổ trợ sau khi được xác minh chuyên môn độc lập.',
   };
 }
 
@@ -125,19 +125,24 @@ class _TierCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    final ringColors = ReputationAvatar.ringGradient(tier);
-    final accentColor = tier == ReputationTier.unranked
-        ? theme.textSecondary
-        : ringColors.first;
+    final accentColor = switch (tier) {
+      ReputationTier.unranked => theme.textSecondary,
+      ReputationTier.bronze => const Color(0xFFD49765),
+      ReputationTier.silver => const Color(0xFF94A3B8),
+      ReputationTier.gold => const Color(0xFFFACC15),
+      ReputationTier.platinum => const Color(0xFF22D3EE),
+      ReputationTier.verifiedExpert => theme.primary,
+    };
 
     return NivexCard(
       padding: const EdgeInsets.all(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ReputationAvatar(
+          ReputationBadge(
             tier: tier,
-            size: 54,
+            size: ReputationBadgeSize.regular,
+            showLabel: false,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -170,12 +175,12 @@ class _TierCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        tier.shortLabel.toUpperCase(),
+                        'Tín hiệu tham khảo',
                         style: TextStyle(
                           color: accentColor,
                           fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
@@ -238,7 +243,7 @@ class _SafetyRules extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Nguyên tắc hiển thị',
+                  'Nguyên tắc minh bạch',
                   style: TextStyle(
                     color: theme.textPrimary,
                     fontSize: 14,
@@ -249,12 +254,14 @@ class _SafetyRules extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const _Rule(text: 'Chỉ tính review gắn với dự án hợp lệ.'),
           const _Rule(
-            text: 'Viền uy tín có thể bị hạ hoặc tạm ẩn khi có tranh chấp.',
+            text: 'Cấp bậc là tín hiệu tham khảo, không phân tầng hay giới hạn quyền lợi.',
           ),
           const _Rule(
-            text: 'Viền uy tín không thay thế KYC, AML hoặc xác minh chuyên môn.',
+            text: 'Chỉ ghi nhận đánh giá từ các dự án thực tế đã hoàn tất qua Nova.',
+          ),
+          const _Rule(
+            text: 'Không thay thế quy trình xác thực danh tính (KYC) hoặc đánh giá chuyên môn.',
           ),
         ],
       ),

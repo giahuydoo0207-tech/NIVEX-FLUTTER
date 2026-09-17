@@ -115,14 +115,21 @@ class _CommunityPostEntry extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Chia sẻ với cộng đồng',
-                        style: TextStyle(
-                            color: theme.textPrimary,
-                            fontWeight: FontWeight.w700)),
+                    Text(
+                      'Chia sẻ với cộng đồng',
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 3),
-                    Text('Đăng tiến độ, sản phẩm hoặc cơ hội hợp tác',
-                        style: TextStyle(
-                            color: theme.textSecondary, fontSize: 11.5)),
+                    Text(
+                      'Đăng tiến độ, sản phẩm hoặc cơ hội hợp tác',
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: 11.5,
+                      ),
+                    ),
                   ],
                 ),
               ),

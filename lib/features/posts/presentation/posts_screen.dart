@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
-import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 import 'public_profile_screen.dart';
@@ -1158,18 +1156,30 @@ class _HiddenPostCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              ReputationAvatar(
-                avatarPath: post.isMine ? ownAvatarPath : null,
-                tier: post.isMine
-                    ? ReputationTier.gold
-                    : (post.author.kind == PublicProfileKind.business
-                        ? ReputationTier.verifiedExpert
-                        : (post.author.isVerified
-                            ? ReputationTier.gold
-                            : ReputationTier.silver)),
-                size: 38,
-                isBusiness: !post.isMine &&
-                    post.author.kind == PublicProfileKind.business,
+              CircleAvatar(
+                radius: 19,
+                backgroundColor:
+                    (!post.isMine &&
+                        post.author.kind == PublicProfileKind.business)
+                    ? theme.warning.withValues(alpha: 0.14)
+                    : theme.primary.withValues(alpha: 0.12),
+                foregroundImage: (post.isMine && ownAvatarPath != null)
+                    ? FileImage(File(ownAvatarPath!))
+                    : null,
+                child: (post.isMine && ownAvatarPath != null)
+                    ? null
+                    : Icon(
+                        (!post.isMine &&
+                                post.author.kind == PublicProfileKind.business)
+                            ? Icons.business_outlined
+                            : Icons.person_outline_rounded,
+                        color:
+                            (!post.isMine &&
+                                post.author.kind == PublicProfileKind.business)
+                            ? theme.warning
+                            : theme.primary,
+                        size: 20,
+                      ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1344,14 +1354,20 @@ class _ProfilePickerSheet extends StatelessWidget {
             for (final profile in profiles)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: ReputationAvatar(
-                  tier: profile.kind == PublicProfileKind.business
-                      ? ReputationTier.verifiedExpert
-                      : (profile.isVerified
-                          ? ReputationTier.gold
-                          : ReputationTier.silver),
-                  size: 40,
-                  isBusiness: profile.kind == PublicProfileKind.business,
+                leading: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: profile.kind == PublicProfileKind.business
+                      ? theme.warning.withValues(alpha: 0.14)
+                      : theme.primary.withValues(alpha: 0.12),
+                  child: Icon(
+                    profile.kind == PublicProfileKind.business
+                        ? Icons.business_outlined
+                        : Icons.person_outline_rounded,
+                    color: profile.kind == PublicProfileKind.business
+                        ? theme.warning
+                        : theme.primary,
+                    size: 20,
+                  ),
                 ),
                 title: Text(profile.displayName),
                 subtitle: Text(
@@ -1402,10 +1418,19 @@ class _PostComposer extends StatelessWidget {
             children: [
               Semantics(
                 label: 'Ảnh đại diện của $displayName',
-                child: ReputationAvatar(
-                  avatarPath: avatarPath,
-                  tier: ReputationTier.unranked,
-                  size: 46,
+                child: CircleAvatar(
+                  radius: 23,
+                  backgroundColor: theme.primary.withValues(alpha: 0.12),
+                  foregroundImage: avatarPath != null
+                      ? FileImage(File(avatarPath!))
+                      : null,
+                  child: avatarPath == null
+                      ? Icon(
+                          Icons.person_outline_rounded,
+                          color: theme.primary,
+                          size: 24,
+                        )
+                      : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1691,18 +1716,33 @@ class _PostCardState extends State<_PostCard> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ReputationAvatar(
-                    avatarPath: post.isMine ? widget.ownAvatarPath : null,
-                    tier: post.isMine
-                        ? ReputationTier.gold
-                        : (post.author.kind == PublicProfileKind.business
-                            ? ReputationTier.verifiedExpert
-                            : (post.author.isVerified
-                                ? ReputationTier.gold
-                                : ReputationTier.silver)),
-                    size: 48,
-                    isBusiness: !post.isMine &&
-                        post.author.kind == PublicProfileKind.business,
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor:
+                        (!post.isMine &&
+                            post.author.kind == PublicProfileKind.business)
+                        ? theme.warning.withValues(alpha: 0.14)
+                        : theme.primary.withValues(alpha: 0.12),
+                    foregroundImage:
+                        (post.isMine && widget.ownAvatarPath != null)
+                        ? FileImage(File(widget.ownAvatarPath!))
+                        : null,
+                    child: (post.isMine && widget.ownAvatarPath != null)
+                        ? null
+                        : Icon(
+                            (!post.isMine &&
+                                    post.author.kind ==
+                                        PublicProfileKind.business)
+                                ? Icons.business_outlined
+                                : Icons.person_outline_rounded,
+                            color:
+                                (!post.isMine &&
+                                    post.author.kind ==
+                                        PublicProfileKind.business)
+                                ? theme.warning
+                                : theme.primary,
+                            size: 24,
+                          ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(

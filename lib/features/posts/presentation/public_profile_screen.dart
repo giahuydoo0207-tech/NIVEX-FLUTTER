@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
-import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 // ---------------------------------------------------------------------------
@@ -401,15 +399,33 @@ class _ProfileHero extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    ReputationAvatar(
-                      avatarPath: profile.avatarPath,
-                      tier: isBusiness
-                          ? ReputationTier.verifiedExpert
-                          : (profile.isVerified
-                              ? ReputationTier.gold
-                              : ReputationTier.silver),
-                      size: 86,
-                      isBusiness: isBusiness,
+                    Container(
+                      width: 86,
+                      height: 86,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: theme.surface, width: 3),
+                      ),
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundColor: isBusiness
+                            ? theme.warning.withValues(alpha: 0.14)
+                            : theme.primary.withValues(alpha: 0.12),
+                        foregroundImage: profile.avatarPath != null
+                            ? FileImage(File(profile.avatarPath!))
+                            : null,
+                        child: profile.avatarPath == null
+                            ? Icon(
+                                isBusiness
+                                    ? Icons.business_outlined
+                                    : Icons.person_outline_rounded,
+                                color: isBusiness
+                                    ? theme.warning
+                                    : theme.primary,
+                                size: 40,
+                              )
+                            : null,
+                      ),
                     ),
                     const Spacer(),
                     if (isSelf)
@@ -724,15 +740,23 @@ class _ProfilePostCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                ReputationAvatar(
-                  avatarPath: profile.avatarPath,
-                  tier: isBusiness
-                      ? ReputationTier.verifiedExpert
-                      : (profile.isVerified
-                          ? ReputationTier.gold
-                          : ReputationTier.silver),
-                  size: 34,
-                  isBusiness: isBusiness,
+                CircleAvatar(
+                  radius: 17,
+                  backgroundColor: isBusiness
+                      ? theme.warning.withValues(alpha: 0.14)
+                      : theme.primary.withValues(alpha: 0.12),
+                  foregroundImage: profile.avatarPath != null
+                      ? FileImage(File(profile.avatarPath!))
+                      : null,
+                  child: profile.avatarPath == null
+                      ? Icon(
+                          isBusiness
+                              ? Icons.business_outlined
+                              : Icons.person_outline_rounded,
+                          color: isBusiness ? theme.warning : theme.primary,
+                          size: 18,
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -1401,12 +1425,18 @@ class _FollowerListSheetState extends State<_FollowerListSheet> {
                   final isF = _followed.contains(e.handle);
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                    leading: ReputationAvatar(
-                      tier: isBiz
-                          ? ReputationTier.verifiedExpert
-                          : ReputationTier.silver,
-                      size: 44,
-                      isBusiness: isBiz,
+                    leading: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: isBiz
+                          ? theme.warning.withValues(alpha: 0.14)
+                          : theme.primary.withValues(alpha: 0.12),
+                      child: Icon(
+                        isBiz
+                            ? Icons.business_outlined
+                            : Icons.person_outline_rounded,
+                        color: isBiz ? theme.warning : theme.primary,
+                        size: 22,
+                      ),
                     ),
                     title: Text(
                       e.name,

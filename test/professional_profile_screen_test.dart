@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
+import 'package:nivex_flutter/features/posts/presentation/posts_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
+import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
 import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
+import 'package:nivex_flutter/features/profile/widgets/reputation_badge.dart';
 
 void main() {
   testWidgets('hồ sơ nghề nghiệp chỉnh sửa và hiển thị tốt ở 320dp', (
@@ -70,27 +73,34 @@ void main() {
       ),
     );
 
+    expect(find.byType(ReputationAvatar), findsNothing);
     await tester.ensureVisible(find.text('Cấp bậc uy tín Nova'));
     await tester.tap(find.text('Cấp bậc uy tín Nova'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ReputationBadgesScreen), findsOneWidget);
-    expect(find.byType(ReputationAvatar), findsWidgets);
+    expect(find.byType(ReputationBadge), findsWidgets);
     expect(find.text('Chưa xếp hạng'), findsOneWidget);
+    expect(find.text('Viền Bronze'), findsNothing);
+    expect(find.text('Viền Gold'), findsNothing);
+    expect(
+      find.textContaining('Cấp bậc chỉ là tín hiệu tham khảo'),
+      findsOneWidget,
+    );
 
     await tester.scrollUntilVisible(
-      find.text('Viền Bronze'),
+      find.text('Bronze'),
       240,
       scrollable: find.byType(Scrollable).last,
     );
-    expect(find.text('Viền Bronze'), findsOneWidget);
+    expect(find.text('Bronze'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('Viền Gold'),
+      find.text('Gold'),
       240,
       scrollable: find.byType(Scrollable).last,
     );
-    expect(find.text('Viền Gold'), findsOneWidget);
+    expect(find.text('Gold'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Xác minh chuyên môn'),
@@ -150,4 +160,46 @@ void main() {
     expect(find.text('Biên tập video'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'không dùng reputation ring trên profile/feed và không còn chữ Viền tier',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const ProfessionalProfileScreen(),
+        ),
+      );
+      expect(find.byType(ReputationAvatar), findsNothing);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const ProfileScreen(),
+        ),
+      );
+      expect(find.byType(ReputationAvatar), findsNothing);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const PostsScreen(),
+        ),
+      );
+      expect(find.byType(ReputationAvatar), findsNothing);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const ReputationBadgesScreen(),
+        ),
+      );
+      expect(find.text('Viền Bronze'), findsNothing);
+      expect(find.text('Viền Silver'), findsNothing);
+      expect(find.text('Viền Gold'), findsNothing);
+      expect(find.text('Viền Platinum'), findsNothing);
+      expect(find.byType(ReputationBadge), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

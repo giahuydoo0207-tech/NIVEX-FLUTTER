@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
@@ -11,11 +13,9 @@ import 'package:nivex_flutter/features/profile/presentation/notification_setting
 import 'package:nivex_flutter/features/profile/presentation/personal_info_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/verification_screen.dart';
-import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
 import 'package:nivex_flutter/features/profile/widgets/demo_notice.dart';
 import 'package:nivex_flutter/features/profile/widgets/profile_row.dart';
 import 'package:nivex_flutter/features/profile/widgets/profile_section.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/features/profile/widgets/status_badge.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/shared/constants/demo_data.dart';
@@ -57,11 +57,30 @@ class ProfileScreen extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            ReputationAvatar(
-                              avatarPath: profileController.profile.avatarPath,
-                              initials: 'MA',
-                              tier: ReputationTier.unranked,
-                              size: 52,
+                            CircleAvatar(
+                              radius: 26,
+                              backgroundColor: theme.primary.withValues(
+                                alpha: 0.12,
+                              ),
+                              foregroundImage:
+                                  profileController.profile.avatarPath != null
+                                  ? FileImage(
+                                      File(
+                                        profileController.profile.avatarPath!,
+                                      ),
+                                    )
+                                  : null,
+                              child:
+                                  profileController.profile.avatarPath == null
+                                  ? Text(
+                                      'MA',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: theme.primary,
+                                      ),
+                                    )
+                                  : null,
                             ),
                             const SizedBox(width: 12),
                             Expanded(

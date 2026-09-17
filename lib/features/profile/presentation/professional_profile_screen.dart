@@ -7,7 +7,6 @@ import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_cont
 import 'package:nivex_flutter/features/profile/domain/freelancer_profile.dart';
 import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
-import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -197,11 +196,43 @@ class _ProfileHeader extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ReputationAvatar(
-                      avatarPath: profile.avatarPath,
-                      tier: ReputationTier.unranked,
-                      size: 68,
-                      showOnlineDot: profile.isAvailable,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: theme.primary.withValues(
+                            alpha: 0.12,
+                          ),
+                          foregroundImage: profile.avatarPath != null
+                              ? FileImage(File(profile.avatarPath!))
+                              : null,
+                          child: profile.avatarPath == null
+                              ? Icon(
+                                  Icons.person_outline_rounded,
+                                  color: theme.primary,
+                                  size: 32,
+                                )
+                              : null,
+                        ),
+                        if (profile.isAvailable)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: theme.success,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.surface,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -545,9 +576,18 @@ class _ReputationEntry extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              const ReputationAvatar(
-                tier: ReputationTier.unranked,
-                size: 34,
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: theme.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.shield_outlined,
+                  size: 18,
+                  color: theme.primary,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -951,26 +991,32 @@ class _EditProfessionalProfileScreenState
                 const SizedBox(height: 10),
                 _EditableEntryList<FreelancerProject>(
                   entries: _projects,
-                  emptyLabel: 'Thêm sản phẩm để doanh nghiệp xem được proof of work.',
+                  emptyLabel:
+                      'Thêm sản phẩm để doanh nghiệp xem được proof of work.',
                   addLabel: 'Thêm portfolio',
                   titleOf: (entry) => entry.title,
-                  subtitleOf: (entry) => entry.link.isEmpty ? entry.role : entry.link,
+                  subtitleOf: (entry) =>
+                      entry.link.isEmpty ? entry.role : entry.link,
                   onAdd: _addProject,
                   onEdit: _editProject,
-                  onDelete: (index) => setState(() => _projects.removeAt(index)),
+                  onDelete: (index) =>
+                      setState(() => _projects.removeAt(index)),
                 ),
                 const SizedBox(height: 24),
                 const _EditSectionHeading(step: '05', title: 'Kinh nghiệm'),
                 const SizedBox(height: 10),
                 _EditableEntryList<FreelancerExperience>(
                   entries: _experiences,
-                  emptyLabel: 'Thêm kinh nghiệm làm việc hoặc hoạt động liên quan.',
+                  emptyLabel:
+                      'Thêm kinh nghiệm làm việc hoặc hoạt động liên quan.',
                   addLabel: 'Thêm kinh nghiệm',
                   titleOf: (entry) => entry.title,
-                  subtitleOf: (entry) => '${entry.organization} · ${entry.period}',
+                  subtitleOf: (entry) =>
+                      '${entry.organization} · ${entry.period}',
                   onAdd: _addExperience,
                   onEdit: _editExperience,
-                  onDelete: (index) => setState(() => _experiences.removeAt(index)),
+                  onDelete: (index) =>
+                      setState(() => _experiences.removeAt(index)),
                 ),
                 const SizedBox(height: 24),
                 const _EditSectionHeading(
@@ -983,10 +1029,12 @@ class _EditProfessionalProfileScreenState
                   emptyLabel: 'Thêm học vấn, khóa học hoặc chứng chỉ nổi bật.',
                   addLabel: 'Thêm học vấn / chứng chỉ',
                   titleOf: (entry) => entry.program,
-                  subtitleOf: (entry) => '${entry.institution} · ${entry.period}',
+                  subtitleOf: (entry) =>
+                      '${entry.institution} · ${entry.period}',
                   onAdd: _addEducation,
                   onEdit: _editEducation,
-                  onDelete: (index) => setState(() => _education.removeAt(index)),
+                  onDelete: (index) =>
+                      setState(() => _education.removeAt(index)),
                 ),
                 const SizedBox(height: 24),
                 const _EditSectionHeading(
@@ -1259,13 +1307,20 @@ class _EditableEntryList<T> extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(titleOf(entries[index]),
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(
+                      titleOf(entries[index]),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                     const SizedBox(height: 3),
-                    Text(subtitleOf(entries[index]),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: theme.textSecondary, fontSize: 12)),
+                    Text(
+                      subtitleOf(entries[index]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1324,7 +1379,14 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
 
   @override
   void dispose() {
-    for (final controller in [_title, _role, _summary, _technologies, _status, _link]) {
+    for (final controller in [
+      _title,
+      _role,
+      _summary,
+      _technologies,
+      _status,
+      _link,
+    ]) {
       controller.dispose();
     }
     super.dispose();
@@ -1339,26 +1401,40 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
-            child: Column(children: [
-              _field(_title, 'Tên sản phẩm', required: true),
-              _field(_role, 'Vai trò', required: true),
-              _field(_summary, 'Mô tả', required: true, maxLines: 3),
-              _field(_technologies, 'Công nghệ (ngăn cách bằng dấu phẩy)'),
-              _field(_status, 'Trạng thái'),
-              _field(_link, 'Link sản phẩm / GitHub / demo', keyboard: TextInputType.url),
-            ]),
+            child: Column(
+              children: [
+                _field(_title, 'Tên sản phẩm', required: true),
+                _field(_role, 'Vai trò', required: true),
+                _field(_summary, 'Mô tả', required: true, maxLines: 3),
+                _field(_technologies, 'Công nghệ (ngăn cách bằng dấu phẩy)'),
+                _field(_status, 'Trạng thái'),
+                _field(
+                  _link,
+                  'Link sản phẩm / GitHub / demo',
+                  keyboard: TextInputType.url,
+                ),
+              ],
+            ),
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
         FilledButton(onPressed: _submit, child: const Text('Lưu')),
       ],
     );
   }
 
-  Widget _field(TextEditingController controller, String label,
-      {bool required = false, int maxLines = 1, TextInputType? keyboard}) {
+  Widget _field(
+    TextEditingController controller,
+    String label, {
+    bool required = false,
+    int maxLines = 1,
+    TextInputType? keyboard,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
@@ -1366,18 +1442,32 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
         maxLines: maxLines,
         keyboardType: keyboard,
         decoration: InputDecoration(labelText: label),
-        validator: required ? (value) => value!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null : null,
+        validator: required
+            ? (value) =>
+                  value!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null
+            : null,
       ),
     );
   }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    final technologies = _technologies.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    Navigator.pop(context, FreelancerProject(
-      title: _title.text.trim(), role: _role.text.trim(), summary: _summary.text.trim(),
-      technologies: technologies, status: _status.text.trim(), link: _link.text.trim(),
-    ));
+    final technologies = _technologies.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    Navigator.pop(
+      context,
+      FreelancerProject(
+        title: _title.text.trim(),
+        role: _role.text.trim(),
+        summary: _summary.text.trim(),
+        technologies: technologies,
+        status: _status.text.trim(),
+        link: _link.text.trim(),
+      ),
+    );
   }
 }
 
@@ -1385,7 +1475,8 @@ class _ExperienceEditorDialog extends StatefulWidget {
   const _ExperienceEditorDialog({this.initial});
   final FreelancerExperience? initial;
   @override
-  State<_ExperienceEditorDialog> createState() => _ExperienceEditorDialogState();
+  State<_ExperienceEditorDialog> createState() =>
+      _ExperienceEditorDialogState();
 }
 
 class _ExperienceEditorDialogState extends State<_ExperienceEditorDialog> {
@@ -1393,10 +1484,14 @@ class _ExperienceEditorDialogState extends State<_ExperienceEditorDialog> {
   late final TextEditingController _title, _organization, _period, _summary;
   @override
   void initState() {
-    super.initState(); final i = widget.initial;
-    _title = TextEditingController(text: i?.title); _organization = TextEditingController(text: i?.organization);
-    _period = TextEditingController(text: i?.period); _summary = TextEditingController(text: i?.summary);
+    super.initState();
+    final i = widget.initial;
+    _title = TextEditingController(text: i?.title);
+    _organization = TextEditingController(text: i?.organization);
+    _period = TextEditingController(text: i?.period);
+    _summary = TextEditingController(text: i?.summary);
   }
+
   @override
   void dispose() {
     for (final c in [_title, _organization, _period, _summary]) {
@@ -1404,14 +1499,44 @@ class _ExperienceEditorDialogState extends State<_ExperienceEditorDialog> {
     }
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) => _simpleDialog(
     context: context,
-    title: widget.initial == null ? 'Thêm kinh nghiệm' : 'Sửa kinh nghiệm', formKey: _formKey,
-    fields: [_f(_title, 'Vị trí', true), _f(_organization, 'Tổ chức / công ty', true), _f(_period, 'Thời gian', true), _f(_summary, 'Mô tả', true, 3)],
-    onSubmit: () { if (!_formKey.currentState!.validate()) return; Navigator.pop(context, FreelancerExperience(title: _title.text.trim(), organization: _organization.text.trim(), period: _period.text.trim(), summary: _summary.text.trim())); },
+    title: widget.initial == null ? 'Thêm kinh nghiệm' : 'Sửa kinh nghiệm',
+    formKey: _formKey,
+    fields: [
+      _f(_title, 'Vị trí', true),
+      _f(_organization, 'Tổ chức / công ty', true),
+      _f(_period, 'Thời gian', true),
+      _f(_summary, 'Mô tả', true, 3),
+    ],
+    onSubmit: () {
+      if (!_formKey.currentState!.validate()) return;
+      Navigator.pop(
+        context,
+        FreelancerExperience(
+          title: _title.text.trim(),
+          organization: _organization.text.trim(),
+          period: _period.text.trim(),
+          summary: _summary.text.trim(),
+        ),
+      );
+    },
   );
-  Widget _f(TextEditingController c, String label, bool required, [int lines = 1]) => TextFormField(controller: c, maxLines: lines, decoration: InputDecoration(labelText: label), validator: required ? (v) => v!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null : null);
+  Widget _f(
+    TextEditingController c,
+    String label,
+    bool required, [
+    int lines = 1,
+  ]) => TextFormField(
+    controller: c,
+    maxLines: lines,
+    decoration: InputDecoration(labelText: label),
+    validator: required
+        ? (v) => v!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null
+        : null,
+  );
 }
 
 class _EducationEditorDialog extends StatefulWidget {
@@ -1425,7 +1550,15 @@ class _EducationEditorDialogState extends State<_EducationEditorDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _program, _institution, _period, _note;
   @override
-  void initState() { super.initState(); final i = widget.initial; _program = TextEditingController(text: i?.program); _institution = TextEditingController(text: i?.institution); _period = TextEditingController(text: i?.period); _note = TextEditingController(text: i?.note); }
+  void initState() {
+    super.initState();
+    final i = widget.initial;
+    _program = TextEditingController(text: i?.program);
+    _institution = TextEditingController(text: i?.institution);
+    _period = TextEditingController(text: i?.period);
+    _note = TextEditingController(text: i?.note);
+  }
+
   @override
   void dispose() {
     for (final c in [_program, _institution, _period, _note]) {
@@ -1433,19 +1566,72 @@ class _EducationEditorDialogState extends State<_EducationEditorDialog> {
     }
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) => _simpleDialog(
     context: context,
-    title: widget.initial == null ? 'Thêm học vấn / chứng chỉ' : 'Sửa học vấn / chứng chỉ', formKey: _formKey,
-    fields: [_f(_program, 'Tên ngành / chứng chỉ', true), _f(_institution, 'Trường / đơn vị cấp', true), _f(_period, 'Thời gian', true), _f(_note, 'Ghi chú', false)],
-    onSubmit: () { if (!_formKey.currentState!.validate()) return; Navigator.pop(context, FreelancerEducation(program: _program.text.trim(), institution: _institution.text.trim(), period: _period.text.trim(), note: _note.text.trim())); },
+    title: widget.initial == null
+        ? 'Thêm học vấn / chứng chỉ'
+        : 'Sửa học vấn / chứng chỉ',
+    formKey: _formKey,
+    fields: [
+      _f(_program, 'Tên ngành / chứng chỉ', true),
+      _f(_institution, 'Trường / đơn vị cấp', true),
+      _f(_period, 'Thời gian', true),
+      _f(_note, 'Ghi chú', false),
+    ],
+    onSubmit: () {
+      if (!_formKey.currentState!.validate()) return;
+      Navigator.pop(
+        context,
+        FreelancerEducation(
+          program: _program.text.trim(),
+          institution: _institution.text.trim(),
+          period: _period.text.trim(),
+          note: _note.text.trim(),
+        ),
+      );
+    },
   );
-  Widget _f(TextEditingController c, String label, bool required) => TextFormField(controller: c, decoration: InputDecoration(labelText: label), validator: required ? (v) => v!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null : null);
+  Widget _f(TextEditingController c, String label, bool required) =>
+      TextFormField(
+        controller: c,
+        decoration: InputDecoration(labelText: label),
+        validator: required
+            ? (v) => v!.trim().isEmpty ? 'Vui lòng nhập thông tin' : null
+            : null,
+      );
 }
 
-Widget _simpleDialog({required BuildContext context, required String title, required GlobalKey<FormState> formKey, required List<Widget> fields, required VoidCallback onSubmit}) => AlertDialog(
-  title: Text(title), content: SizedBox(width: 460, child: Form(key: formKey, child: SingleChildScrollView(child: Column(children: [for (final field in fields) Padding(padding: const EdgeInsets.only(bottom: 12), child: field)])))),
-  actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')), FilledButton(onPressed: onSubmit, child: const Text('Lưu'))],
+Widget _simpleDialog({
+  required BuildContext context,
+  required String title,
+  required GlobalKey<FormState> formKey,
+  required List<Widget> fields,
+  required VoidCallback onSubmit,
+}) => AlertDialog(
+  title: Text(title),
+  content: SizedBox(
+    width: 460,
+    child: Form(
+      key: formKey,
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            for (final field in fields)
+              Padding(padding: const EdgeInsets.only(bottom: 12), child: field),
+          ],
+        ),
+      ),
+    ),
+  ),
+  actions: [
+    TextButton(
+      onPressed: () => Navigator.pop(context),
+      child: const Text('Hủy'),
+    ),
+    FilledButton(onPressed: onSubmit, child: const Text('Lưu')),
+  ],
 );
 
 class _AvatarEditor extends StatelessWidget {

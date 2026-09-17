@@ -3,10 +3,10 @@ enum ReputationTier { unranked, bronze, silver, gold, platinum, verifiedExpert }
 extension ReputationTierInfo on ReputationTier {
   String get label => switch (this) {
     ReputationTier.unranked => 'Chưa xếp hạng',
-    ReputationTier.bronze => 'Viền Bronze',
-    ReputationTier.silver => 'Viền Silver',
-    ReputationTier.gold => 'Viền Gold',
-    ReputationTier.platinum => 'Viền Platinum',
+    ReputationTier.bronze => 'Bronze',
+    ReputationTier.silver => 'Silver',
+    ReputationTier.gold => 'Gold',
+    ReputationTier.platinum => 'Platinum',
     ReputationTier.verifiedExpert => 'Xác minh chuyên môn',
   };
 

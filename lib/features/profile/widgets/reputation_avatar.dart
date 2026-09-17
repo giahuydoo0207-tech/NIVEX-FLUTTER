@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
@@ -119,27 +120,26 @@ class ReputationAvatar extends StatelessWidget {
       backgroundColor: isBusiness
           ? theme.warning.withValues(alpha: 0.16)
           : theme.primary.withValues(alpha: 0.16),
-      foregroundImage:
-          avatarPath != null ? FileImage(File(avatarPath!)) : null,
+      foregroundImage: avatarPath != null ? FileImage(File(avatarPath!)) : null,
       child: avatarPath != null
           ? null
           : (initials != null
-              ? Text(
-                  initials!,
-                  style: TextStyle(
-                    fontSize: (size * 0.32).clamp(11.0, 24.0),
-                    fontWeight: FontWeight.w700,
+                ? Text(
+                    initials!,
+                    style: TextStyle(
+                      fontSize: (size * 0.32).clamp(11.0, 24.0),
+                      fontWeight: FontWeight.w700,
+                      color: isBusiness ? theme.warning : theme.primary,
+                    ),
+                  )
+                : Icon(
+                    fallbackIcon ??
+                        (isBusiness
+                            ? Icons.business_outlined
+                            : Icons.person_outline_rounded),
                     color: isBusiness ? theme.warning : theme.primary,
-                  ),
-                )
-              : Icon(
-                  fallbackIcon ??
-                      (isBusiness
-                          ? Icons.business_outlined
-                          : Icons.person_outline_rounded),
-                  color: isBusiness ? theme.warning : theme.primary,
-                  size: size * 0.48,
-                )),
+                    size: size * 0.48,
+                  )),
     );
 
     Widget ringWidget;
@@ -190,10 +190,7 @@ class ReputationAvatar extends StatelessWidget {
     }
 
     if (onTap != null) {
-      ringWidget = GestureDetector(
-        onTap: onTap,
-        child: ringWidget,
-      );
+      ringWidget = GestureDetector(onTap: onTap, child: ringWidget);
     }
 
     if (!showOnlineDot) {
@@ -214,10 +211,7 @@ class ReputationAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               color: theme.success,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: theme.surface,
-                width: 2,
-              ),
+              border: Border.all(color: theme.surface, width: 2),
             ),
           ),
         ),

@@ -160,9 +160,8 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _openPosts() {
-    return Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => const PostsScreen()),
-    );
+    return Navigator.of(context)
+        .push<void>(MaterialPageRoute(builder: (_) => const PostsScreen()));
   }
 }
 

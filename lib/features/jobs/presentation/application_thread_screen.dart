@@ -58,7 +58,8 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
     }
     final hasNewMessage = application.messages.length > _lastMessageCount;
     final typingStarted = isTyping && !_wasTyping;
-    final wasNearBottom = !_scrollController.hasClients ||
+    final wasNearBottom =
+        !_scrollController.hasClients ||
         _scrollController.position.extentAfter < 140;
 
     _lastApplicationSnapshot = application;
