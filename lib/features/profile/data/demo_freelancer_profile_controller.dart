@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class DemoFreelancerProfileController extends ChangeNotifier {
   DemoFreelancerProfileController._() {
-    _restoreAvatar();
+    _restoreMedia();
   }
 
   static final instance = DemoFreelancerProfileController._();
@@ -75,27 +75,47 @@ class DemoFreelancerProfileController extends ChangeNotifier {
   );
 
   static const _avatarPreferenceKey = 'nivex_profile_avatar_path';
+  static const _coverPreferenceKey = 'nivex_profile_cover_path';
 
   Future<void> update(FreelancerProfile nextProfile) async {
     var stableProfile = nextProfile;
     if (nextProfile.avatarPath != profile.avatarPath) {
       final stableAvatarPath = await _persistAvatar(nextProfile.avatarPath);
-      stableProfile = nextProfile.copyWith(
+      stableProfile = stableProfile.copyWith(
         avatarPath: stableAvatarPath,
         clearAvatar: stableAvatarPath == null,
+      );
+    }
+    if (nextProfile.coverPath != profile.coverPath) {
+      final stableCoverPath = await _persistCover(nextProfile.coverPath);
+      stableProfile = stableProfile.copyWith(
+        coverPath: stableCoverPath,
+        clearCover: stableCoverPath == null,
       );
     }
     profile = stableProfile;
     notifyListeners();
   }
 
-  Future<void> _restoreAvatar() async {
+  Future<void> _restoreMedia() async {
     try {
       final preferences = SharedPreferencesAsync();
       final avatarPath = await preferences.getString(_avatarPreferenceKey);
-      if (avatarPath == null || !await File(avatarPath).exists()) return;
-      profile = profile.copyWith(avatarPath: avatarPath);
-      notifyListeners();
+      final coverPath = await preferences.getString(_coverPreferenceKey);
+      final validAvatar =
+          (avatarPath != null && await File(avatarPath).exists())
+          ? avatarPath
+          : null;
+      final validCover = (coverPath != null && await File(coverPath).exists())
+          ? coverPath
+          : null;
+      if (validAvatar != null || validCover != null) {
+        profile = profile.copyWith(
+          avatarPath: validAvatar,
+          coverPath: validCover,
+        );
+        notifyListeners();
+      }
     } catch (_) {
       // Persistence is best-effort until the profile API is connected.
     }
@@ -126,5 +146,32 @@ class DemoFreelancerProfileController extends ChangeNotifier {
         : await source.copy(destination.path);
     await preferences.setString(_avatarPreferenceKey, copiedAvatar.path);
     return copiedAvatar.path;
+  }
+
+  Future<String?> _persistCover(String? sourcePath) async {
+    final preferences = SharedPreferencesAsync();
+    if (sourcePath == null) {
+      final previousPath = await preferences.getString(_coverPreferenceKey);
+      if (previousPath != null) {
+        final previousFile = File(previousPath);
+        if (await previousFile.exists()) await previousFile.delete();
+      }
+      await preferences.remove(_coverPreferenceKey);
+      return null;
+    }
+
+    final source = File(sourcePath);
+    if (!await source.exists()) return null;
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final dotIndex = sourcePath.lastIndexOf('.');
+    final extension = dotIndex >= 0 ? sourcePath.substring(dotIndex) : '.jpg';
+    final destination = File(
+      '${documentsDirectory.path}${Platform.pathSeparator}nivex_profile_cover$extension',
+    );
+    final copiedCover = source.path == destination.path
+        ? source
+        : await source.copy(destination.path);
+    await preferences.setString(_coverPreferenceKey, copiedCover.path);
+    return copiedCover.path;
   }
 }

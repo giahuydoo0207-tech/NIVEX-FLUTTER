@@ -87,6 +87,7 @@ class FreelancerProfile {
     required this.startAvailability,
     required this.profileHeaderTheme,
     this.avatarPath,
+    this.coverPath,
   });
 
   final String displayName;
@@ -107,6 +108,7 @@ class FreelancerProfile {
   final String startAvailability;
   final ProfileHeaderTheme profileHeaderTheme;
   final String? avatarPath;
+  final String? coverPath;
 
   FreelancerProfile copyWith({
     String? headline,
@@ -123,6 +125,8 @@ class FreelancerProfile {
     ProfileHeaderTheme? profileHeaderTheme,
     String? avatarPath,
     bool clearAvatar = false,
+    String? coverPath,
+    bool clearCover = false,
   }) {
     return FreelancerProfile(
       displayName: displayName,
@@ -143,6 +147,7 @@ class FreelancerProfile {
       startAvailability: startAvailability ?? this.startAvailability,
       profileHeaderTheme: profileHeaderTheme ?? this.profileHeaderTheme,
       avatarPath: clearAvatar ? null : avatarPath ?? this.avatarPath,
+      coverPath: clearCover ? null : coverPath ?? this.coverPath,
     );
   }
 }

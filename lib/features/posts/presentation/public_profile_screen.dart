@@ -91,6 +91,7 @@ class PublicProfileData {
     required this.tags,
     required this.stats,
     this.avatarPath,
+    this.coverPath,
     this.status = 'Đang hoạt động',
     this.isVerified = false,
     this.isSelf = false,
@@ -113,6 +114,7 @@ class PublicProfileData {
   final List<String> tags;
   final List<({String label, String value})> stats;
   final String? avatarPath;
+  final String? coverPath;
   final String status;
   final bool isVerified;
   final bool isSelf;
@@ -389,7 +391,7 @@ class _ProfileHero extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _CoverBanner(accent: accent),
+        _CoverBanner(accent: accent, coverPath: profile.coverPath),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
           child: Column(
@@ -571,7 +573,7 @@ class _ProfileHero extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
             ],
           ),
         ),
@@ -581,24 +583,34 @@ class _ProfileHero extends StatelessWidget {
 }
 
 class _CoverBanner extends StatelessWidget {
-  const _CoverBanner({required this.accent});
+  const _CoverBanner({required this.accent, this.coverPath});
   final Color accent;
+  final String? coverPath;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 110,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [const Color(0xFF0D1B2A), accent.withValues(alpha: 0.55)],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
+  Widget build(BuildContext context) {
+    if (coverPath != null && File(coverPath!).existsSync()) {
+      return SizedBox(
+        height: 110,
+        width: double.infinity,
+        child: Image.file(File(coverPath!), fit: BoxFit.cover),
+      );
+    }
+    return Container(
+      height: 110,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [const Color(0xFF0D1B2A), accent.withValues(alpha: 0.55)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
       ),
-    ),
-    child: CustomPaint(
-      painter: _GridPainter(color: accent.withValues(alpha: 0.12)),
-      child: const SizedBox.expand(),
-    ),
-  );
+      child: CustomPaint(
+        painter: _GridPainter(color: accent.withValues(alpha: 0.12)),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
 }
 
 class _GridPainter extends CustomPainter {

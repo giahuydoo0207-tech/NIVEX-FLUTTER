@@ -178,14 +178,23 @@ class _ProfileHeader extends StatelessWidget {
         children: [
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ProfileHeaderBackgroundPainter(
-                  variant: profile.profileHeaderTheme,
-                  primary: theme.primary,
-                  secondary: theme.success,
-                  line: theme.border,
-                ),
-              ),
+              child:
+                  profile.coverPath != null &&
+                      File(profile.coverPath!).existsSync()
+                  ? Image.file(
+                      File(profile.coverPath!),
+                      fit: BoxFit.cover,
+                      color: Colors.black.withValues(alpha: 0.65),
+                      colorBlendMode: BlendMode.darken,
+                    )
+                  : CustomPaint(
+                      painter: _ProfileHeaderBackgroundPainter(
+                        variant: profile.profileHeaderTheme,
+                        primary: theme.primary,
+                        secondary: theme.success,
+                        line: theme.border,
+                      ),
+                    ),
             ),
           ),
           Padding(
@@ -825,6 +834,7 @@ class _EditProfessionalProfileScreenState
   late List<FreelancerExperience> _experiences;
   late List<FreelancerEducation> _education;
   late String? _avatarPath;
+  late String? _coverPath;
   late ProfileHeaderTheme _headerTheme;
   late ProfileVisibility _visibility;
   late bool _isAvailable;
@@ -841,6 +851,7 @@ class _EditProfessionalProfileScreenState
     _experiences = [...profile.experiences];
     _education = [...profile.education];
     _avatarPath = profile.avatarPath;
+    _coverPath = profile.coverPath;
     _headerTheme = profile.profileHeaderTheme;
     _visibility = profile.visibility;
     _isAvailable = profile.isAvailable;
@@ -880,26 +891,23 @@ class _EditProfessionalProfileScreenState
                   title: 'Ảnh đại diện và nền hồ sơ',
                 ),
                 const SizedBox(height: 10),
-                _AvatarEditor(
+                _ProfileImageEditor(
                   avatarPath: _avatarPath,
-                  onPick: _pickAvatar,
-                  onRemove: _avatarPath == null
-                      ? null
-                      : () => setState(() => _avatarPath = null),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Chọn nền thẻ hồ sơ',
-                  style: TextStyle(
-                    color: theme.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                  coverPath: _coverPath,
+                  onTapAvatar: () => _showImageActionSheet(
+                    title: 'Thay đổi avatar',
+                    onPick: _pickAvatar,
+                    onRemove: _avatarPath == null
+                        ? null
+                        : () => setState(() => _avatarPath = null),
                   ),
-                ),
-                const SizedBox(height: 10),
-                _ProfileThemeSelector(
-                  selected: _headerTheme,
-                  onSelected: (value) => setState(() => _headerTheme = value),
+                  onTapCover: () => _showImageActionSheet(
+                    title: 'Thay đổi ảnh nền',
+                    onPick: _pickCover,
+                    onRemove: _coverPath == null
+                        ? null
+                        : () => setState(() => _coverPath = null),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const _EditSectionHeading(
@@ -1143,6 +1151,100 @@ class _EditProfessionalProfileScreenState
     }
   }
 
+  Future<void> _pickCover() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 88,
+        maxWidth: 1800,
+      );
+      if (image != null && mounted) setState(() => _coverPath = image.path);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể mở thư viện ảnh. Hãy kiểm tra quyền truy cập.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showImageActionSheet({
+    required String title,
+    required VoidCallback onPick,
+    VoidCallback? onRemove,
+  }) {
+    final theme = context.nivexTheme;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: theme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 4, bottom: 12),
+                decoration: BoxDecoration(
+                  color: theme.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: theme.textPrimary,
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: theme.divider),
+              ListTile(
+                leading: Icon(
+                  Icons.photo_library_outlined,
+                  color: theme.primary,
+                ),
+                title: const Text('Chọn từ thư viện'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  onPick();
+                },
+              ),
+              if (onRemove != null)
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: theme.danger,
+                  ),
+                  title: Text('Xóa ảnh', style: TextStyle(color: theme.danger)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    onRemove();
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.close_rounded),
+                title: const Text('Hủy'),
+                onTap: () => Navigator.pop(sheetContext),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showAddSkillDialog() async {
     if (_skills.length >= 10) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1260,6 +1362,8 @@ class _EditProfessionalProfileScreenState
         weeklyCapacityHours: _capacity.round(),
         avatarPath: _avatarPath,
         clearAvatar: _avatarPath == null,
+        coverPath: _coverPath,
+        clearCover: _coverPath == null,
         profileHeaderTheme: _headerTheme,
       ),
     );
@@ -1634,75 +1738,154 @@ Widget _simpleDialog({
   ],
 );
 
-class _AvatarEditor extends StatelessWidget {
-  const _AvatarEditor({
+class _ProfileImageEditor extends StatelessWidget {
+  const _ProfileImageEditor({
     required this.avatarPath,
-    required this.onPick,
-    required this.onRemove,
+    required this.coverPath,
+    required this.onTapAvatar,
+    required this.onTapCover,
   });
 
   final String? avatarPath;
-  final VoidCallback onPick;
-  final VoidCallback? onRemove;
+  final String? coverPath;
+  final VoidCallback onTapAvatar;
+  final VoidCallback onTapCover;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    return NivexCard(
-      child: Row(
+    const coverHeight = 160.0;
+    const avatarRadius = 43.0; // 86dp diameter
+
+    return SizedBox(
+      height: 206,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          CircleAvatar(
-            radius: 34,
-            backgroundColor: theme.surfaceSubtle,
-            foregroundImage: avatarPath == null
-                ? null
-                : FileImage(File(avatarPath!)),
-            child: avatarPath == null
-                ? Icon(
-                    Icons.add_a_photo_outlined,
-                    color: theme.primary,
-                    size: 27,
-                  )
-                : null,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ảnh đại diện',
-                  style: TextStyle(
-                    color: theme.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+          // 1. Cover / Banner
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: coverHeight,
+            child: Semantics(
+              button: true,
+              label: 'Ảnh nền hồ sơ',
+              child: GestureDetector(
+                key: const Key('edit-profile-cover-touch'),
+                onTap: onTapCover,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (coverPath != null && File(coverPath!).existsSync())
+                        Image.file(File(coverPath!), fit: BoxFit.cover)
+                      else
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF0D1B2A),
+                                theme.primary.withValues(alpha: 0.55),
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                          ),
+                          child: CustomPaint(
+                            painter: _GridPainter(
+                              color: theme.primary.withValues(alpha: 0.12),
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      // Camera affordance for cover (bottom-right)
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        child: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Ảnh vuông, khuôn mặt rõ và đủ sáng.',
-                  style: TextStyle(color: theme.textSecondary, fontSize: 11.5),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+              ),
+            ),
+          ),
+
+          // 2. Avatar overlapping cover
+          Positioned(
+            left: 16,
+            top: coverHeight - 44, // 116dp
+            child: Semantics(
+              button: true,
+              label: 'Ảnh đại diện',
+              child: GestureDetector(
+                key: const Key('edit-profile-avatar-touch'),
+                onTap: onTapAvatar,
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    OutlinedButton.icon(
-                      key: const Key('pick-profile-avatar'),
-                      onPressed: onPick,
-                      icon: const Icon(Icons.photo_library_outlined, size: 18),
-                      label: const Text('Chọn từ thư viện'),
-                    ),
-                    if (onRemove != null)
-                      IconButton(
-                        tooltip: 'Xóa ảnh đại diện',
-                        onPressed: onRemove,
-                        icon: const Icon(Icons.delete_outline_rounded),
+                    Container(
+                      width: avatarRadius * 2,
+                      height: avatarRadius * 2,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.surface,
+                        border: Border.all(color: theme.surface, width: 3.5),
                       ),
+                      child: CircleAvatar(
+                        radius: avatarRadius - 3.5,
+                        backgroundColor: theme.primary.withValues(alpha: 0.12),
+                        foregroundImage:
+                            avatarPath != null && File(avatarPath!).existsSync()
+                            ? FileImage(File(avatarPath!))
+                            : null,
+                        child: avatarPath == null
+                            ? Icon(
+                                Icons.person_outline_rounded,
+                                color: theme.primary,
+                                size: 40,
+                              )
+                            : null,
+                      ),
+                    ),
+                    // Camera affordance for avatar (bottom-right)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: theme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: theme.surface, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -1711,93 +1894,25 @@ class _AvatarEditor extends StatelessWidget {
   }
 }
 
-class _ProfileThemeSelector extends StatelessWidget {
-  const _ProfileThemeSelector({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final ProfileHeaderTheme selected;
-  final ValueChanged<ProfileHeaderTheme> onSelected;
+class _GridPainter extends CustomPainter {
+  _GridPainter({required this.color});
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = 0.8;
+    const s = 22.0;
+    for (double x = 0; x < size.width; x += s) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
+    }
+    for (double y = 0; y < size.height; y += s) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = context.nivexTheme;
-    return SizedBox(
-      height: 88,
-      child: ListView.separated(
-        key: const Key('profile-theme-list'),
-        scrollDirection: Axis.horizontal,
-        itemCount: ProfileHeaderTheme.values.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 9),
-        itemBuilder: (context, index) {
-          final option = ProfileHeaderTheme.values[index];
-          final isSelected = option == selected;
-          return Semantics(
-            button: true,
-            selected: isSelected,
-            label: 'Nền ${option.label}',
-            child: InkWell(
-              key: Key('profile-theme-${option.name}'),
-              onTap: () => onSelected(option),
-              borderRadius: BorderRadius.circular(7),
-              child: Container(
-                width: 104,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: theme.surface,
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: isSelected ? theme.primary : theme.border,
-                    width: isSelected ? 1.5 : 1,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _ProfileHeaderBackgroundPainter(
-                          variant: option,
-                          primary: theme.primary,
-                          secondary: theme.success,
-                          line: theme.border,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 8,
-                      right: 8,
-                      bottom: 7,
-                      child: Text(
-                        option.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: theme.textPrimary,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (isSelected)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Icon(
-                          Icons.check_circle_rounded,
-                          color: theme.primary,
-                          size: 17,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+  bool shouldRepaint(_GridPainter old) => old.color != color;
 }
 
 class _SectionSurface extends StatelessWidget {

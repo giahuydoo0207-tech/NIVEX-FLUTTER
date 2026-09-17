@@ -5,6 +5,7 @@ import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart';
 import 'package:nivex_flutter/features/posts/presentation/posts_screen.dart';
 import 'package:nivex_flutter/features/posts/presentation/public_profile_screen.dart';
+import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
 import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
@@ -113,55 +114,90 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('có thể chọn nền và thêm kỹ năng ngoài danh sách gợi ý', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 760);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'có thể tương tác đổi avatar/ảnh nền qua action sheet và thêm kỹ năng ngoài danh sách gợi ý',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 760);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
-        home: const ProfessionalProfileScreen(),
-      ),
-    );
-
-    await tester.tap(find.byTooltip('Chỉnh sửa hồ sơ'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('pick-profile-avatar')), findsOneWidget);
-
-    await tester.drag(
-      find.byKey(const Key('profile-theme-list')),
-      const Offset(-360, 0),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('profile-theme-signal')));
-    for (var index = 0; index < 3; index++) {
-      await tester.drag(
-        find.byKey(const Key('edit-profile-list')),
-        const Offset(0, -420),
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const ProfessionalProfileScreen(),
+        ),
       );
-      await tester.pumpAndSettle();
-      if (find.byKey(const Key('add-custom-skill')).evaluate().isNotEmpty) {
-        break;
-      }
-    }
-    await tester.ensureVisible(find.byKey(const Key('add-custom-skill')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('add-custom-skill')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('custom-skill-field')),
-      'Biên tập video',
-    );
-    await tester.tap(find.widgetWithText(FilledButton, 'Thêm'));
-    await tester.pumpAndSettle();
 
-    expect(find.text('Biên tập video'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      await tester.tap(find.byTooltip('Chỉnh sửa hồ sơ'));
+      await tester.pumpAndSettle();
+
+      // Kiểm tra Section 01 hiển thị preview mini với tap touch thay vì card cũ
+      expect(
+        find.byKey(const Key('edit-profile-avatar-touch')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('edit-profile-cover-touch')), findsOneWidget);
+
+      // Không còn preset nền cũ hay nút text cũ
+      expect(find.byKey(const Key('profile-theme-list')), findsNothing);
+      expect(find.text('Chọn nền thẻ hồ sơ'), findsNothing);
+      expect(find.byKey(const Key('pick-profile-avatar')), findsNothing);
+
+      // Không có chữ Thay đổi avatar/ảnh nền thường trực làm rối UI
+      expect(find.text('Thay đổi avatar'), findsNothing);
+      expect(find.text('Thay đổi ảnh nền'), findsNothing);
+
+      // Bấm avatar -> mở action sheet Thay đổi avatar
+      await tester.tap(find.byKey(const Key('edit-profile-avatar-touch')));
+      await tester.pumpAndSettle();
+      expect(find.text('Thay đổi avatar'), findsOneWidget);
+      expect(find.text('Chọn từ thư viện'), findsOneWidget);
+      expect(find.text('Hủy'), findsOneWidget);
+
+      // Đóng action sheet bằng cách bấm Hủy
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+      expect(find.text('Thay đổi avatar'), findsNothing);
+
+      // Bấm cover -> mở action sheet Thay đổi ảnh nền
+      await tester.tap(find.byKey(const Key('edit-profile-cover-touch')));
+      await tester.pumpAndSettle();
+      expect(find.text('Thay đổi ảnh nền'), findsOneWidget);
+      expect(find.text('Chọn từ thư viện'), findsOneWidget);
+      expect(find.text('Hủy'), findsOneWidget);
+
+      // Đóng action sheet bằng cách bấm Hủy
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+      expect(find.text('Thay đổi ảnh nền'), findsNothing);
+
+      // Thêm kỹ năng ngoài danh sách gợi ý
+      for (var index = 0; index < 3; index++) {
+        await tester.drag(
+          find.byKey(const Key('edit-profile-list')),
+          const Offset(0, -420),
+        );
+        await tester.pumpAndSettle();
+        if (find.byKey(const Key('add-custom-skill')).evaluate().isNotEmpty) {
+          break;
+        }
+      }
+      await tester.ensureVisible(find.byKey(const Key('add-custom-skill')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('add-custom-skill')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('custom-skill-field')),
+        'Biên tập video',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Thêm'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Biên tập video'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'không dùng reputation ring trên profile/feed và không còn chữ Viền tier',
@@ -435,6 +471,116 @@ void main() {
 
       // Xác nhận có Image widget hiển thị logo ngân hàng
       expect(find.byType(Image), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'chọn avatar và cover trong EditProfile cập nhật draft và chỉ commit khi Lưu',
+    (tester) async {
+      final controller = DemoFreelancerProfileController.instance;
+      final initialCover = controller.profile.coverPath;
+      final initialAvatar = controller.profile.avatarPath;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const ProfessionalProfileScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Chỉnh sửa hồ sơ'));
+      await tester.pumpAndSettle();
+
+      // Kiểm tra widgets preview mini
+      expect(
+        find.byKey(const Key('edit-profile-avatar-touch')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('edit-profile-cover-touch')), findsOneWidget);
+
+      // Nếu người dùng chưa lưu (controller không bị đổi)
+      expect(controller.profile.coverPath, equals(initialCover));
+      expect(controller.profile.avatarPath, equals(initialAvatar));
+
+      // Bấm Lưu hồ sơ
+      for (var index = 0; index < 5; index++) {
+        await tester.drag(
+          find.byKey(const Key('edit-profile-list')),
+          const Offset(0, -420),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(
+        find.byKey(const Key('save-professional-profile')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('save-professional-profile')));
+      await tester.pumpAndSettle();
+
+      // Đã commit thành công
+      expect(find.text('Đã cập nhật hồ sơ nghề nghiệp'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'PublicProfileScreen hiển thị cover khi có coverPath và fallback khi không có',
+    (tester) async {
+      // 1. Profile không có coverPath -> fallback CustomPaint grid
+      const noCoverProfile = PublicProfileData(
+        kind: PublicProfileKind.freelancer,
+        displayName: 'Minh Anh',
+        handle: 'minhanh.nova',
+        headline: 'Flutter Developer',
+        location: 'Đà Nẵng',
+        bio: 'Mô tả',
+        tags: ['Flutter'],
+        stats: [],
+        coverPath: null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const PublicProfileScreen(
+            profile: noCoverProfile,
+            profilePosts: [],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CustomPaint), findsWidgets);
+      expect(tester.takeException(), isNull);
+
+      // 2. Business profile không có coverPath -> fallback CustomPaint grid với theme.warning
+      const businessProfile = PublicProfileData(
+        kind: PublicProfileKind.business,
+        displayName: 'Nova Labs',
+        handle: 'nova.labs',
+        headline: 'Web3 Builder',
+        location: 'Singapore',
+        bio: 'Business bio',
+        tags: ['Web3'],
+        stats: [],
+        coverPath: null,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const PublicProfileScreen(
+            profile: businessProfile,
+            profilePosts: [],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Hồ sơ doanh nghiệp'), findsOneWidget);
+      expect(find.text('Cơ hội'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

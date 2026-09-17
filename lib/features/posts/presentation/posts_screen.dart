@@ -687,6 +687,7 @@ PublicProfileData _buildAuthorForPost(_DemoPost post) {
     bio: p.bio,
     tags: p.skills,
     avatarPath: p.avatarPath,
+    coverPath: p.coverPath,
     isSelf: true,
     isVerified: true,
     followerCount: 48,
