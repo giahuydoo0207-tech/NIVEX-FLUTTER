@@ -80,12 +80,9 @@ class ProfileRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 8),
-                  Flexible(child: trailing!),
-                ],
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
                 if (showChevron && onTap != null) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 20,

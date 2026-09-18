@@ -6,9 +6,11 @@ import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart'
 import 'package:nivex_flutter/features/posts/presentation/posts_screen.dart';
 import 'package:nivex_flutter/features/posts/presentation/public_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
+import 'package:nivex_flutter/features/profile/presentation/bank_account_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/professional_profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
+import 'package:nivex_flutter/features/profile/widgets/profile_row.dart';
 import 'package:nivex_flutter/features/profile/widgets/reputation_avatar.dart';
 import 'package:nivex_flutter/features/profile/widgets/reputation_badge.dart';
 
@@ -581,6 +583,161 @@ void main() {
 
       expect(find.text('Hồ sơ doanh nghiệp'), findsOneWidget);
       expect(find.text('Cơ hội'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'mũi tên chevron > ở item Trạng thái xác minh và các item khác nằm cùng trục phải',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const ProfileScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final rowTitles = [
+        'Thông tin cá nhân',
+        'Trạng thái xác minh',
+        'Địa chỉ ví Solana',
+        'Tài khoản nhận VND',
+      ];
+
+      final chevronXPositions = <String, double>{};
+      for (final title in rowTitles) {
+        final rowFinder = find.ancestor(
+          of: find.text(title),
+          matching: find.byType(ProfileRow),
+        );
+        expect(rowFinder, findsOneWidget);
+        final chevronFinder = find.descendant(
+          of: rowFinder,
+          matching: find.byIcon(Icons.chevron_right_rounded),
+        );
+        expect(chevronFinder, findsOneWidget);
+        chevronXPositions[title] = tester.getTopRight(chevronFinder).dx;
+      }
+
+      final referenceX = chevronXPositions['Thông tin cá nhân']!;
+      expect(chevronXPositions['Trạng thái xác minh'], equals(referenceX));
+      expect(chevronXPositions['Địa chỉ ví Solana'], equals(referenceX));
+      expect(chevronXPositions['Tài khoản nhận VND'], equals(referenceX));
+
+      // Kiểm tra cả trên màn hẹp 320dp
+      tester.view.physicalSize = const Size(320, 760);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const ProfileScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final narrowChevronX = <String, double>{};
+      for (final title in rowTitles) {
+        final rowFinder = find.ancestor(
+          of: find.text(title),
+          matching: find.byType(ProfileRow),
+        );
+        final chevronFinder = find.descendant(
+          of: rowFinder,
+          matching: find.byIcon(Icons.chevron_right_rounded),
+        );
+        narrowChevronX[title] = tester.getTopRight(chevronFinder).dx;
+      }
+      final narrowReferenceX = narrowChevronX['Thông tin cá nhân']!;
+      expect(narrowChevronX['Trạng thái xác minh'], equals(narrowReferenceX));
+      expect(narrowChevronX['Địa chỉ ví Solana'], equals(narrowReferenceX));
+      expect(narrowChevronX['Tài khoản nhận VND'], equals(narrowReferenceX));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'màn Tài khoản nhận VND hiển thị logo Vietcombank mặc định và có thể thêm tài khoản ngân hàng mới qua modal form',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: NivexTheme.forMode(AppThemeMode.blockchainFlow),
+          home: const BankAccountScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Card mặc định Vietcombank
+      expect(find.text('Vietcombank'), findsOneWidget);
+      expect(find.text('Ngân hàng TMCP Ngoại thương VN'), findsOneWidget);
+      expect(find.text('Mặc định'), findsOneWidget);
+      expect(find.text('•••• 2868'), findsOneWidget);
+      expect(find.text('MINH ANH'), findsOneWidget);
+      expect(find.text('Đã liên kết (Khớp KYC)'), findsOneWidget);
+
+      // Nút Thêm tài khoản
+      expect(find.byKey(const Key('add-bank-account-button')), findsOneWidget);
+      expect(find.text('Thêm tài khoản'), findsOneWidget);
+      expect(find.text('+ Thêm tài khoản'), findsNothing);
+      await tester.tap(find.byKey(const Key('add-bank-account-button')));
+      await tester.pumpAndSettle();
+
+      // Bottom sheet đã mở
+      expect(find.text('Thêm tài khoản nhận VND'), findsOneWidget);
+      expect(find.byKey(const Key('bank-select-field')), findsOneWidget);
+      expect(
+        find.byKey(const Key('bank-account-number-field')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('bank-account-name-field')), findsOneWidget);
+      expect(find.byKey(const Key('save-bank-account-button')), findsOneWidget);
+
+      // Test validation: số tài khoản < 6 ký tự
+      await tester.enterText(
+        find.byKey(const Key('bank-account-number-field')),
+        '12345',
+      );
+      await tester.tap(find.byKey(const Key('save-bank-account-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Số tài khoản không hợp lệ.'), findsOneWidget);
+
+      // Test validation: chủ tài khoản rỗng
+      await tester.enterText(
+        find.byKey(const Key('bank-account-name-field')),
+        '',
+      );
+      await tester.tap(find.byKey(const Key('save-bank-account-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Vui lòng nhập chủ tài khoản.'), findsOneWidget);
+
+      // Nhập thông tin hợp lệ
+      await tester.enterText(
+        find.byKey(const Key('bank-account-number-field')),
+        '987654321',
+      );
+      await tester.enterText(
+        find.byKey(const Key('bank-account-name-field')),
+        'le thi b',
+      );
+      await tester.tap(find.byKey(const Key('save-bank-account-button')));
+      await tester.pumpAndSettle();
+
+      // Modal đã đóng và hiện SnackBar demo
+      expect(find.text('Thêm tài khoản nhận VND'), findsNothing);
+      expect(
+        find.text('Đã thêm tài khoản nhận VND trong bản demo.'),
+        findsOneWidget,
+      );
+
+      // Card mới xuất hiện trong list
+      expect(find.text('•••• 4321'), findsOneWidget);
+      expect(find.text('LE THI B'), findsOneWidget);
+
+      // Vietcombank vẫn giữ badge Mặc định, tài khoản mới không có Mặc định
+      expect(find.text('Mặc định'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
