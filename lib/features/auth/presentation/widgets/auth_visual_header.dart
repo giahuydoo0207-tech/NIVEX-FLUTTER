@@ -43,13 +43,20 @@ class AuthVisualHeader extends StatelessWidget {
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: theme.surface.withValues(alpha: 0.94),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: theme.border),
+                    color: const Color(0xFF0B1220),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF1E293B)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.14),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    child: NivexLogo(height: 40),
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    child: NivexLogo(height: 38, isLight: true),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -106,8 +113,9 @@ class AuthSignalPainter extends CustomPainter {
     }
 
     final nodePaints = [
-      Paint()..color = primary.withValues(alpha: 0.9),
-      Paint()..color = secondary.withValues(alpha: 0.85),
+      Paint()..color = const Color(0xFF06D6D4).withValues(alpha: 0.9),
+      Paint()..color = const Color(0xFF3B82F6).withValues(alpha: 0.85),
+      Paint()..color = const Color(0xFF8B5CF6).withValues(alpha: 0.9),
     ];
     final nodeCenters = <Offset>[
       Offset(size.width * 0.12, size.height * 0.30),
