@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
@@ -32,8 +34,81 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  static const _storage = FlutterSecureStorage();
   bool _balanceVisible = true;
+  NovaApiClient? _api;
+  BigInt? _devnetBalanceMinor;
+  String? _devnetBalanceError;
+  bool _loadingDevnetBalance = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    try {
+      final config = NovaApiConfig.fromBuild();
+      final storageKey = 'nova.mobile.session.${config.baseUri.origin}';
+      _api = NovaApiClient(
+        config: config,
+        readToken: () => _storage.read(key: storageKey),
+      );
+      _loadDevnetBalance();
+    } on ArgumentError {
+      _devnetBalanceError = 'Chưa cấu hình máy chủ.';
+    } on FormatException {
+      _devnetBalanceError = 'Địa chỉ máy chủ không hợp lệ.';
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadDevnetBalance();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _api?.close();
+    super.dispose();
+  }
+
+  Future<void> _loadDevnetBalance() async {
+    if (_api == null || _loadingDevnetBalance) return;
+    setState(() {
+      _loadingDevnetBalance = true;
+      _devnetBalanceError = null;
+    });
+    try {
+      final invoices = await _api!.invoices();
+      final paid = invoices
+          .where((invoice) => invoice.status == 'PAID_ON_CHAIN')
+          .fold<BigInt>(
+            BigInt.zero,
+            (sum, invoice) => sum + invoice.amountMinor,
+          );
+      if (!mounted) return;
+      setState(() {
+        _devnetBalanceMinor = paid;
+      });
+    } on NovaApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _devnetBalanceMinor = null;
+        _devnetBalanceError = error.requiresLogin
+            ? 'Chưa kết nối phiên Devnet.'
+            : 'Chưa đồng bộ được Devnet.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _devnetBalanceMinor = null;
+        _devnetBalanceError = 'Chưa đồng bộ được Devnet.';
+      });
+    } finally {
+      if (mounted) setState(() => _loadingDevnetBalance = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +126,12 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _HomeHero(
               balanceVisible: _balanceVisible,
+              devnetBalanceMinor: _devnetBalanceMinor,
+              devnetBalanceError: _devnetBalanceError,
+              loadingDevnetBalance: _loadingDevnetBalance,
               onToggleBalance: () =>
                   setState(() => _balanceVisible = !_balanceVisible),
+              onRefreshBalance: _loadDevnetBalance,
               onNotifications: _showNotifications,
               onProfile: widget.onProfile,
             ),
@@ -145,13 +224,21 @@ class _CommunityPostEntry extends StatelessWidget {
 class _HomeHero extends StatelessWidget {
   const _HomeHero({
     required this.balanceVisible,
+    required this.devnetBalanceMinor,
+    required this.devnetBalanceError,
+    required this.loadingDevnetBalance,
     required this.onToggleBalance,
+    required this.onRefreshBalance,
     required this.onNotifications,
     required this.onProfile,
   });
 
   final bool balanceVisible;
+  final BigInt? devnetBalanceMinor;
+  final String? devnetBalanceError;
+  final bool loadingDevnetBalance;
   final VoidCallback onToggleBalance;
+  final VoidCallback onRefreshBalance;
   final VoidCallback onNotifications;
   final VoidCallback onProfile;
 
@@ -160,6 +247,15 @@ class _HomeHero extends StatelessWidget {
     final theme = context.nivexTheme;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final heroHeight = (screenHeight * 0.475).clamp(360.0, 460.0);
+    final amountText = devnetBalanceMinor == null
+        ? '500.00 USDC'
+        : '${formatUsdc(devnetBalanceMinor!)} USDC';
+    final vndText = devnetBalanceMinor == null
+        ? '≈ 12.500.000 VND'
+        : _formatVnd(devnetBalanceMinor!);
+    final sourceText = devnetBalanceMinor == null
+        ? (devnetBalanceError ?? 'Dữ liệu demo')
+        : 'Đã đồng bộ từ Hóa đơn Devnet';
 
     return SizedBox(
       height: heroHeight,
@@ -266,6 +362,21 @@ class _HomeHero extends StatelessWidget {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: loadingDevnetBalance ? null : onRefreshBalance,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: Icon(
+                            loadingDevnetBalance
+                                ? Icons.sync_rounded
+                                : Icons.refresh_rounded,
+                            color: Colors.white70,
+                            size: 17,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -273,8 +384,8 @@ class _HomeHero extends StatelessWidget {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 180),
                     child: Text(
-                      balanceVisible ? '500.00 USDC' : '••••••••',
-                      key: ValueKey(balanceVisible),
+                      balanceVisible ? amountText : '••••••••',
+                      key: ValueKey('$balanceVisible-$amountText'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 32,
@@ -287,11 +398,21 @@ class _HomeHero extends StatelessWidget {
                   const SizedBox(height: 3),
                   // Secondary VND Amount
                   Text(
-                    balanceVisible ? '≈ 12.500.000 VND' : '••••••••',
+                    balanceVisible ? vndText : '••••••••',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    sourceText,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
                       letterSpacing: 0,
                     ),
                   ),
@@ -305,6 +426,18 @@ class _HomeHero extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _formatVnd(BigInt amountMinor) {
+    final vnd = amountMinor * BigInt.from(25000) ~/ BigInt.from(1000000);
+    final raw = vnd.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < raw.length; i++) {
+      final remaining = raw.length - i;
+      buffer.write(raw[i]);
+      if (remaining > 1 && remaining % 3 == 1) buffer.write('.');
+    }
+    return '≈ ${buffer.toString()} VND';
   }
 }
 

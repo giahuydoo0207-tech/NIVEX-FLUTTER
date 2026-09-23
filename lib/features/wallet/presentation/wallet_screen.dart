@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nivex_flutter/features/invoices/presentation/mobile_invoices_screen.dart';
+import 'package:nivex_flutter/shared/constants/app_environment.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/shared/constants/demo_data.dart';
@@ -29,6 +31,17 @@ class WalletScreen extends StatelessWidget {
             key: const PageStorageKey('wallet-scroll'),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             children: [
+              if (AppEnvironmentScope.of(context) == AppEnvironment.staging)
+                ListTile(
+                  leading: const Icon(Icons.receipt_long_outlined),
+                  title: const Text('Hóa đơn Devnet'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const MobileInvoicesScreen(),
+                    ),
+                  ),
+                ),
               // 1. Compact Balance Card
               Container(
                 padding: const EdgeInsets.all(18),
