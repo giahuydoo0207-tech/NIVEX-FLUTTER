@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/features/auth/data/nova_auth_api.dart';
 import 'package:nivex_flutter/features/auth/presentation/register_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
 import 'package:nivex_flutter/features/cashout/data/local_auth_biometric_client.dart';
 import 'package:nivex_flutter/features/cashout/domain/biometric_auth_client.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.onLoginSuccess, this.biometricClient});
@@ -17,6 +20,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const _storage = FlutterSecureStorage();
   final _formKey = GlobalKey<FormState>();
   final _accountController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -65,10 +69,57 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusManager.instance.primaryFocus?.unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isLoading = true);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+    final account = _accountController.text.trim();
+    try {
+      final config = NovaApiConfig.fromBuild();
+      if (!account.contains('@')) {
+        _showLoginError('Đăng nhập số điện thoại cần xác minh OTP.');
+        return;
+      }
+      final api = NovaAuthApi(config: config);
+      try {
+        final session = await api.loginEmail(
+          email: account,
+          password: _passwordController.text,
+        );
+        await _storage.write(
+          key: 'nova.mobile.session.${config.baseUri.origin}',
+          value: session.accessToken,
+        );
+        await _storage.write(
+          key: 'nova.mobile.refresh.${config.baseUri.origin}',
+          value: session.refreshToken,
+        );
+      } finally {
+        api.close();
+      }
+      if (!mounted) return;
+      _completeLogin();
+    } on ArgumentError {
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      if (!mounted) return;
+      _completeLogin();
+    } on NovaApiException catch (error) {
+      _showLoginError(_authErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String _authErrorMessage(NovaApiException error) {
+    return switch (error.code) {
+      'connection' => 'Không thể kết nối máy chủ Nova.',
+      'timeout' => 'Máy chủ phản hồi quá lâu. Hãy thử lại.',
+      'invalid_response' => 'Phản hồi máy chủ không hợp lệ.',
+      _ => 'Email hoặc mật khẩu chưa đúng.',
+    };
+  }
+
+  void _showLoginError(String message) {
     if (!mounted) return;
-    setState(() => _isLoading = false);
-    _completeLogin();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _checkBiometricAvailability() async {
@@ -129,6 +180,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 content: Text('Đăng ký thành công. Vui lòng đăng nhập.'),
               ),
             );
+          },
+          onRegistrationAuthenticated: () {
+            Navigator.of(context).pop();
+            _completeLogin();
           },
         ),
       ),

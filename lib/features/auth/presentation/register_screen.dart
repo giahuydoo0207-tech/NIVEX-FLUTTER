@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/features/auth/data/nova_auth_api.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key, this.onRegisterSuccess, this.onOpenLogin});
+  const RegisterScreen({
+    super.key,
+    this.onRegisterSuccess,
+    this.onOpenLogin,
+    this.onRegistrationAuthenticated,
+  });
 
   final VoidCallback? onRegisterSuccess;
   final VoidCallback? onOpenLogin;
+  final VoidCallback? onRegistrationAuthenticated;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  static const _storage = FlutterSecureStorage();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -79,16 +89,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _showTermsError = !_acceptedTerms);
     if (!formValid || !_acceptedTerms) return;
     setState(() => _isLoading = true);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    if (widget.onRegisterSuccess != null) {
-      widget.onRegisterSuccess!();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đăng ký mô phỏng thành công')),
-      );
+    try {
+      final config = NovaApiConfig.fromBuild();
+      final api = NovaAuthApi(config: config);
+      try {
+        final session = await api.registerEmail(
+          email: _emailController.text.trim(),
+          phoneE164: _normalizePhone(_phoneController.text),
+          displayName: _nameController.text.trim(),
+          password: _passwordController.text,
+        );
+        await _storage.write(
+          key: 'nova.mobile.session.${config.baseUri.origin}',
+          value: session.accessToken,
+        );
+        await _storage.write(
+          key: 'nova.mobile.refresh.${config.baseUri.origin}',
+          value: session.refreshToken,
+        );
+      } finally {
+        api.close();
+      }
+      if (!mounted) return;
+      widget.onRegistrationAuthenticated?.call();
+      if (widget.onRegistrationAuthenticated == null) {
+        widget.onRegisterSuccess?.call();
+      }
+    } on ArgumentError {
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      if (!mounted) return;
+      if (widget.onRegisterSuccess != null) {
+        widget.onRegisterSuccess!();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng ký mô phỏng thành công')),
+        );
+      }
+    } on NovaApiException catch (error) {
+      _showRegistrationError(_authErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _normalizePhone(String value) {
+    final compact = value.replaceAll(RegExp(r'[\s.-]'), '');
+    if (compact.startsWith('+')) return compact;
+    if (compact.startsWith('0')) return '+84${compact.substring(1)}';
+    return '+$compact';
+  }
+
+  String _authErrorMessage(NovaApiException error) {
+    return switch (error.code) {
+      'connection' => 'Không thể kết nối máy chủ Nova.',
+      'timeout' => 'Máy chủ phản hồi quá lâu. Hãy thử lại.',
+      'invalid_response' => 'Phản hồi máy chủ không hợp lệ.',
+      _ => 'Email hoặc số điện thoại này đã được sử dụng.',
+    };
+  }
+
+  void _showRegistrationError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _openLogin() {

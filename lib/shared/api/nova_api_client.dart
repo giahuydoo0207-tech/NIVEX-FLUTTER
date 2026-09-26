@@ -15,11 +15,7 @@ class NovaApiException implements Exception {
 class NovaApiConfig {
   NovaApiConfig(String url, {bool allowLocalHttp = false})
     : baseUri = Uri.parse(url) {
-    final local = const [
-      'localhost',
-      '127.0.0.1',
-      '10.0.2.2',
-    ].contains(baseUri.host);
+    final local = _isPrivateDevelopmentHost(baseUri.host);
     if (!baseUri.hasAuthority ||
         baseUri.userInfo.isNotEmpty ||
         baseUri.hasQuery ||
@@ -30,9 +26,23 @@ class NovaApiConfig {
       throw ArgumentError('NOVA_API_URL must be an HTTPS origin');
     }
   }
-  factory NovaApiConfig.fromBuild() =>
-      NovaApiConfig(const String.fromEnvironment('NOVA_API_URL'));
+  factory NovaApiConfig.fromBuild() => NovaApiConfig(
+    const String.fromEnvironment('NOVA_API_URL'),
+    allowLocalHttp: const bool.fromEnvironment('NOVA_API_ALLOW_LOCAL_HTTP'),
+  );
   final Uri baseUri;
+}
+
+bool _isPrivateDevelopmentHost(String host) {
+  if (const {'localhost', '127.0.0.1', '10.0.2.2'}.contains(host)) {
+    return true;
+  }
+  final octets = host.split('.').map(int.tryParse).toList();
+  if (octets.length != 4 || octets.any((octet) => octet == null)) return false;
+  final values = octets.cast<int>();
+  return values[0] == 10 ||
+      (values[0] == 172 && values[1] >= 16 && values[1] <= 31) ||
+      (values[0] == 192 && values[1] == 168);
 }
 
 class NovaInvoice {
