@@ -31,6 +31,11 @@ class _PostsScreenState extends State<PostsScreen> {
       timeLabel: 'Hôm nay, 09:24',
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       reactionCount: 12,
+      reactionCounts: const {
+        PostReaction.like: 7,
+        PostReaction.love: 3,
+        PostReaction.trust: 2,
+      },
       comments: const [
         PostComment(
           id: 'c-mine-1',
@@ -59,6 +64,11 @@ class _PostsScreenState extends State<PostsScreen> {
       isMine: false,
       createdAt: DateTime.now().subtract(const Duration(days: 1)),
       reactionCount: 83,
+      reactionCounts: const {
+        PostReaction.like: 50,
+        PostReaction.love: 20,
+        PostReaction.deal: 13,
+      },
       comments: const [
         PostComment(
           id: 'c-nivex-1',
@@ -120,6 +130,11 @@ class _PostsScreenState extends State<PostsScreen> {
       isMine: false,
       createdAt: DateTime.now().subtract(const Duration(days: 3)),
       reactionCount: 41,
+      reactionCounts: const {
+        PostReaction.like: 20,
+        PostReaction.trust: 12,
+        PostReaction.insightful: 9,
+      },
       comments: const [
         PostComment(
           id: 'c-baolong-1',
@@ -458,23 +473,49 @@ class _PostsScreenState extends State<PostsScreen> {
       if (index == -1) return;
       final current = _posts[index];
 
-      int newCount = current.reactionCount;
+      final reactionCounts = Map<PostReaction, int>.from(
+        current.reactionCounts,
+      );
       PostReaction? newReaction;
       bool clearMyReaction = false;
 
       if (current.myReaction == null) {
-        newCount += 1;
+        reactionCounts.update(
+          selectedReaction,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
         newReaction = selectedReaction;
       } else if (current.myReaction == selectedReaction) {
-        newCount = (newCount - 1).clamp(0, 999999);
+        reactionCounts.update(
+          selectedReaction,
+          (count) => (count - 1).clamp(0, 999999),
+          ifAbsent: () => 0,
+        );
         newReaction = null;
         clearMyReaction = true;
       } else {
+        reactionCounts.update(
+          current.myReaction!,
+          (count) => (count - 1).clamp(0, 999999),
+          ifAbsent: () => 0,
+        );
+        reactionCounts.update(
+          selectedReaction,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
         newReaction = selectedReaction;
       }
 
+      final newCount = reactionCounts.values.fold<int>(
+        0,
+        (sum, count) => sum + count,
+      );
+
       _posts[index] = current.copyWith(
         reactionCount: newCount,
+        reactionCounts: reactionCounts,
         myReaction: newReaction,
         clearMyReaction: clearMyReaction,
       );
@@ -1971,8 +2012,7 @@ class _PostCardState extends State<_PostCard> {
             child: Row(
               children: [
                 _ReactionBadgesStack(
-                  count: post.reactionCount,
-                  myReaction: post.myReaction,
+                  reactionCounts: post.reactionCounts,
                 ),
                 const Spacer(),
                 InkWell(
@@ -2400,39 +2440,42 @@ class _ReactionItem extends StatelessWidget {
 }
 
 class _ReactionBadgesStack extends StatelessWidget {
-  const _ReactionBadgesStack({required this.count, this.myReaction});
+  const _ReactionBadgesStack({required this.reactionCounts});
 
-  final int count;
-  final PostReaction? myReaction;
+  final Map<PostReaction, int> reactionCounts;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
+    final count = reactionCounts.values.fold<int>(
+      0,
+      (sum, value) => sum + value,
+    );
     if (count <= 0) {
       return const SizedBox.shrink();
     }
 
-    final List<PostReaction> badges = [];
-    if (myReaction != null) {
-      badges.add(myReaction!);
-    } else {
-      badges.add(PostReaction.like);
-    }
-    if (badges.first != PostReaction.trust && count > 1) {
-      badges.add(PostReaction.trust);
-    } else if (badges.first != PostReaction.launch && count > 1) {
-      badges.add(PostReaction.launch);
-    }
+    final badges = PostReaction.values
+        .where((reaction) => (reactionCounts[reaction] ?? 0) > 0)
+        .toList()
+      ..sort(
+        (left, right) => (reactionCounts[right] ?? 0).compareTo(
+          reactionCounts[left] ?? 0,
+        ),
+      );
+    final visibleBadges = badges.take(3).toList(growable: false);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: badges.length == 1 ? 20 : 33,
+          width: visibleBadges.length == 1
+              ? 20
+              : 20 + (visibleBadges.length - 1) * 13.0,
           height: 20,
           child: Stack(
             children: [
-              for (int i = 0; i < badges.length; i++)
+              for (int i = 0; i < visibleBadges.length; i++)
                 Positioned(
                   left: i * 13.0,
                   child: Container(
@@ -2440,12 +2483,12 @@ class _ReactionBadgesStack extends StatelessWidget {
                     height: 19,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: badges[i].color,
+                      color: visibleBadges[i].color,
                       border: Border.all(color: theme.surface, width: 1.5),
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      badges[i].icon,
+                      visibleBadges[i].icon,
                       size: 10.5,
                       color: Colors.white,
                     ),
@@ -3762,7 +3805,7 @@ enum PostReaction {
   trust('Tin cậy', Icons.verified_user_rounded, Color(0xFF22C55E)),
   build('Đang xây', Icons.construction_rounded, Color(0xFFF59E0B)),
   insightful('Hay', Icons.lightbulb_rounded, Color(0xFF06B6D4)),
-  deal('Hợp tác', Icons.handshake_rounded, Color(0xFFA855F7)),
+  deal('Haha', Icons.sentiment_very_satisfied_rounded, Color(0xFFF59E0B)),
   launch('Bứt phá', Icons.rocket_launch_rounded, Color(0xFFEC4899));
 
   const PostReaction(this.label, this.icon, this.color);
@@ -3887,6 +3930,7 @@ class _DemoPost {
     this.isHidden = false,
     this.createdAt,
     this.reactionCount = 0,
+    this.reactionCounts = const {},
     this.myReaction,
     this.comments = const [],
     this.author = const PublicProfileData(
@@ -3911,6 +3955,7 @@ class _DemoPost {
   final bool isHidden;
   final DateTime? createdAt;
   final int reactionCount;
+  final Map<PostReaction, int> reactionCounts;
   final PostReaction? myReaction;
   final List<PostComment> comments;
   final PublicProfileData author;
@@ -3926,6 +3971,7 @@ class _DemoPost {
     bool? isHidden,
     DateTime? createdAt,
     int? reactionCount,
+    Map<PostReaction, int>? reactionCounts,
     PostReaction? myReaction,
     bool clearMyReaction = false,
     List<PostComment>? comments,
@@ -3942,6 +3988,7 @@ class _DemoPost {
       isHidden: isHidden ?? this.isHidden,
       createdAt: createdAt ?? this.createdAt,
       reactionCount: reactionCount ?? this.reactionCount,
+      reactionCounts: reactionCounts ?? this.reactionCounts,
       myReaction: clearMyReaction ? null : (myReaction ?? this.myReaction),
       comments: comments ?? this.comments,
       author: author ?? this.author,
