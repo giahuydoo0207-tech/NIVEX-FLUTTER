@@ -1,32 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
-import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
-    required this.onReceive,
-    required this.onCashout,
-    required this.onHistory,
     required this.onJobs,
-    required this.onQuote,
-    required this.onHelp,
     required this.onProfile,
     required this.onCreatePost,
     super.key,
   });
 
-  final VoidCallback onReceive;
-  final VoidCallback onCashout;
-  final VoidCallback onHistory;
   final VoidCallback onJobs;
-  final VoidCallback onQuote;
-  final VoidCallback onHelp;
   final VoidCallback onProfile;
   final VoidCallback onCreatePost;
 
@@ -34,81 +22,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  static const _storage = FlutterSecureStorage();
-  bool _balanceVisible = true;
-  NovaApiClient? _api;
-  BigInt? _devnetBalanceMinor;
-  String? _devnetBalanceError;
-  bool _loadingDevnetBalance = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    try {
-      final config = NovaApiConfig.fromBuild();
-      final storageKey = 'nova.mobile.session.${config.baseUri.origin}';
-      _api = NovaApiClient(
-        config: config,
-        readToken: () => _storage.read(key: storageKey),
-      );
-      _loadDevnetBalance();
-    } on ArgumentError {
-      _devnetBalanceError = 'Chưa cấu hình máy chủ.';
-    } on FormatException {
-      _devnetBalanceError = 'Địa chỉ máy chủ không hợp lệ.';
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _loadDevnetBalance();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _api?.close();
-    super.dispose();
-  }
-
-  Future<void> _loadDevnetBalance() async {
-    if (_api == null || _loadingDevnetBalance) return;
-    setState(() {
-      _loadingDevnetBalance = true;
-      _devnetBalanceError = null;
-    });
-    try {
-      final invoices = await _api!.invoices();
-      final paid = invoices
-          .where((invoice) => invoice.status == 'PAID_ON_CHAIN')
-          .fold<BigInt>(
-            BigInt.zero,
-            (sum, invoice) => sum + invoice.amountMinor,
-          );
-      if (!mounted) return;
-      setState(() {
-        _devnetBalanceMinor = paid;
-      });
-    } on NovaApiException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _devnetBalanceMinor = null;
-        _devnetBalanceError = error.requiresLogin
-            ? 'Chưa kết nối phiên Devnet.'
-            : 'Chưa đồng bộ được Devnet.';
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _devnetBalanceMinor = null;
-        _devnetBalanceError = 'Chưa đồng bộ được Devnet.';
-      });
-    } finally {
-      if (mounted) setState(() => _loadingDevnetBalance = false);
-    }
-  }
+class _HomeScreenState extends State<HomeScreen> {
+  bool _balanceVisible = false;
 
   @override
   Widget build(BuildContext context) {
@@ -125,22 +40,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _HomeHero(
-              balanceVisible: _balanceVisible,
-              devnetBalanceMinor: _devnetBalanceMinor,
-              devnetBalanceError: _devnetBalanceError,
-              loadingDevnetBalance: _loadingDevnetBalance,
-              onToggleBalance: () =>
-                  setState(() => _balanceVisible = !_balanceVisible),
-              onRefreshBalance: _loadDevnetBalance,
-              onNotifications: _showNotifications,
+              onNotifications: () => _showNotifications(context),
               onProfile: widget.onProfile,
-            ),
-            _QuickActionsBar(
-              onReceive: widget.onReceive,
-              onCashout: widget.onCashout,
-              onHistory: widget.onHistory,
-              onQuote: widget.onQuote,
-              onHelp: widget.onHelp,
+              balanceVisible: _balanceVisible,
+              onToggleBalance: () {
+                setState(() => _balanceVisible = !_balanceVisible);
+              },
             ),
             _CommunityPostEntry(onTap: widget.onCreatePost),
             Divider(color: theme.divider, height: 1, thickness: 1),
@@ -154,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _showNotifications() {
+  void _showNotifications(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
@@ -185,31 +90,18 @@ class _CommunityPostEntry extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   color: theme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.edit_note_rounded, color: theme.primary),
+                child: Icon(Icons.public_rounded, color: theme.primary),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Chia sẻ với cộng đồng',
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Đăng tiến độ, sản phẩm hoặc cơ hội hợp tác',
-                      style: TextStyle(
-                        color: theme.textSecondary,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Bạn đang nghĩ gì?',
+                  style: TextStyle(
+                    color: theme.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Icon(Icons.chevron_right_rounded, color: theme.textSecondary),
@@ -223,40 +115,22 @@ class _CommunityPostEntry extends StatelessWidget {
 
 class _HomeHero extends StatelessWidget {
   const _HomeHero({
-    required this.balanceVisible,
-    required this.devnetBalanceMinor,
-    required this.devnetBalanceError,
-    required this.loadingDevnetBalance,
-    required this.onToggleBalance,
-    required this.onRefreshBalance,
     required this.onNotifications,
     required this.onProfile,
+    required this.balanceVisible,
+    required this.onToggleBalance,
   });
 
-  final bool balanceVisible;
-  final BigInt? devnetBalanceMinor;
-  final String? devnetBalanceError;
-  final bool loadingDevnetBalance;
-  final VoidCallback onToggleBalance;
-  final VoidCallback onRefreshBalance;
   final VoidCallback onNotifications;
   final VoidCallback onProfile;
+  final bool balanceVisible;
+  final VoidCallback onToggleBalance;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final heroHeight = (screenHeight * 0.475).clamp(360.0, 460.0);
-    final amountText = devnetBalanceMinor == null
-        ? '500.00 USDC'
-        : '${formatUsdc(devnetBalanceMinor!)} USDC';
-    final vndText = devnetBalanceMinor == null
-        ? '≈ 12.500.000 VND'
-        : _formatVnd(devnetBalanceMinor!);
-    final sourceText = devnetBalanceMinor == null
-        ? (devnetBalanceError ?? 'Dữ liệu demo')
-        : 'Đã đồng bộ từ Hóa đơn Devnet';
-
     return SizedBox(
       height: heroHeight,
       width: double.infinity,
@@ -335,7 +209,6 @@ class _HomeHero extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Balance Label + Visibility Eye
                   Row(
                     children: [
                       const Text(
@@ -362,43 +235,22 @@ class _HomeHero extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: loadingDevnetBalance ? null : onRefreshBalance,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: Icon(
-                            loadingDevnetBalance
-                                ? Icons.sync_rounded
-                                : Icons.refresh_rounded,
-                            color: Colors.white70,
-                            size: 17,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // Primary USDC Amount
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: Text(
-                      balanceVisible ? amountText : '••••••••',
-                      key: ValueKey('$balanceVisible-$amountText'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0,
-                        height: 1.15,
-                      ),
+                  Text(
+                    balanceVisible ? '500.00 USDC' : '••••••••',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0,
+                      height: 1.15,
                     ),
                   ),
                   const SizedBox(height: 3),
-                  // Secondary VND Amount
                   Text(
-                    balanceVisible ? vndText : '••••••••',
+                    balanceVisible ? '≈ 12.500.000 VND' : '••••••••',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -407,9 +259,9 @@ class _HomeHero extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    sourceText,
-                    style: const TextStyle(
+                  const Text(
+                    'Chưa đồng bộ được Devnet.',
+                    style: TextStyle(
                       color: Colors.white60,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
@@ -426,18 +278,6 @@ class _HomeHero extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatVnd(BigInt amountMinor) {
-    final vnd = amountMinor * BigInt.from(25000) ~/ BigInt.from(1000000);
-    final raw = vnd.toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < raw.length; i++) {
-      final remaining = raw.length - i;
-      buffer.write(raw[i]);
-      if (remaining > 1 && remaining % 3 == 1) buffer.write('.');
-    }
-    return '≈ ${buffer.toString()} VND';
   }
 }
 
@@ -508,125 +348,6 @@ class _SolanaDevnetBadge extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _QuickActionsBar extends StatelessWidget {
-  const _QuickActionsBar({
-    required this.onReceive,
-    required this.onCashout,
-    required this.onHistory,
-    required this.onQuote,
-    required this.onHelp,
-  });
-
-  final VoidCallback onReceive;
-  final VoidCallback onCashout;
-  final VoidCallback onHistory;
-  final VoidCallback onQuote;
-  final VoidCallback onHelp;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 16, 10, 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _QuickActionItem(
-              icon: Icons.file_download_outlined,
-              label: 'Nhận USDC',
-              onTap: onReceive,
-            ),
-          ),
-          Expanded(
-            child: _QuickActionItem(
-              icon: Icons.file_upload_outlined,
-              label: 'Rút VND',
-              onTap: onCashout,
-            ),
-          ),
-          Expanded(
-            child: _QuickActionItem(
-              icon: Icons.receipt_long_outlined,
-              label: 'Lịch sử',
-              onTap: onHistory,
-            ),
-          ),
-          Expanded(
-            child: _QuickActionItem(
-              icon: Icons.show_chart_rounded,
-              label: 'Báo giá',
-              onTap: onQuote,
-            ),
-          ),
-          Expanded(
-            child: _QuickActionItem(
-              icon: Icons.headset_mic_outlined,
-              label: 'Trợ giúp',
-              onTap: onHelp,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickActionItem extends StatelessWidget {
-  const _QuickActionItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.nivexTheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: theme.surfaceSubtle,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: theme.border),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: theme.primary, size: 22),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
-                  color: theme.textPrimary,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/auth/data/nova_auth_api.dart';
+import 'package:nivex_flutter/features/auth/data/nova_auth_session_manager.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
@@ -23,7 +23,6 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  static const _storage = FlutterSecureStorage();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -73,7 +72,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập mật khẩu';
-    if (value.length < 6) return 'Mật khẩu cần ít nhất 6 ký tự';
+    if (value.length < 8) return 'Mật khẩu cần ít nhất 8 ký tự';
     return null;
   }
 
@@ -99,14 +98,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           displayName: _nameController.text.trim(),
           password: _passwordController.text,
         );
-        await _storage.write(
-          key: 'nova.mobile.session.${config.baseUri.origin}',
-          value: session.accessToken,
-        );
-        await _storage.write(
-          key: 'nova.mobile.refresh.${config.baseUri.origin}',
-          value: session.refreshToken,
-        );
+        await SecureNovaAuthSessionStore(origin: config.baseUri.origin)
+            .save(session);
       } finally {
         api.close();
       }
@@ -144,7 +137,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       'connection' => 'Không thể kết nối máy chủ Nova.',
       'timeout' => 'Máy chủ phản hồi quá lâu. Hãy thử lại.',
       'invalid_response' => 'Phản hồi máy chủ không hợp lệ.',
-      _ => 'Email hoặc số điện thoại này đã được sử dụng.',
+      'invalid_request' => 'Thông tin đăng ký chưa hợp lệ.',
+      'conflict' => 'Email hoặc số điện thoại này đã được sử dụng.',
+      _ => 'Không thể tạo tài khoản. Hãy thử lại.',
     };
   }
 

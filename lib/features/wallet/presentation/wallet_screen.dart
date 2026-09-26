@@ -12,11 +12,17 @@ class WalletScreen extends StatelessWidget {
   const WalletScreen({
     required this.onReceive,
     required this.onCashout,
+    required this.onQuote,
+    required this.onHistory,
+    required this.onHelp,
     super.key,
   });
 
   final VoidCallback onReceive;
   final VoidCallback onCashout;
+  final VoidCallback onQuote;
+  final VoidCallback onHistory;
+  final VoidCallback onHelp;
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +136,14 @@ class WalletScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 20),
+              _WalletActionGrid(
+                onReceive: onReceive,
+                onCashout: onCashout,
+                onQuote: onQuote,
+                onHistory: onHistory,
+                onHelp: onHelp,
               ),
               const SizedBox(height: 24),
               // 2. Token Asset List
@@ -283,6 +297,91 @@ class WalletScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WalletActionGrid extends StatelessWidget {
+  const _WalletActionGrid({
+    required this.onReceive,
+    required this.onCashout,
+    required this.onQuote,
+    required this.onHistory,
+    required this.onHelp,
+  });
+
+  final VoidCallback onReceive;
+  final VoidCallback onCashout;
+  final VoidCallback onQuote;
+  final VoidCallback onHistory;
+  final VoidCallback onHelp;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final actions = [
+      (Icons.file_download_outlined, 'Nhận USDC', onReceive),
+      (Icons.file_upload_outlined, 'Rút VND', onCashout),
+      (Icons.show_chart_rounded, 'Báo giá', onQuote),
+      (Icons.receipt_long_outlined, 'Giao dịch', onHistory),
+      (Icons.headset_mic_outlined, 'Trợ giúp', onHelp),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'THAO TÁC VÍ',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: theme.textSecondary,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: actions.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 1.38,
+          ),
+          itemBuilder: (context, index) {
+            final action = actions[index];
+            return InkWell(
+              onTap: action.$3,
+              borderRadius: BorderRadius.circular(12),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: theme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.border),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(action.$1, color: theme.primary, size: 21),
+                    const SizedBox(height: 6),
+                    Text(
+                      action.$2,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

@@ -37,6 +37,28 @@ double _contrastRatio(Color c1, Color c2) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+NivexApp _walletTestApp({ThemeController? controller, Key? key}) {
+  return NivexApp(
+    key: key,
+    controller: controller,
+    cashoutAuthService: CashoutAuthService(
+      biometricClient: FakeBiometricAuthClient(),
+      stateStore: InMemoryCashoutAuthStateStore(),
+    ),
+  );
+}
+
+Future<void> _openWallet(WidgetTester tester) async {
+  await tester.tap(find.text('Ví'));
+  await tester.pumpAndSettle();
+  for (final digit in ['1', '2', '3', '4', '5', '6']) {
+    await tester.tap(find.byKey(Key('pin-key-$digit')));
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+  expect(find.text('Ví của bạn'), findsOneWidget);
+}
+
 void main() {
   setUp(() {
     AppTabController.index.value = 0;
@@ -51,10 +73,9 @@ void main() {
     expect(find.text('Trang chủ'), findsWidgets);
     expect(find.text('Công việc'), findsOneWidget);
     expect(find.text('Ví'), findsOneWidget);
-    expect(find.text('Giao dịch'), findsOneWidget);
+    expect(find.text('Cộng đồng'), findsOneWidget);
     expect(find.text('Minh Anh'), findsOneWidget);
-    expect(find.text('500.00 USDC'), findsOneWidget);
-    expect(find.text('≈ 12.500.000 VND'), findsOneWidget);
+    expect(find.text('••••••••'), findsWidgets);
     expect(find.text('Solana Devnet'), findsOneWidget);
     expect(find.text('Hiểu nhanh cùng Nova'), findsOneWidget);
     expect(find.text('Nova hoạt động thế nào?'), findsOneWidget);
@@ -62,39 +83,35 @@ void main() {
       find.textContaining('Bản demo hackathon · Solana Devnet'),
       findsOneWidget,
     );
-    expect(find.text('Nhận USDC'), findsWidgets);
-    expect(find.text('Rút VND'), findsWidgets);
-    expect(find.text('Lịch sử'), findsOneWidget);
-    expect(find.text('Báo giá'), findsOneWidget);
-    expect(find.text('Trợ giúp'), findsOneWidget);
+    expect(find.text('Bạn đang nghĩ gì?'), findsOneWidget);
   });
 
-  testWidgets('điều hướng được giữa bốn bottom tabs', (tester) async {
-    await tester.pumpWidget(const NivexApp());
+  testWidgets('điều hướng được giữa Cộng đồng, Ví và Home', (tester) async {
+    await tester.pumpWidget(_walletTestApp());
 
     // Tab 0: Home is visible
-    expect(find.text('500.00 USDC'), findsOneWidget);
+    expect(find.text('••••••••'), findsWidgets);
 
     // Tab 1: Tap Ví
-    await tester.tap(find.text('Ví'));
-    await tester.pumpAndSettle();
-    expect(find.text('Ví của bạn'), findsOneWidget);
+    await _openWallet(tester);
     expect(find.text('Demo Mode • Solana Devnet'), findsOneWidget);
     expect(find.text('880,00 USDC'), findsWidgets);
+    await tester.drag(
+      find.byKey(const PageStorageKey('wallet-scroll')),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('ĐỊA CHỈ VÍ SOLANA DEVNET'), findsOneWidget);
 
-    // Tab 2: Tap Giao dịch
-    await tester.tap(find.text('Giao dịch'));
+    // Tab giữa: Cộng đồng
+    await tester.tap(find.text('Cộng đồng'));
     await tester.pumpAndSettle();
-    expect(find.text('Lịch sử hoạt động của ví'), findsOneWidget);
-    expect(find.text('Tất cả'), findsOneWidget);
-    expect(find.text('Tiền vào'), findsOneWidget);
-    expect(find.text('Tiền ra'), findsOneWidget);
+    expect(find.text('Cộng đồng'), findsWidgets);
 
     // Tab 0: Back to Home
     await tester.tap(find.text('Trang chủ'));
     await tester.pumpAndSettle();
-    expect(find.text('500.00 USDC'), findsOneWidget);
+    expect(find.text('••••••••'), findsWidgets);
   });
 
   testWidgets('nhấn avatar hoặc tên Minh Anh đều mở ProfileScreen', (
@@ -367,8 +384,9 @@ void main() {
         },
       );
 
-      await tester.pumpWidget(const NivexApp());
+      await tester.pumpWidget(_walletTestApp());
 
+      await _openWallet(tester);
       await tester.tap(find.text('Nhận USDC').first);
       await tester.pumpAndSettle();
 
@@ -410,7 +428,7 @@ void main() {
       // Test Android back
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.text('Minh Anh'), findsOneWidget);
+      expect(find.text('Ví của bạn'), findsOneWidget);
     },
   );
 
@@ -429,18 +447,18 @@ void main() {
       },
     );
 
-    await tester.pumpWidget(const NivexApp());
+    await tester.pumpWidget(_walletTestApp());
 
-    await tester.tap(find.text('Ví'));
-    await tester.pumpAndSettle();
+    await _openWallet(tester);
     expect(find.text('Demo Mode • Solana Devnet'), findsOneWidget);
-    expect(find.text('7xKXtg...sgAsU'), findsOneWidget);
 
     await tester.drag(
       find.byKey(const PageStorageKey('wallet-scroll')),
       const Offset(0, -300),
     );
     await tester.pumpAndSettle();
+    expect(find.text('7xKXtg...sgAsU'), findsOneWidget);
+    await tester.ensureVisible(find.widgetWithText(OutlinedButton, 'Sao chép'));
     await tester.tap(find.widgetWithText(OutlinedButton, 'Sao chép'));
     await tester.pump();
     expect(copiedText, equals('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'));
@@ -456,6 +474,7 @@ void main() {
       ),
     );
 
+    await _openWallet(tester);
     await tester.tap(find.text('Rút VND').first);
     await tester.pumpAndSettle();
     expect(find.text('Dùng tối đa'), findsOneWidget);
@@ -502,8 +521,9 @@ void main() {
   });
 
   testWidgets('quote hết hạn sau 30 giây và có thể làm mới', (tester) async {
-    await tester.pumpWidget(const NivexApp());
+    await tester.pumpWidget(_walletTestApp());
 
+    await _openWallet(tester);
     await tester.ensureVisible(find.text('Báo giá'));
     await tester.tap(find.text('Báo giá'));
     await tester.pump();
@@ -533,10 +553,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const NivexApp());
+    await tester.pumpWidget(_walletTestApp());
     expect(tester.takeException(), isNull);
 
-    for (final label in ['Ví', 'Giao dịch', 'Trang chủ']) {
+    await _openWallet(tester);
+    expect(tester.takeException(), isNull, reason: 'Tab overflow');
+
+    for (final label in ['Cộng đồng', 'Trang chủ']) {
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
       final error = tester.takeException();
@@ -739,16 +762,16 @@ void main() {
         await controller.load();
 
         await tester.pumpWidget(
-          NivexApp(key: UniqueKey(), controller: controller),
+          _walletTestApp(key: UniqueKey(), controller: controller),
         );
         await tester.pumpAndSettle();
 
         // Home data check
-        expect(find.text('500.00 USDC'), findsOneWidget);
-        expect(find.text('≈ 12.500.000 VND'), findsOneWidget);
+        expect(find.text('••••••••'), findsWidgets);
         expect(find.text('Solana Devnet'), findsOneWidget);
 
         // Receive screen check
+        await _openWallet(tester);
         await tester.tap(find.text('Nhận USDC').first);
         await tester.pumpAndSettle();
         expect(
@@ -759,6 +782,8 @@ void main() {
         await tester.pumpAndSettle();
 
         // Profile screen check
+        await tester.tap(find.text('Trang chủ'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Minh Anh'));
         await tester.pumpAndSettle();
         expect(find.textContaining('NVX-000001'), findsOneWidget);
@@ -790,7 +815,7 @@ void main() {
       await controller.load();
 
       await tester.pumpWidget(
-        NivexApp(key: UniqueKey(), controller: controller),
+        _walletTestApp(key: UniqueKey(), controller: controller),
       );
       await tester.pumpAndSettle();
       expect(
@@ -799,20 +824,19 @@ void main() {
         reason: 'Home 320px overflow in ${mode.name}',
       );
 
-      await tester.tap(find.text('Ví'));
-      await tester.pumpAndSettle();
+      await _openWallet(tester);
       expect(
         tester.takeException(),
         isNull,
         reason: 'Wallet 320px overflow in ${mode.name}',
       );
 
-      await tester.tap(find.text('Giao dịch'));
+      await tester.tap(find.text('Cộng đồng'));
       await tester.pumpAndSettle();
       expect(
         tester.takeException(),
         isNull,
-        reason: 'Transactions 320px overflow in ${mode.name}',
+        reason: 'Community 320px overflow in ${mode.name}',
       );
 
       await tester.tap(find.text('Trang chủ'));

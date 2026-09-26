@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_auth_service.dart';
 
@@ -7,16 +6,31 @@ class SessionUnlockSheet extends StatefulWidget {
   const SessionUnlockSheet({
     required this.authService,
     this.clock = DateTime.now,
+    this.title = 'Phiên làm việc đã hết hạn',
+    this.description = 'Xác thực lại để tiếp tục. Nova không lưu dữ liệu sinh trắc học của bạn.',
+    this.pinLabel = 'PIN giao dịch gồm 6 số',
+    this.biometricReason = 'Xác thực để tiếp tục sử dụng Nova',
+    this.cancelLabel = 'Đăng xuất',
     super.key,
   });
 
   final CashoutAuthService authService;
   final Clock clock;
+  final String title;
+  final String description;
+  final String pinLabel;
+  final String biometricReason;
+  final String cancelLabel;
 
   static Future<bool> show({
     required BuildContext context,
     required CashoutAuthService authService,
     Clock clock = DateTime.now,
+    String title = 'Phiên làm việc đã hết hạn',
+    String description = 'Xác thực lại để tiếp tục. Nova không lưu dữ liệu sinh trắc học của bạn.',
+    String pinLabel = 'PIN giao dịch gồm 6 số',
+    String biometricReason = 'Xác thực để tiếp tục sử dụng Nova',
+    String cancelLabel = 'Đăng xuất',
   }) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -25,8 +39,15 @@ class SessionUnlockSheet extends StatefulWidget {
       enableDrag: false,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) =>
-          SessionUnlockSheet(authService: authService, clock: clock),
+      builder: (_) => SessionUnlockSheet(
+        authService: authService,
+        clock: clock,
+        title: title,
+        description: description,
+        pinLabel: pinLabel,
+        biometricReason: biometricReason,
+        cancelLabel: cancelLabel,
+      ),
     );
     return result ?? false;
   }
@@ -36,7 +57,7 @@ class SessionUnlockSheet extends StatefulWidget {
 }
 
 class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
-  final _pinController = TextEditingController();
+  String _enteredPin = '';
   bool _loading = true;
   String? _error;
 
@@ -44,12 +65,6 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
   void initState() {
     super.initState();
     _initialize();
-  }
-
-  @override
-  void dispose() {
-    _pinController.dispose();
-    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -67,14 +82,14 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
   }
 
   Future<void> _unlockWithPin() async {
-    if (_loading || _pinController.text.length != 6) return;
+    if (_loading || _enteredPin.length != 6) return;
     setState(() {
       _loading = true;
       _error = null;
     });
 
     final outcome = await widget.authService.verifyPin(
-      _pinController.text,
+      _enteredPin,
       widget.clock(),
     );
     if (!mounted) return;
@@ -83,14 +98,14 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
       case PinSuccessOutcome():
         Navigator.of(context).pop(true);
       case PinIncorrectOutcome(:final remainingAttempts):
-        _pinController.clear();
         setState(() {
+          _enteredPin = '';
           _loading = false;
           _error = 'Mã PIN không đúng. Còn $remainingAttempts lần thử.';
         });
       case PinLockedOutcome(:final remainingSeconds):
-        _pinController.clear();
         setState(() {
+          _enteredPin = '';
           _loading = false;
           _error =
               'Mở khóa phiên tạm thời bị khóa. Thử lại sau $remainingSeconds giây.';
@@ -106,7 +121,7 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
     });
 
     final result = await widget.authService.authenticateBiometric(
-      reason: 'Xác thực để tiếp tục sử dụng Nova',
+      reason: widget.biometricReason,
       atTime: widget.clock(),
     );
     if (!mounted) return;
@@ -135,10 +150,26 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
     }
   }
 
+  void _onDigitPressed(String digit) {
+    if (_loading || _enteredPin.length >= 6) return;
+    setState(() {
+      _enteredPin += digit;
+      _error = null;
+    });
+    if (_enteredPin.length == 6) _unlockWithPin();
+  }
+
+  void _onBackspacePressed() {
+    if (_loading || _enteredPin.isEmpty) return;
+    setState(() {
+      _enteredPin = _enteredPin.substring(0, _enteredPin.length - 1);
+      _error = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       decoration: BoxDecoration(
@@ -169,7 +200,7 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Phiên làm việc đã hết hạn',
+                    widget.title,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: theme.textPrimary,
@@ -179,7 +210,7 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Xác thực lại để tiếp tục. Nova không lưu dữ liệu sinh trắc học của bạn.',
+                    widget.description,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: theme.textSecondary,
@@ -188,20 +219,34 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  TextField(
-                    controller: _pinController,
-                    enabled: !_loading,
-                    obscureText: true,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (_) => setState(() {}),
-                    onSubmitted: (_) => _unlockWithPin(),
-                    decoration: const InputDecoration(
-                      labelText: 'PIN giao dịch gồm 6 số',
-                      counterText: '',
-                      prefixIcon: Icon(Icons.pin_outlined),
+                  Text(
+                    widget.pinLabel,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: theme.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (index) {
+                      final filled = index < _enteredPin.length;
+                      return Container(
+                        width: 13,
+                        height: 13,
+                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: filled ? theme.primary : theme.surfaceSubtle,
+                          border: Border.all(
+                            color: filled ? theme.primary : theme.border,
+                            width: 1.5,
+                          ),
+                        ),
+                      );
+                    }),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 8),
@@ -215,42 +260,120 @@ class _SessionUnlockSheetState extends State<SessionUnlockSheet> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
-                  FilledButton(
-                    onPressed: _loading || _pinController.text.length != 6
-                        ? null
-                        : _unlockWithPin,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                      backgroundColor: theme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                    ),
-                    child: _loading
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorScheme.onPrimary,
-                            ),
-                          )
-                        : const Text('Mở khóa'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _loading ? null : _unlockWithBiometric,
-                    icon: const Icon(Icons.fingerprint_rounded),
-                    label: const Text('Dùng sinh trắc học'),
+                  const SizedBox(height: 12),
+                  _PinKeypad(
+                    isLoading: _loading,
+                    onDigitPressed: _onDigitPressed,
+                    onBackspacePressed: _onBackspacePressed,
+                    onBiometricPressed: _unlockWithBiometric,
                   ),
                   TextButton(
                     onPressed: _loading
                         ? null
                         : () => Navigator.of(context).pop(false),
-                    child: const Text('Đăng xuất'),
+                    child: Text(widget.cancelLabel),
                   ),
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PinKeypad extends StatelessWidget {
+  const _PinKeypad({
+    required this.isLoading,
+    required this.onDigitPressed,
+    required this.onBackspacePressed,
+    required this.onBiometricPressed,
+  });
+
+  final bool isLoading;
+  final ValueChanged<String> onDigitPressed;
+  final VoidCallback onBackspacePressed;
+  final VoidCallback onBiometricPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    const rows = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['bio', '0', 'back'],
+    ];
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Column(
+        children: rows.map((row) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: row.map((key) {
+              if (key == 'bio') {
+                return _PinKeyButton(
+                  key: const Key('pin-key-bio'),
+                  onTap: isLoading ? null : onBiometricPressed,
+                  child: Icon(Icons.fingerprint_rounded, color: theme.primary),
+                );
+              }
+              if (key == 'back') {
+                return _PinKeyButton(
+                  key: const Key('pin-key-back'),
+                  onTap: isLoading ? null : onBackspacePressed,
+                  child: Icon(
+                    Icons.backspace_outlined,
+                    color: theme.textSecondary,
+                  ),
+                );
+              }
+              return _PinKeyButton(
+                key: ValueKey('pin-key-$key'),
+                onTap: isLoading ? null : () => onDigitPressed(key),
+                child: Text(
+                  key,
+                  style: TextStyle(
+                    color: theme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+            }).toList(),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _PinKeyButton extends StatelessWidget {
+  const _PinKeyButton({required this.child, required this.onTap, super.key});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return SizedBox(
+      width: 64,
+      height: 48,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: theme.surfaceSubtle,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.border),
+            ),
+            child: Center(child: child),
           ),
         ),
       ),

@@ -1596,7 +1596,11 @@ class _PostComposer extends StatelessWidget {
           const SizedBox(height: 12),
           Divider(height: 1, color: theme.divider),
           const SizedBox(height: 4),
-          Row(
+          Wrap(
+            spacing: 4,
+            runSpacing: 2,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               TextButton.icon(
                 onPressed: isPublishing ? null : onPickImages,
@@ -1614,7 +1618,7 @@ class _PostComposer extends StatelessWidget {
                 icon: Icon(Icons.tag_rounded, size: 19, color: theme.primary),
                 label: const Text('Chủ đề'),
               ),
-              const Spacer(),
+              const SizedBox(width: 4),
               ListenableBuilder(
                 listenable: controller,
                 builder: (context, _) {
@@ -1632,8 +1636,8 @@ class _PostComposer extends StatelessWidget {
                   );
                 },
               ),
-            ],
-          ),
+                ],
+              ),
         ],
       ),
     );
@@ -1885,7 +1889,7 @@ class _PostCardState extends State<_PostCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                Row(
                           children: [
                             Flexible(
                               child: Text(
@@ -1938,46 +1942,7 @@ class _PostCardState extends State<_PostCard> {
                       ],
                     ),
                   ),
-                  if (!post.isMine) ...[
-                    TextButton.icon(
-                      onPressed: widget.onToggleFollowAuthor,
-                      icon: Icon(
-                        widget.isFollowingAuthor
-                            ? Icons.check_rounded
-                            : Icons.add_rounded,
-                        size: 17,
-                        color: widget.isFollowingAuthor
-                            ? theme.success
-                            : theme.primary,
-                      ),
-                      label: Text(
-                        widget.isFollowingAuthor ? 'Đang theo dõi' : 'Theo dõi',
-                        style: TextStyle(
-                          color: widget.isFollowingAuthor
-                              ? theme.textSecondary
-                              : theme.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Tùy chọn bài đăng',
-                      onPressed: () => _showPostOptionsSheet(
-                        context,
-                        post,
-                        onTogglePin: widget.onTogglePin,
-                        onToggleSave: widget.onToggleSave,
-                        onHide: widget.onHide,
-                        onDeletePost: widget.onDeletePost,
-                        onBlockUser: widget.onBlockUser,
-                        onToggleFollow: widget.onToggleFollowAuthor,
-                        isFollowing: widget.isFollowingAuthor,
-                      ),
-                      icon: const Icon(Icons.more_horiz_rounded),
-                    ),
-                  ] else
-                    IconButton(
+                  IconButton(
                       tooltip: 'Tùy chọn bài đăng',
                       onPressed: () => _showPostOptionsSheet(
                         context,

@@ -5,14 +5,10 @@ import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/auth/presentation/login_screen.dart';
+import 'package:nivex_flutter/features/auth/presentation/phone_otp_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/register_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
-import 'package:nivex_flutter/features/cashout/data/cashout_auth_state_store.dart';
-import 'package:nivex_flutter/features/cashout/domain/cashout_auth_service.dart';
 import 'package:nivex_flutter/features/shell/presentation/app_shell.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'fakes/fake_biometric_auth_client.dart';
 
 void main() {
   testWidgets('production auth flow bắt đầu ở Login', (tester) async {
@@ -60,6 +56,7 @@ void main() {
       find.byKey(const Key('login-password-field')),
       '123456',
     );
+    await tester.ensureVisible(find.byKey(const Key('login-submit-button')));
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pump();
     expect(find.byKey(const Key('login-loading')), findsOneWidget);
@@ -70,95 +67,14 @@ void main() {
     expect(find.byType(LoginScreen), findsNothing);
   });
 
-  testWidgets('Login bằng vân tay chuyển vào AppShell', (tester) async {
-    final biometricClient = FakeBiometricAuthClient();
-    final authService = CashoutAuthService(
-      biometricClient: biometricClient,
-      stateStore: InMemoryCashoutAuthStateStore(),
-    );
-
+  testWidgets('Login không dùng vân tay để bỏ qua đăng nhập', (tester) async {
     await tester.pumpWidget(
-      NivexApp(showAuthentication: true, sessionAuthService: authService),
-    );
-    await tester.pump();
-
-    final biometricButton = find.byKey(const Key('login-biometric-button'));
-    expect(biometricButton, findsOneWidget);
-    await tester.ensureVisible(biometricButton);
-    await tester.tap(biometricButton);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(AppShell), findsOneWidget);
-    expect(find.byType(LoginScreen), findsNothing);
-  });
-
-  testWidgets('Login ẩn nút vân tay khi thiết bị không hỗ trợ', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: NivexTheme.light,
-        home: LoginScreen(
-          biometricClient: FakeBiometricAuthClient(canAuth: false),
-        ),
-      ),
+      MaterialApp(theme: NivexTheme.light, home: const LoginScreen()),
     );
     await tester.pump();
 
     expect(find.byKey(const Key('login-biometric-button')), findsNothing);
   });
-
-  testWidgets(
-    'khóa phiên mở lại bằng PIN, sinh trắc học và đăng xuất về Login',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      final authService = CashoutAuthService(
-        biometricClient: FakeBiometricAuthClient(),
-        stateStore: InMemoryCashoutAuthStateStore(),
-      );
-
-      await tester.pumpWidget(
-        NivexApp(showAuthentication: true, sessionAuthService: authService),
-      );
-      await tester.enterText(
-        find.byKey(const Key('login-account-field')),
-        'demo@nivex.vn',
-      );
-      await tester.enterText(
-        find.byKey(const Key('login-password-field')),
-        '123456',
-      );
-      await tester.tap(find.byKey(const Key('login-submit-button')));
-      await tester.pump(const Duration(milliseconds: 900));
-      await tester.pump();
-      expect(find.byType(AppShell), findsOneWidget);
-
-      Future<void> expireSession() async {
-        await tester.pump(const Duration(minutes: 5));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 350));
-        expect(find.text('Phiên làm việc đã hết hạn'), findsOneWidget);
-      }
-
-      await expireSession();
-      await tester.enterText(find.byType(TextField), '123456');
-      await tester.pump();
-      await tester.tap(find.text('Mở khóa'));
-      await tester.pumpAndSettle();
-      expect(find.byType(AppShell), findsOneWidget);
-      expect(find.text('Phiên làm việc đã hết hạn'), findsNothing);
-
-      await expireSession();
-      await tester.tap(find.text('Dùng sinh trắc học'));
-      await tester.pumpAndSettle();
-      expect(find.byType(AppShell), findsOneWidget);
-      expect(find.text('Phiên làm việc đã hết hạn'), findsNothing);
-
-      await expireSession();
-      await tester.tap(find.text('Đăng xuất'));
-      await tester.pumpAndSettle();
-      expect(find.byType(LoginScreen), findsOneWidget);
-      expect(find.byType(AppShell), findsNothing);
-    },
-  );
 
   testWidgets('Login mở Register và link đăng nhập quay lại', (tester) async {
     await tester.pumpWidget(
@@ -174,6 +90,18 @@ void main() {
     await tester.tap(find.text('Đăng nhập').last);
     await tester.pumpAndSettle();
     expect(find.byType(LoginScreen), findsOneWidget);
+  });
+
+  testWidgets('Login mở luồng OTP số điện thoại', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: NivexTheme.light, home: const LoginScreen()),
+    );
+
+    await tester.tap(find.text('Đăng nhập bằng mã điện thoại'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PhoneOtpScreen), findsOneWidget);
+    expect(find.byKey(const Key('phone-otp-submit-button')), findsOneWidget);
   });
 
   testWidgets('Register báo mật khẩu không khớp và yêu cầu điều khoản', (
@@ -197,11 +125,11 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('register-password-field')),
-      '123456',
+      '12345678',
     );
     await tester.enterText(
       find.byKey(const Key('register-confirm-password-field')),
-      '654321',
+      '87654321',
     );
     await tester.ensureVisible(find.byKey(const Key('register-submit-button')));
     await tester.tap(find.byKey(const Key('register-submit-button')));
@@ -236,11 +164,11 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('register-password-field')),
-      '123456',
+      '12345678',
     );
     await tester.enterText(
       find.byKey(const Key('register-confirm-password-field')),
-      '123456',
+      '12345678',
     );
     await tester.ensureVisible(
       find.byKey(const Key('register-terms-checkbox')),

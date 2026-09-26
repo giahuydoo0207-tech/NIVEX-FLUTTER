@@ -1,41 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/auth/data/nova_auth_api.dart';
+import 'package:nivex_flutter/features/auth/data/nova_auth_session_manager.dart';
+import 'package:nivex_flutter/features/auth/presentation/phone_otp_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/register_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
-import 'package:nivex_flutter/features/cashout/data/local_auth_biometric_client.dart';
-import 'package:nivex_flutter/features/cashout/domain/biometric_auth_client.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.onLoginSuccess, this.biometricClient});
+  const LoginScreen({super.key, this.onLoginSuccess});
 
   final VoidCallback? onLoginSuccess;
-  final BiometricAuthClient? biometricClient;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const _storage = FlutterSecureStorage();
   final _formKey = GlobalKey<FormState>();
   final _accountController = TextEditingController();
   final _passwordController = TextEditingController();
-  late final BiometricAuthClient _biometricClient;
   bool _obscurePassword = true;
   bool _isLoading = false;
-  bool _isBiometricAvailable = false;
-  bool _isBiometricLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _biometricClient = widget.biometricClient ?? LocalAuthBiometricClient();
-    _checkBiometricAvailability();
-  }
 
   @override
   void dispose() {
@@ -82,14 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
           email: account,
           password: _passwordController.text,
         );
-        await _storage.write(
-          key: 'nova.mobile.session.${config.baseUri.origin}',
-          value: session.accessToken,
-        );
-        await _storage.write(
-          key: 'nova.mobile.refresh.${config.baseUri.origin}',
-          value: session.refreshToken,
-        );
+        await SecureNovaAuthSessionStore(origin: config.baseUri.origin)
+            .save(session);
       } finally {
         api.close();
       }
@@ -122,37 +103,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _checkBiometricAvailability() async {
-    final isAvailable = await _biometricClient.canAuthenticate();
-    if (!mounted) return;
-    setState(() => _isBiometricAvailable = isAvailable);
-  }
-
-  Future<void> _authenticateWithBiometrics() async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _isBiometricLoading = true);
-
-    final result = await _biometricClient.authenticate(
-      localizedReason: 'Dùng vân tay để đăng nhập vào Nova',
-    );
-    if (!mounted) return;
-    setState(() => _isBiometricLoading = false);
-
-    switch (result) {
-      case BiometricAuthSuccess():
-        _completeLogin();
-      case BiometricAuthUserCancelled():
-        return;
-      case BiometricAuthFailed(:final reason):
-        _showBiometricMessage(reason);
-      case BiometricAuthUnavailable(:final reason):
-        setState(() => _isBiometricAvailable = false);
-        _showBiometricMessage(reason);
-      case BiometricAuthErrorResult(:final message):
-        _showBiometricMessage(message);
-    }
-  }
-
   void _completeLogin() {
     widget.onLoginSuccess?.call();
     if (widget.onLoginSuccess == null) {
@@ -160,12 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(content: Text('Đăng nhập mô phỏng thành công')),
       );
     }
-  }
-
-  void _showBiometricMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openRegister() async {
@@ -182,6 +126,19 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           },
           onRegistrationAuthenticated: () {
+            Navigator.of(context).pop();
+            _completeLogin();
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPhoneOtp() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => PhoneOtpScreen(
+          onAuthenticated: () {
             Navigator.of(context).pop();
             _completeLogin();
           },
@@ -304,15 +261,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                         child: const Text('Quên mật khẩu?'),
                                       ),
                                     ),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: TextButton.icon(
+                                        onPressed: _openPhoneOtp,
+                                        icon: const Icon(Icons.sms_outlined),
+                                        label: const Text(
+                                          'Đăng nhập bằng mã điện thoại',
+                                        ),
+                                      ),
+                                    ),
                                     const SizedBox(height: 8),
                                     SizedBox(
                                       height: 52,
                                       child: FilledButton(
                                         key: const Key('login-submit-button'),
-                                        onPressed:
-                                            _isLoading || _isBiometricLoading
-                                            ? null
-                                            : _submit,
+                                        onPressed: _isLoading ? null : _submit,
                                         style: FilledButton.styleFrom(
                                           backgroundColor: theme.primary,
                                           foregroundColor:
@@ -346,85 +310,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                               ),
                                       ),
                                     ),
-                                    if (_isBiometricAvailable) ...[
-                                      const SizedBox(height: 20),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Divider(
-                                              color: theme.divider,
-                                            ),
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 14,
-                                            ),
-                                            child: Text(
-                                              'Hoặc',
-                                              style: TextStyle(
-                                                color: theme.textSecondary,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Divider(
-                                              color: theme.divider,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 20),
-                                      SizedBox(
-                                        height: 52,
-                                        child: OutlinedButton.icon(
-                                          key: const Key(
-                                            'login-biometric-button',
-                                          ),
-                                          onPressed:
-                                              _isLoading || _isBiometricLoading
-                                              ? null
-                                              : _authenticateWithBiometrics,
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: theme.textPrimary,
-                                            side: BorderSide(
-                                              color: theme.primary,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          icon: _isBiometricLoading
-                                              ? SizedBox(
-                                                  width: 20,
-                                                  height: 20,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        key: const Key(
-                                                          'login-biometric-loading',
-                                                        ),
-                                                        strokeWidth: 2.2,
-                                                        color: theme.primary,
-                                                      ),
-                                                )
-                                              : Icon(
-                                                  Icons.fingerprint_rounded,
-                                                  color: theme.primary,
-                                                  size: 24,
-                                                ),
-                                          label: Text(
-                                            _isBiometricLoading
-                                                ? 'Đang xác thực...'
-                                                : 'Đăng nhập bằng vân tay',
-                                            style: const TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
                                     const SizedBox(height: 20),
                                     Row(
                                       mainAxisAlignment:

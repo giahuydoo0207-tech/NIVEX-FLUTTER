@@ -11,6 +11,7 @@ import 'package:nivex_flutter/features/messages/presentation/messages_screen.dar
 import 'package:nivex_flutter/features/posts/presentation/posts_screen.dart';
 import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
+import 'package:nivex_flutter/features/session/presentation/session_unlock_sheet.dart';
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
 import 'package:nivex_flutter/features/transactions/presentation/transactions_screen.dart';
 import 'package:nivex_flutter/features/wallet/presentation/wallet_screen.dart';
@@ -54,19 +55,20 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final pages = [
       HomeScreen(
-        onReceive: _openReceive,
-        onCashout: _openCashout,
-        onHistory: () => _selectTab(4),
         onJobs: () => _selectTab(1),
-        onQuote: _openQuickQuote,
-        onHelp: _openHelp,
         onProfile: _openProfile,
-        onCreatePost: _openPosts,
+        onCreatePost: () => _selectTab(2),
       ),
       const JobsScreen(),
-      WalletScreen(onReceive: _openReceive, onCashout: _openCashout),
+      const PostsScreen(),
       const MessagesScreen(),
-      const TransactionsScreen(),
+      WalletScreen(
+        onReceive: _openReceive,
+        onCashout: _openCashout,
+        onQuote: _openQuickQuote,
+        onHistory: _openHistory,
+        onHelp: _openHelp,
+      ),
     ];
 
     return PopScope(
@@ -91,9 +93,9 @@ class _AppShellState extends State<AppShell> {
               label: 'Công việc',
             ),
             NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-              label: 'Ví',
+              icon: _CommunityTabIcon(selected: false),
+              selectedIcon: _CommunityTabIcon(selected: true),
+              label: 'Cộng đồng',
             ),
             NavigationDestination(
               icon: _MessagesTabIcon(selected: false),
@@ -101,9 +103,9 @@ class _AppShellState extends State<AppShell> {
               label: 'Tin nhắn',
             ),
             NavigationDestination(
-              icon: Icon(Icons.swap_horiz_rounded),
-              selectedIcon: Icon(Icons.swap_horiz_rounded),
-              label: 'Giao dịch',
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+              label: 'Ví',
             ),
           ],
         ),
@@ -112,7 +114,32 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _selectTab(int index) {
+    if (index == 4 && _selectedIndex != 4) {
+      _openWalletAfterAuthentication();
+      return;
+    }
     AppTabController.index.value = index;
+  }
+
+  Future<void> _openWalletAfterAuthentication() async {
+    final authService = widget.cashoutAuthService;
+    if (authService == null) {
+      AppTabController.index.value = 4;
+      return;
+    }
+
+    final unlocked = await SessionUnlockSheet.show(
+      context: context,
+      authService: authService,
+      title: 'Mở Ví Nova',
+      description:
+          'Nhập mã PIN Ví hoặc dùng sinh trắc học để xem tài sản và giao dịch.',
+      pinLabel: 'Mã PIN Ví gồm 6 số',
+      biometricReason: 'Xác thực để mở Ví Nova',
+      cancelLabel: 'Quay lại',
+    );
+    if (!mounted) return;
+    if (unlocked) AppTabController.index.value = 4;
   }
 
   void _handleExternalTabChange() {
@@ -159,9 +186,48 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Future<void> _openPosts() {
-    return Navigator.of(context)
-        .push<void>(MaterialPageRoute(builder: (_) => const PostsScreen()));
+  Future<void> _openHistory() {
+    return Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => const TransactionsScreen()));
+  }
+}
+
+class _CommunityTabIcon extends StatelessWidget {
+  const _CommunityTabIcon({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = selected
+        ? theme.colorScheme.primary
+        : theme.navigationBarTheme.iconTheme?.resolve(<WidgetState>{})?.color ??
+              theme.colorScheme.onSurfaceVariant;
+    return Transform.translate(
+      offset: const Offset(0, -7),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surfaceContainerHighest,
+          shape: BoxShape.circle,
+          border: Border.all(color: accent, width: selected ? 2 : 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Icon(Icons.public_rounded, color: accent, size: 21),
+      ),
+    );
   }
 }
 

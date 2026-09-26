@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/app/theme/theme_controller.dart';
-import 'package:nivex_flutter/features/cashout/data/cashout_auth_state_store.dart';
 import 'package:nivex_flutter/features/cashout/data/local_auth_biometric_client.dart';
 import 'package:nivex_flutter/features/cashout/domain/cashout_auth_service.dart';
 import 'package:nivex_flutter/features/auth/presentation/login_screen.dart';
-import 'package:nivex_flutter/features/session/presentation/session_guard.dart';
+import 'package:nivex_flutter/features/auth/data/nova_auth_session_manager.dart';
 import 'package:nivex_flutter/features/shell/presentation/app_shell.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/constants/app_environment.dart';
 
 class NivexApp extends StatefulWidget {
@@ -17,6 +17,7 @@ class NivexApp extends StatefulWidget {
     this.environment = AppEnvironment.demo,
     this.cashoutAuthService,
     this.sessionAuthService,
+    this.authSessionManager,
   });
 
   final ThemeController? controller;
@@ -24,6 +25,7 @@ class NivexApp extends StatefulWidget {
   final AppEnvironment environment;
   final CashoutAuthService? cashoutAuthService;
   final CashoutAuthService? sessionAuthService;
+  final NovaAuthSessionManager? authSessionManager;
 
   @override
   State<NivexApp> createState() => _NivexAppState();
@@ -33,8 +35,8 @@ class _NivexAppState extends State<NivexApp> {
   late final ThemeController _controller;
   bool _createdOwnController = false;
   bool _isAuthenticated = false;
+  bool _isRestoringAuthentication = false;
   late final CashoutAuthService _cashoutAuthService;
-  late final CashoutAuthService _sessionAuthService;
 
   @override
   void initState() {
@@ -49,12 +51,32 @@ class _NivexAppState extends State<NivexApp> {
     _cashoutAuthService =
         widget.cashoutAuthService ??
         CashoutAuthService(biometricClient: LocalAuthBiometricClient());
-    _sessionAuthService =
-        widget.sessionAuthService ??
-        CashoutAuthService(
-          biometricClient: LocalAuthBiometricClient(),
-          stateStore: SecureCashoutAuthStateStore(namespace: 'session'),
+    _restoreAuthentication();
+  }
+
+  Future<void> _restoreAuthentication() async {
+    if (!widget.showAuthentication) return;
+
+    NovaAuthSessionManager? manager = widget.authSessionManager;
+    if (manager == null) {
+      try {
+        final config = NovaApiConfig.fromBuild();
+        manager = NovaAuthSessionManager(
+          config: config,
+          store: SecureNovaAuthSessionStore(origin: config.baseUri.origin),
         );
+      } on ArgumentError {
+        return;
+      }
+    }
+
+    _isRestoringAuthentication = true;
+    final result = await manager.restore();
+    if (!mounted) return;
+    setState(() {
+      _isRestoringAuthentication = false;
+      _isAuthenticated = result == NovaSessionRestoreResult.authenticated;
+    });
   }
 
   @override
@@ -76,11 +98,12 @@ class _NivexAppState extends State<NivexApp> {
             title: 'Nova',
             debugShowCheckedModeBanner: false,
             theme: NivexTheme.forMode(_controller.mode),
-            home: widget.showAuthentication && !_isAuthenticated
+            home: widget.showAuthentication && _isRestoringAuthentication
+                ? const _AuthenticationRestoreScreen()
+                : widget.showAuthentication && !_isAuthenticated
                 ? LoginScreen(
                     onLoginSuccess: () =>
                         setState(() => _isAuthenticated = true),
-                    biometricClient: _sessionAuthService.biometricClient,
                   )
                 : _buildAuthenticatedHome(),
           ),
@@ -94,14 +117,14 @@ class _NivexAppState extends State<NivexApp> {
       themeController: _controller,
       cashoutAuthService: _cashoutAuthService,
     );
-    if (!widget.showAuthentication) return shell;
-
-    return SessionGuard(
-      authService: _sessionAuthService,
-      onSessionExpired: () {
-        if (mounted) setState(() => _isAuthenticated = false);
-      },
-      child: shell,
-    );
+    return shell;
   }
+}
+
+class _AuthenticationRestoreScreen extends StatelessWidget {
+  const _AuthenticationRestoreScreen();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: CircularProgressIndicator()));
 }
