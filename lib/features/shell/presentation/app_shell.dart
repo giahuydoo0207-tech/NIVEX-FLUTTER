@@ -35,6 +35,26 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
+  static const _tabs = [
+    _NavTabConfig(icon: Icons.home_outlined, label: 'Trang chủ'),
+    _NavTabConfig(
+      icon: Icons.work_outline_rounded,
+      label: 'Công việc',
+      badgeCount: 2,
+    ),
+    _NavTabConfig(
+      icon: Icons.public_rounded,
+      label: 'Cộng đồng',
+      isEmphasized: true,
+    ),
+    _NavTabConfig(
+      icon: Icons.forum_outlined,
+      label: 'Tin nhắn',
+      badgeCount: 1,
+    ),
+    _NavTabConfig(icon: Icons.account_balance_wallet_outlined, label: 'Ví'),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -81,32 +101,16 @@ class _AppShellState extends State<AppShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _selectTab,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Trang chủ',
-            ),
-            NavigationDestination(
-              icon: _JobsTabIcon(selected: false),
-              selectedIcon: _JobsTabIcon(selected: true),
-              label: 'Công việc',
-            ),
-            NavigationDestination(
-              icon: _CommunityTabIcon(selected: false),
-              selectedIcon: _CommunityTabIcon(selected: true),
-              label: 'Cộng đồng',
-            ),
-            NavigationDestination(
-              icon: _MessagesTabIcon(selected: false),
-              selectedIcon: _MessagesTabIcon(selected: true),
-              label: 'Tin nhắn',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-              label: 'Ví',
-            ),
+          destinations: [
+            for (var index = 0; index < _tabs.length; index++)
+              NavigationDestination(
+                icon: _BottomNavIcon(
+                  key: ValueKey('bottom-nav-${_tabs[index].label}'),
+                  tab: _tabs[index],
+                  selected: _selectedIndex == index,
+                ),
+                label: _tabs[index].label,
+              ),
           ],
         ),
       ),
@@ -193,110 +197,77 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-class _CommunityTabIcon extends StatelessWidget {
-  const _CommunityTabIcon({required this.selected});
+class _NavTabConfig {
+  const _NavTabConfig({
+    required this.icon,
+    required this.label,
+    this.badgeCount,
+    this.isEmphasized = false,
+  });
 
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final accent = selected
-        ? theme.colorScheme.primary
-        : theme.navigationBarTheme.iconTheme?.resolve(<WidgetState>{})?.color ??
-              theme.colorScheme.onSurfaceVariant;
-    return Transform.translate(
-      offset: const Offset(0, -7),
-      child: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primaryContainer
-              : theme.colorScheme.surfaceContainerHighest,
-          shape: BoxShape.circle,
-          border: Border.all(color: accent, width: selected ? 2 : 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.16),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Icon(Icons.public_rounded, color: accent, size: 21),
-      ),
-    );
-  }
+  final IconData icon;
+  final String label;
+  final int? badgeCount;
+  final bool isEmphasized;
 }
 
-class _MessagesTabIcon extends StatelessWidget {
-  const _MessagesTabIcon({required this.selected});
+class _BottomNavIcon extends StatelessWidget {
+  const _BottomNavIcon({
+    required this.tab,
+    required this.selected,
+    super.key,
+  });
 
+  final _NavTabConfig tab;
   final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).navigationBarTheme.iconTheme
-        ?.resolve(selected ? {WidgetState.selected} : <WidgetState>{})
-        ?.color;
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconColor = tab.isEmphasized && selected
+        ? colorScheme.onPrimary
+        : selected
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    final icon = Icon(
+      tab.icon,
+      color: iconColor,
+      size: tab.isEmphasized ? 22 : 24,
+    );
+
+    final visual = tab.isEmphasized
+        ? Transform.translate(
+            offset: const Offset(0, -7),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.surfaceContainerHighest,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? colorScheme.primary : colorScheme.outline,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: icon,
+            ),
+          )
+        : icon;
+
+    if (tab.badgeCount == null) return visual;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Icon(
-          selected ? Icons.forum_rounded : Icons.forum_outlined,
-          color: color,
-        ),
-        Positioned(
-          right: -7,
-          top: -5,
-          child: Container(
-            width: 14,
-            height: 14,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color:
-                    Theme.of(context).navigationBarTheme.backgroundColor ??
-                    Theme.of(context).colorScheme.surface,
-                width: 1.5,
-              ),
-            ),
-            child: Text(
-              '1',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onPrimary,
-                fontSize: 8,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _JobsTabIcon extends StatelessWidget {
-  const _JobsTabIcon({required this.selected});
-
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).navigationBarTheme.iconTheme
-        ?.resolve(selected ? {WidgetState.selected} : <WidgetState>{})
-        ?.color;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(
-          selected ? Icons.work_rounded : Icons.work_outline_rounded,
-          color: color,
-        ),
+        visual,
         Positioned(
           right: -8,
           top: -6,
@@ -305,13 +276,14 @@ class _JobsTabIcon extends StatelessWidget {
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 3),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
+              color: colorScheme.primary,
+              border: Border.all(color: colorScheme.surface, width: 1.5),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              '2',
+              '${tab.badgeCount}',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onPrimary,
+                color: colorScheme.onPrimary,
                 fontSize: 9,
                 fontWeight: FontWeight.w800,
               ),

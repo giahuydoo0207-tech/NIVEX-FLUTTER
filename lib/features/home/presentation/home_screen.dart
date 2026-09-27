@@ -27,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.nivexTheme;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -47,8 +46,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 setState(() => _balanceVisible = !_balanceVisible);
               },
             ),
-            _CommunityPostEntry(onTap: widget.onCreatePost),
-            Divider(color: theme.divider, height: 1, thickness: 1),
+            _HomeDashboard(onOpenCommunity: widget.onCreatePost),
+            const SizedBox(height: 8),
             const NivexEducationSection(),
             SizedBox(
               height: 80.0 + MediaQuery.paddingOf(context).bottom + 24.0,
@@ -69,44 +68,182 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _CommunityPostEntry extends StatelessWidget {
-  const _CommunityPostEntry({required this.onTap});
+class _HomeDashboard extends StatelessWidget {
+  const _HomeDashboard({required this.onOpenCommunity});
 
-  final VoidCallback onTap;
+  final VoidCallback onOpenCommunity;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
-      child: NivexCard(
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Nhịp Nova',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: theme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          NivexCard(
+            padding: EdgeInsets.zero,
+            child: InkWell(
+              onTap: onOpenCommunity,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.primary.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        'TB',
+                        style: TextStyle(
+                          color: theme.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Điểm nổi bật cộng đồng',
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '“Clarity beats cleverness. Spec rõ ràng giúp cả team tiết kiệm hàng tuần làm lại.”',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            'Trần Bảo Long, 41 lượt tương tác',
+                            style: TextStyle(
+                              color: theme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: theme.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: theme.primary.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.public_rounded, color: theme.primary),
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Bạn đang nghĩ gì?',
-                  style: TextStyle(
-                    color: theme.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: _DashboardMetric(
+                  icon: Icons.workspace_premium_outlined,
+                  iconColor: theme.secondary,
+                  title: 'Đồng hành cùng Nova',
+                  value: '6 tháng',
+                  detail: '3 dự án đã hoàn thành',
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: theme.textSecondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _DashboardMetric(
+                  icon: Icons.local_fire_department_outlined,
+                  iconColor: theme.warning,
+                  title: 'Chuỗi phản hồi',
+                  value: '12 ngày',
+                  detail: 'Đúng hẹn liên tục',
+                ),
+              ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardMetric extends StatelessWidget {
+  const _DashboardMetric({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.value,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String value;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return NivexCard(
+      padding: const EdgeInsets.all(14),
+      child: SizedBox(
+        height: 116,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: iconColor, size: 25),
+            const Spacer(),
+            Text(
+              value,
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: theme.textSecondary, fontSize: 11),
+            ),
+          ],
         ),
       ),
     );
@@ -130,7 +267,7 @@ class _HomeHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final heroHeight = (screenHeight * 0.475).clamp(360.0, 460.0);
+    final heroHeight = (screenHeight * 0.43).clamp(348.0, 410.0);
     return SizedBox(
       height: heroHeight,
       width: double.infinity,
@@ -268,11 +405,67 @@ class _HomeHero extends StatelessWidget {
                       letterSpacing: 0,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  // Solana Devnet Badge
+                  const SizedBox(height: 12),
                   const _SolanaDevnetBadge(),
+                  const Spacer(),
+                  _HeroIncomeSnapshot(
+                    isBalanceVisible: balanceVisible,
+                    trendColor: theme.secondary,
+                    backgroundColor: theme.isDark
+                        ? theme.surface.withValues(alpha: 0.88)
+                        : const Color(0xC0121C2E),
+                  ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroIncomeSnapshot extends StatelessWidget {
+  const _HeroIncomeSnapshot({
+    required this.isBalanceVisible,
+    required this.trendColor,
+    required this.backgroundColor,
+  });
+
+  final bool isBalanceVisible;
+  final Color trendColor;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x38FFFFFF)),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Thu nhập 7 ngày qua',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Icon(Icons.trending_up_rounded, color: trendColor, size: 20),
+          const SizedBox(width: 5),
+          Text(
+            isBalanceVisible ? '+15%' : '•••',
+            style: TextStyle(
+              color: trendColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],

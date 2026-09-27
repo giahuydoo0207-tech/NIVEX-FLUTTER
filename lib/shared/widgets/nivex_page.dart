@@ -3,38 +3,44 @@ import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 
 class NivexPage extends StatelessWidget {
   const NivexPage({
-    required this.title,
     required this.child,
     super.key,
+    this.title,
     this.subtitle,
     this.actions,
     this.showBackButton = false,
+    this.hideAppBar = false,
   });
 
-  final String title;
+  final String? title;
   final String? subtitle;
   final Widget child;
   final List<Widget>? actions;
   final bool showBackButton;
+  final bool hideAppBar;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
     return Scaffold(
       backgroundColor: theme.background,
-      appBar: AppBar(
+      appBar: hideAppBar
+          ? null
+          : AppBar(
         automaticallyImplyLeading: showBackButton,
         backgroundColor: theme.background,
         systemOverlayStyle: theme.systemOverlayStyle,
         iconTheme: IconThemeData(color: theme.textPrimary),
         surfaceTintColor: Colors.transparent,
-        titleSpacing: showBackButton ? 0 : 20,
-        toolbarHeight: subtitle == null ? 64 : 76,
-        title: Column(
+        titleSpacing: showBackButton ? 0 : (title == null ? 0 : 20),
+        toolbarHeight: title == null ? 56 : (subtitle == null ? 64 : 76),
+        title: title == null
+            ? null
+            : Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              title,
+              title!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge
@@ -81,7 +87,7 @@ class NivexPage extends StatelessWidget {
               ),
             ),
           ),
-          SafeArea(top: false, child: child),
+          SafeArea(top: hideAppBar, child: child),
         ],
       ),
     );

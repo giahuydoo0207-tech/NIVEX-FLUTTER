@@ -111,7 +111,7 @@ void main() {
     }
   });
 
-  testWidgets('Ví nằm giữa và tab Tin nhắn mở hội thoại mượt', (tester) async {
+  testWidgets('Cộng đồng nằm giữa và tab Tin nhắn mở hội thoại mượt', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -120,10 +120,10 @@ void main() {
     await tester.pumpWidget(const NivexApp());
     await tester.pumpAndSettle();
 
-    final walletCenter = tester.getCenter(find.text('Ví'));
+    final communityCenter = tester.getCenter(find.text('Cộng đồng'));
     final messagesCenter = tester.getCenter(find.text('Tin nhắn'));
-    expect((walletCenter.dx - 195).abs(), lessThan(8));
-    expect(messagesCenter.dx, greaterThan(walletCenter.dx));
+    expect((communityCenter.dx - 195).abs(), lessThan(8));
+    expect(messagesCenter.dx, greaterThan(communityCenter.dx));
 
     await tester.tap(find.text('Tin nhắn'));
     await tester.pumpAndSettle();

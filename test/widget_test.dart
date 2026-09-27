@@ -69,7 +69,7 @@ void main() {
   // =========================================================================
 
   testWidgets('hiển thị Home Nova bằng tiếng Việt', (tester) async {
-    await tester.pumpWidget(const NivexApp());
+    await tester.pumpWidget(_walletTestApp());
     expect(find.text('Trang chủ'), findsWidgets);
     expect(find.text('Công việc'), findsOneWidget);
     expect(find.text('Ví'), findsOneWidget);
@@ -83,7 +83,10 @@ void main() {
       find.textContaining('Bản demo hackathon · Solana Devnet'),
       findsOneWidget,
     );
-    expect(find.text('Bạn đang nghĩ gì?'), findsOneWidget);
+    expect(find.text('Nhịp Nova'), findsOneWidget);
+    expect(find.text('Điểm nổi bật cộng đồng'), findsOneWidget);
+    expect(find.text('Thu nhập 7 ngày qua'), findsOneWidget);
+    expect(find.text('Bạn đang nghĩ gì?'), findsNothing);
   });
 
   testWidgets('điều hướng được giữa Cộng đồng, Ví và Home', (tester) async {
@@ -106,12 +109,61 @@ void main() {
     // Tab giữa: Cộng đồng
     await tester.tap(find.text('Cộng đồng'));
     await tester.pumpAndSettle();
-    expect(find.text('Cộng đồng'), findsWidgets);
+    expect(find.text('Dành cho bạn'), findsOneWidget);
+    expect(
+      find.text('Chia sẻ tiến độ, sản phẩm và cơ hội hợp tác'),
+      findsNothing,
+    );
 
     // Tab 0: Back to Home
     await tester.tap(find.text('Trang chủ'));
     await tester.pumpAndSettle();
     expect(find.text('••••••••'), findsWidgets);
+  });
+
+  testWidgets('bottom nav giữ icon và badge ở mọi trạng thái active', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_walletTestApp());
+
+    const tabs = [
+      ('Trang chủ', Icons.home_outlined, null),
+      ('Công việc', Icons.work_outline_rounded, '2'),
+      ('Cộng đồng', Icons.public_rounded, null),
+      ('Tin nhắn', Icons.forum_outlined, '1'),
+      ('Ví', Icons.account_balance_wallet_outlined, null),
+    ];
+
+    for (final (label, icon, badge) in tabs) {
+      if (label == 'Ví') {
+        await _openWallet(tester);
+      } else {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      }
+
+      final navIcon = find.descendant(
+        of: find.byKey(Key('bottom-nav-$label')),
+        matching: find.byType(Icon),
+      );
+      expect(navIcon, findsOneWidget);
+      expect(tester.widget<Icon>(navIcon).icon, icon);
+
+      if (badge != null) {
+        expect(
+          find.descendant(
+            of: find.byKey(Key('bottom-nav-$label')),
+            matching: find.text(badge),
+          ),
+          findsOneWidget,
+        );
+      }
+    }
+
+    await tester.tap(find.text('Tin nhắn'));
+    await tester.pumpAndSettle();
+    expect(find.text('Trao đổi với doanh nghiệp về hồ sơ của bạn'), findsNothing);
+    expect(find.byType(SearchBar), findsOneWidget);
   });
 
   testWidgets('nhấn avatar hoặc tên Minh Anh đều mở ProfileScreen', (

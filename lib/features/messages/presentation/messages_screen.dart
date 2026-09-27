@@ -49,36 +49,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
         );
 
     return NivexPage(
-      title: 'Tin nhắn',
-      subtitle: 'Trao đổi với doanh nghiệp về hồ sơ của bạn',
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 14),
-          child: IconButton(
-            tooltip: 'Tin nhắn chưa đọc',
-            onPressed: () {},
-            icon: Badge(
-              label: const Text('1'),
-              child: const Icon(Icons.mark_chat_unread_outlined),
-            ),
-          ),
-        ),
-      ],
+      hideAppBar: true,
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 680),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
                 child: SearchBar(
                   controller: _searchController,
                   hintText: 'Tìm doanh nghiệp hoặc vị trí',
                   leading: const Icon(Icons.search_rounded),
-                  trailing: _query.isEmpty
-                      ? null
-                      : [
-                          IconButton(
+                  trailing: [
+                    IconButton(
+                      tooltip: 'Tin nhắn chưa đọc',
+                      onPressed: () {},
+                      icon: Badge(
+                        label: const Text('1'),
+                        child: const Icon(Icons.mark_chat_unread_outlined),
+                      ),
+                    ),
+                    if (_query.isNotEmpty)
+                      IconButton(
                             tooltip: 'Xóa tìm kiếm',
                             onPressed: () {
                               _searchController.clear();
@@ -86,7 +79,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             },
                             icon: const Icon(Icons.close_rounded),
                           ),
-                        ],
+                  ],
                   onChanged: (value) => setState(() => _query = value),
                 ),
               ),

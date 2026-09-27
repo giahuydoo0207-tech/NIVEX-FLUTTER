@@ -220,22 +220,7 @@ class _PostsScreenState extends State<PostsScreen> {
         .where((p) => !p.isHidden && !_blockedHandles.contains(p.author.handle))
         .toList();
     return NivexPage(
-      title: 'Cộng đồng',
-      subtitle: 'Chia sẻ tiến độ, sản phẩm và cơ hội hợp tác',
-      showBackButton: true,
-      actions: [
-        IconButton(
-          tooltip: 'Bài đăng của tôi',
-          onPressed: _openMyPosts,
-          icon: const Icon(Icons.history_rounded),
-        ),
-        IconButton(
-          tooltip: 'Khám phá hồ sơ',
-          onPressed: _openExampleProfiles,
-          icon: const Icon(Icons.people_outline_rounded),
-        ),
-        const SizedBox(width: 6),
-      ],
+      hideAppBar: true,
       child: RefreshIndicator(
         color: context.nivexTheme.primary,
         backgroundColor: context.nivexTheme.surface,
@@ -277,6 +262,17 @@ class _PostsScreenState extends State<PostsScreen> {
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                     ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Bài đăng của tôi',
+                    onPressed: _openMyPosts,
+                    icon: const Icon(Icons.history_rounded),
+                  ),
+                  IconButton(
+                    tooltip: 'Khám phá hồ sơ',
+                    onPressed: _openExampleProfiles,
+                    icon: const Icon(Icons.people_outline_rounded),
                   ),
                 ],
               ),
@@ -1595,49 +1591,88 @@ class _PostComposer extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           Divider(height: 1, color: theme.divider),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 4,
-            runSpacing: 2,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 44,
+            child: Row(
             children: [
-              TextButton.icon(
-                onPressed: isPublishing ? null : onPickImages,
-                icon: Icon(
-                  Icons.image_outlined,
-                  size: 20,
-                  color: theme.success,
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: isPublishing ? null : onPickImages,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: Icon(
+                    Icons.image_outlined,
+                    size: 20,
+                    color: theme.success,
+                  ),
+                  label: Text(
+                    images.isEmpty ? 'Ảnh' : 'Ảnh (${images.length}/10)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                label: Text(
-                  images.isEmpty ? 'Ảnh' : 'Ảnh (${images.length}/10)',
+              ),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: isPublishing ? null : () {},
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: Icon(
+                    Icons.tag_rounded,
+                    size: 19,
+                    color: theme.primary,
+                  ),
+                  label: const Text(
+                    'Chủ đề',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
-              TextButton.icon(
-                onPressed: () {},
-                icon: Icon(Icons.tag_rounded, size: 19, color: theme.primary),
-                label: const Text('Chủ đề'),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 92,
+                height: 40,
+                child: ListenableBuilder(
+                  listenable: controller,
+                  builder: (context, _) {
+                    final hasContent =
+                        controller.text.trim().isNotEmpty || images.isNotEmpty;
+                    final canPublish = !isPublishing && hasContent;
+                    return FilledButton(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      onPressed: canPublish ? onPublish : null,
+                      child: isPublishing
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Đăng'),
+                    );
+                  },
+                ),
               ),
-              const SizedBox(width: 4),
-              ListenableBuilder(
-                listenable: controller,
-                builder: (context, _) {
-                  final hasContent =
-                      controller.text.trim().isNotEmpty || images.isNotEmpty;
-                  final canPublish = !isPublishing && hasContent;
-                  return FilledButton(
-                    onPressed: canPublish ? onPublish : null,
-                    child: isPublishing
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Đăng'),
-                  );
-                },
-              ),
-                ],
-              ),
+            ],
+          ),
+        ),
         ],
       ),
     );
