@@ -3701,6 +3701,7 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                             final isAuthor =
                                 comment.authorName == postAuthorName;
                             return _CommentItem(
+                              key: ValueKey(comment.id),
                               comment: comment,
                               isAuthor: isAuthor,
                               postAuthorName: postAuthorName,
@@ -3922,6 +3923,7 @@ Future<void> _showCommentActions(
   final theme = context.nivexTheme;
   final action = await showModalBottomSheet<_CommentAction>(
     context: context,
+    useRootNavigator: true,
     backgroundColor: theme.surface,
     showDragHandle: true,
     builder: (sheetContext) => SafeArea(
@@ -3959,6 +3961,10 @@ Future<void> _showCommentActions(
   );
 
   if (!context.mounted || action == null) return;
+  // Let the sheet finish its route transition before rebuilding the comment
+  // sheet or opening the editor on top of it.
+  await WidgetsBinding.instance.endOfFrame;
+  if (!context.mounted) return;
   switch (action) {
     case _CommentAction.reply:
       onReply();
@@ -3973,6 +3979,7 @@ Future<void> _showCommentActions(
 
 class _CommentItem extends StatelessWidget {
   const _CommentItem({
+    super.key,
     required this.comment,
     required this.isAuthor,
     required this.postAuthorName,
@@ -4216,6 +4223,7 @@ class _CommentItem extends StatelessWidget {
               children: [
                 for (final reply in comment.replies) ...[
                   _CommentReplyItem(
+                    key: ValueKey(reply.id),
                     reply: reply,
                     postAuthorName: postAuthorName,
                     ownAvatarPath: ownAvatarPath,
@@ -4244,6 +4252,7 @@ class _CommentItem extends StatelessWidget {
 
 class _CommentReplyItem extends StatelessWidget {
   const _CommentReplyItem({
+    super.key,
     required this.reply,
     required this.postAuthorName,
     required this.ownAvatarPath,
