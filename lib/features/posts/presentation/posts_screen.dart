@@ -6,12 +6,15 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 import 'public_profile_screen.dart';
 
 class PostsScreen extends StatefulWidget {
-  const PostsScreen({super.key});
+  const PostsScreen({this.postsApi, super.key});
+
+  final NovaApiClient? postsApi;
 
   @override
   State<PostsScreen> createState() => _PostsScreenState();
@@ -23,7 +26,7 @@ class _PostsScreenState extends State<PostsScreen> {
   final _profileController = DemoFreelancerProfileController.instance;
   final _composerController = TextEditingController();
   final List<XFile> _selectedImages = [];
-  final List<_DemoPost> _posts = [
+  List<_DemoPost> _posts = [
     _DemoPost(
       id: 'post-mine-001',
       content: 'Mình vừa hoàn thiện một flow thanh toán mới cho ứng dụng mobile. Rất vui được kết nối với các dự án fintech phù hợp.',
@@ -193,6 +196,13 @@ class _PostsScreenState extends State<PostsScreen> {
     ),
   ];
   bool _isPublishing = false;
+  bool _isLoadingFeed = false;
+  bool _isLoadingMore = false;
+  bool _usingRemoteFeed = false;
+  NovaPublicProfile? _remoteMe;
+  String? _uploadedAvatarPath;
+  Timer? _profileSyncDebounce;
+  String? _nextCursor;
   final Set<String> _followedHandles = {};
   final Set<String> _blockedHandles = {};
 
@@ -201,17 +211,91 @@ class _PostsScreenState extends State<PostsScreen> {
     super.initState();
     _sortPosts();
     _profileController.addListener(_refreshProfile);
+    unawaited(_loadRemoteProfileThenFeed());
+  }
+
+  @override
+  void didUpdateWidget(covariant PostsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.postsApi != widget.postsApi) {
+      unawaited(_loadFeed(reset: true));
+    }
   }
 
   @override
   void dispose() {
     _profileController.removeListener(_refreshProfile);
+    _profileSyncDebounce?.cancel();
     _composerController.dispose();
     super.dispose();
   }
 
   void _refreshProfile() {
     if (mounted) setState(() {});
+    _profileSyncDebounce?.cancel();
+    _profileSyncDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => unawaited(_syncOwnProfile()),
+    );
+  }
+
+  String get _ownDisplayName =>
+      _remoteMe?.displayName ?? _profileController.profile.displayName;
+  String get _ownHeadline => _remoteMe?.headline.isNotEmpty == true
+      ? _remoteMe!.headline
+      : _profileController.profile.headline;
+  String? get _ownAvatarUrl {
+    final value = _remoteMe?.avatarUrl;
+    return value == null ? null : widget.postsApi?.mediaUri(value).toString();
+  }
+
+  Future<void> _loadRemoteProfileThenFeed() async {
+    final api = widget.postsApi;
+    if (api != null) {
+      try {
+        final profile = await api.myProfile();
+        if (mounted) setState(() => _remoteMe = profile);
+        await _syncOwnProfile();
+      } on NovaApiException {
+        // The feed still has its existing offline fallback.
+      }
+    }
+    await _loadFeed(reset: true);
+  }
+
+  Future<void> _syncOwnProfile() async {
+    final api = widget.postsApi;
+    final current = _remoteMe;
+    if (api == null || current == null) return;
+    final local = _profileController.profile;
+    try {
+      var updated = await api.updateMyProfile(
+        displayName: current.displayName,
+        headline: local.headline,
+        bio: local.bio,
+        avatarUrl: current.avatarUrl,
+      );
+      final avatarPath = local.avatarPath;
+      if (avatarPath != null && avatarPath != _uploadedAvatarPath) {
+        final file = File(avatarPath);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          final lower = avatarPath.toLowerCase();
+          final contentType = lower.endsWith('.png')
+              ? 'image/png'
+              : lower.endsWith('.webp')
+              ? 'image/webp'
+              : 'image/jpeg';
+          updated = await api.uploadProfileAvatar(bytes, contentType);
+          _uploadedAvatarPath = avatarPath;
+        }
+      }
+      if (mounted) setState(() => _remoteMe = updated);
+    } on NovaApiException {
+      // Profile edits remain available locally and retry on the next change.
+    } on ArgumentError {
+      if (mounted) _showMessage('Ảnh đại diện cần nhỏ hơn 2,5 MB.');
+    }
   }
 
   @override
@@ -225,107 +309,133 @@ class _PostsScreenState extends State<PostsScreen> {
         color: context.nivexTheme.primary,
         backgroundColor: context.nivexTheme.surface,
         onRefresh: _refreshFeed,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 32),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: _PostComposer(
-                controller: _composerController,
-                images: _selectedImages,
-                displayName: _profileController.profile.displayName,
-                avatarPath: _profileController.profile.avatarPath,
-                isPublishing: _isPublishing,
-                onPickImages: _pickImages,
-                onRemoveImage: (index) =>
-                    setState(() => _selectedImages.removeAt(index)),
-                onPublish: _publish,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(height: 7, color: context.nivexTheme.surfaceSubtle),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.dynamic_feed_outlined,
-                    size: 19,
-                    color: context.nivexTheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Dành cho bạn',
-                    style: TextStyle(
-                      color: context.nivexTheme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Bài đăng của tôi',
-                    onPressed: _openMyPosts,
-                    icon: const Icon(Icons.history_rounded),
-                  ),
-                  IconButton(
-                    tooltip: 'Khám phá hồ sơ',
-                    onPressed: _openExampleProfiles,
-                    icon: const Icon(Icons.people_outline_rounded),
-                  ),
-                ],
-              ),
-            ),
-            if (visiblePosts.isEmpty)
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.metrics.extentAfter < 280) {
+              unawaited(_loadMore());
+            }
+            return false;
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 32),
+            children: [
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 24,
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: _PostComposer(
+                  controller: _composerController,
+                  images: _selectedImages,
+                  displayName: _ownDisplayName,
+                  avatarPath: _profileController.profile.avatarPath,
+                  isPublishing: _isPublishing,
+                  onPickImages: _pickImages,
+                  onRemoveImage: (index) =>
+                      setState(() => _selectedImages.removeAt(index)),
+                  onPublish: _publish,
                 ),
-                child: NivexCard(
-                  child: Center(
-                    child: Text(
-                      'Hiện chưa có bài đăng nào trong bảng tin.',
-                      style: TextStyle(color: context.nivexTheme.textSecondary),
+              ),
+              const SizedBox(height: 10),
+              Container(height: 7, color: context.nivexTheme.surfaceSubtle),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.dynamic_feed_outlined,
+                      size: 19,
+                      color: context.nivexTheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Dành cho bạn',
+                      style: TextStyle(
+                        color: context.nivexTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Bài đăng của tôi',
+                      onPressed: _openMyPosts,
+                      icon: const Icon(Icons.history_rounded),
+                    ),
+                    IconButton(
+                      tooltip: 'Khám phá hồ sơ',
+                      onPressed: _openExampleProfiles,
+                      icon: const Icon(Icons.people_outline_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              if (visiblePosts.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 24,
+                  ),
+                  child: NivexCard(
+                    child: Center(
+                      child: Text(
+                        'Hiện chưa có bài đăng nào trong bảng tin.',
+                        style: TextStyle(
+                          color: context.nivexTheme.textSecondary,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              )
-            else
-              for (final post in visiblePosts) ...[
-                _PostCard(
-                  key: ValueKey(
-                    post.id ??
-                        post.createdAt?.millisecondsSinceEpoch ??
-                        post.content,
+                )
+              else
+                for (final post in visiblePosts) ...[
+                  _PostCard(
+                    key: ValueKey(
+                      post.id ??
+                          post.createdAt?.millisecondsSinceEpoch ??
+                          post.content,
+                    ),
+                    post: post,
+                    ownAvatarPath: _profileController.profile.avatarPath,
+                    ownDisplayName: _ownDisplayName,
+                    ownHeadline: _ownHeadline,
+                    ownAvatarUrl: _ownAvatarUrl,
+                    onOpenProfile: () => _openProfile(_postAuthor(post)),
+                    isFollowingAuthor:
+                        !post.isMine &&
+                        _followedHandles.contains(_postAuthor(post).handle),
+                    onToggleFollowAuthor: !post.isMine
+                        ? () => _toggleFollow(_postAuthor(post).handle)
+                        : null,
+                    onTogglePin: () => _togglePinPost(post),
+                    onToggleSave: () => _toggleSavePost(post),
+                    onHide: () => _hidePost(post),
+                    onDeletePost: () => _deletePost(post),
+                    onBlockUser: () => _blockUser(_postAuthor(post).handle),
+                    onReact: (reaction) {
+                      unawaited(_reactToPost(post, reaction));
+                    },
+                    onAddComment: (comment) => _addCommentToPost(post, comment),
+                    onAddReply: (parentId, reply) =>
+                        _addReplyToComment(post, parentId, reply),
+                    loadComments: () => _loadComments(post),
+                    submitComment: (content, parentId) =>
+                        _submitComment(post, content, parentId),
+                    editComment: (commentId, content) =>
+                        _editComment(post, commentId, content),
+                    deleteComment: (commentId) =>
+                        _deleteComment(post, commentId),
+                    toggleCommentReaction: (commentId, isLiked) =>
+                        _toggleCommentReaction(post, commentId, isLiked),
+                    onOpenCommentProfile: _openRemoteProfile,
                   ),
-                  post: post,
-                  ownAvatarPath: _profileController.profile.avatarPath,
-                  ownDisplayName: _profileController.profile.displayName,
-                  ownHeadline: _profileController.profile.headline,
-                  onOpenProfile: () => _openProfile(_postAuthor(post)),
-                  isFollowingAuthor:
-                      !post.isMine &&
-                      _followedHandles.contains(_postAuthor(post).handle),
-                  onToggleFollowAuthor: !post.isMine
-                      ? () => _toggleFollow(_postAuthor(post).handle)
-                      : null,
-                  onTogglePin: () => _togglePinPost(post),
-                  onToggleSave: () => _toggleSavePost(post),
-                  onHide: () => _hidePost(post),
-                  onDeletePost: () => _deletePost(post),
-                  onBlockUser: () => _blockUser(_postAuthor(post).handle),
-                  onReact: (reaction) => _reactToPost(post, reaction),
-                  onAddComment: (comment) => _addCommentToPost(post, comment),
-                  onAddReply: (parentId, reply) =>
-                      _addReplyToComment(post, parentId, reply),
-                  onToggleCommentLike: (commentId) =>
-                      _toggleCommentLike(post, commentId),
+                  Container(height: 7, color: context.nivexTheme.surfaceSubtle),
+                ],
+              if (_isLoadingFeed || _isLoadingMore)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator.adaptive()),
                 ),
-                Container(height: 7, color: context.nivexTheme.surfaceSubtle),
-              ],
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -358,7 +468,36 @@ class _PostsScreenState extends State<PostsScreen> {
       _showMessage('Hãy viết nội dung hoặc chọn ít nhất một ảnh.');
       return;
     }
+    if (widget.postsApi != null && _selectedImages.isNotEmpty) {
+      _showMessage('Đăng ảnh sẽ được đồng bộ ở bước Media tiếp theo.');
+      return;
+    }
     setState(() => _isPublishing = true);
+    final api = widget.postsApi;
+    if (api != null) {
+      try {
+        final created = await api.createCommunityPost(content);
+        if (!mounted) return;
+        setState(() {
+          _posts.insert(0, _toDisplayPost(created));
+          _usingRemoteFeed = true;
+          _composerController.clear();
+          _selectedImages.clear();
+          _isPublishing = false;
+        });
+        _showMessage('Đã đăng bài.');
+        return;
+      } on NovaApiException {
+        if (mounted) {
+          setState(() => _isPublishing = false);
+          _showMessage(
+            'Không thể đăng bài. Hãy kiểm tra kết nối và đăng nhập.',
+          );
+        }
+        return;
+      }
+    }
+
     await Future<void>.delayed(const Duration(milliseconds: 420));
     if (!mounted) return;
     setState(() {
@@ -390,15 +529,62 @@ class _PostsScreenState extends State<PostsScreen> {
     });
   }
 
-  Future<void> _refreshFeed() async {
-    await Future<void>.delayed(const Duration(milliseconds: 650));
-    if (!mounted) return;
+  Future<void> _refreshFeed() => _loadFeed(reset: true, notify: true);
+
+  Future<void> _loadMore() async {
+    if (!_usingRemoteFeed ||
+        _nextCursor == null ||
+        _isLoadingFeed ||
+        _isLoadingMore) {
+      return;
+    }
+    await _loadFeed(reset: false, cursor: _nextCursor);
+  }
+
+  Future<void> _loadFeed({
+    required bool reset,
+    String? cursor,
+    bool notify = false,
+  }) async {
+    final api = widget.postsApi;
+    if (api == null || (!reset && cursor == null)) {
+      if (reset && mounted) {
+        setState(_sortPosts);
+        if (notify) _showMessage('Đã làm mới bảng tin.');
+      }
+      return;
+    }
 
     setState(() {
-      _sortPosts();
+      if (reset) {
+        _isLoadingFeed = true;
+      } else {
+        _isLoadingMore = true;
+      }
     });
-
-    _showMessage('Đã làm mới bảng tin.');
+    try {
+      final feed = await api.communityFeed(cursor: cursor);
+      if (!mounted) return;
+      setState(() {
+        _posts = reset
+            ? feed.items.map(_toDisplayPost).toList()
+            : [..._posts, ...feed.items.map(_toDisplayPost)];
+        _nextCursor = feed.nextCursor;
+        _usingRemoteFeed = true;
+        _isLoadingFeed = false;
+        _isLoadingMore = false;
+      });
+      if (notify) _showMessage('Đã làm mới bảng tin.');
+    } on NovaApiException {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingFeed = false;
+        _isLoadingMore = false;
+      });
+      if (notify) {
+        _showMessage('Chưa thể tải bảng tin từ máy chủ.');
+      }
+    }
   }
 
   void _showMessage(String message) {
@@ -463,7 +649,44 @@ class _PostsScreenState extends State<PostsScreen> {
     });
   }
 
-  void _reactToPost(_DemoPost targetPost, PostReaction selectedReaction) {
+  Future<void> _reactToPost(
+    _DemoPost targetPost,
+    PostReaction selectedReaction,
+  ) async {
+    final api = widget.postsApi;
+    if (api != null && _usingRemoteFeed && targetPost.id != null) {
+      // Update the card immediately so a reaction is visible even while the
+      // shared business API is completing the write.
+      _applyLocalReaction(targetPost, selectedReaction);
+      try {
+        if (targetPost.myReaction == selectedReaction) {
+          await api.removeCommunityReaction(targetPost.id!);
+          if (!mounted) return;
+        } else {
+          final updated = await api.reactToCommunityPost(
+            targetPost.id!,
+            _reactionType(selectedReaction),
+          );
+          if (!mounted) return;
+          setState(() {
+            final index = _posts.indexWhere((post) => post.id == targetPost.id);
+            if (index != -1) _posts[index] = _toDisplayPost(updated);
+          });
+        }
+      } on NovaApiException {
+        if (mounted) {
+          _showMessage('Không thể cập nhật cảm xúc. Hãy thử lại.');
+        }
+      }
+      return;
+    }
+    _applyLocalReaction(targetPost, selectedReaction);
+  }
+
+  void _applyLocalReaction(
+    _DemoPost targetPost,
+    PostReaction selectedReaction,
+  ) {
     setState(() {
       final index = _posts.indexWhere((p) => p.id == targetPost.id);
       if (index == -1) return;
@@ -518,6 +741,76 @@ class _PostsScreenState extends State<PostsScreen> {
     });
   }
 
+  _DemoPost _toDisplayPost(NovaCommunityPost post) {
+    final reactionCounts = <PostReaction, int>{};
+    for (final entry in post.reactionCounts.entries) {
+      final reaction = _reactionFromType(entry.key);
+      if (reaction != null) reactionCounts[reaction] = entry.value;
+    }
+    final profile = _profileController.profile;
+    return _DemoPost(
+      id: post.id,
+      content: post.content,
+      images: const [],
+      timeLabel: _relativeTime(post.createdAt),
+      createdAt: post.createdAt,
+      isMine:
+          post.author.id == _remoteMe?.id ||
+          (_remoteMe == null && post.author.displayName == profile.displayName),
+      reactionCount: post.reactionCount,
+      reactionCounts: reactionCounts,
+      myReaction: _reactionFromType(post.myReaction),
+      commentCount: post.commentCount,
+      author: PublicProfileData(
+        userId: post.author.id,
+        kind: PublicProfileKind.freelancer,
+        displayName: post.author.displayName,
+        handle: 'member-${post.author.id.substring(0, 8)}',
+        headline: post.author.headline.isEmpty
+            ? 'Thành viên Nova'
+            : post.author.headline,
+        location: 'Cộng đồng Nova',
+        bio: 'Đang xây dựng năng lực và kết nối cơ hội cùng Nova.',
+        tags: const [],
+        stats: const [],
+        avatarUrl: post.author.avatarUrl == null
+            ? null
+            : widget.postsApi?.mediaUri(post.author.avatarUrl!).toString(),
+        isSelf: post.author.id == _remoteMe?.id,
+        postCount: 0,
+      ),
+    );
+  }
+
+  PostReaction? _reactionFromType(String? type) => switch (type) {
+    'LIKE' => PostReaction.like,
+    'LOVE' => PostReaction.love,
+    'HAHA' => PostReaction.deal,
+    'TRUST' => PostReaction.trust,
+    'BUILD' => PostReaction.build,
+    'INSIGHTFUL' => PostReaction.insightful,
+    'LAUNCH' => PostReaction.launch,
+    _ => null,
+  };
+
+  String _reactionType(PostReaction reaction) => switch (reaction) {
+    PostReaction.like => 'LIKE',
+    PostReaction.love => 'LOVE',
+    PostReaction.deal => 'HAHA',
+    PostReaction.trust => 'TRUST',
+    PostReaction.build => 'BUILD',
+    PostReaction.insightful => 'INSIGHTFUL',
+    PostReaction.launch => 'LAUNCH',
+  };
+
+  String _relativeTime(DateTime time) {
+    final elapsed = DateTime.now().difference(time);
+    if (elapsed.inMinutes < 1) return 'Vừa xong';
+    if (elapsed.inHours < 1) return '${elapsed.inMinutes} phút trước';
+    if (elapsed.inDays < 1) return '${elapsed.inHours} giờ trước';
+    return '${elapsed.inDays} ngày trước';
+  }
+
   void _addCommentToPost(_DemoPost targetPost, PostComment comment) {
     setState(() {
       final index = _posts.indexWhere((p) => p.id == targetPost.id);
@@ -527,6 +820,88 @@ class _PostsScreenState extends State<PostsScreen> {
         ..insert(0, comment);
       _posts[index] = current.copyWith(comments: updatedComments);
     });
+  }
+
+  Future<List<PostComment>> _loadComments(_DemoPost post) async {
+    final api = widget.postsApi;
+    if (api == null || !_usingRemoteFeed || post.id == null) {
+      return post.comments;
+    }
+    final comments = await api.communityComments(post.id!);
+    return comments.map(_toDisplayComment).toList();
+  }
+
+  Future<PostComment?> _submitComment(
+    _DemoPost post,
+    String content,
+    String? parentId,
+  ) async {
+    final api = widget.postsApi;
+    if (api == null || !_usingRemoteFeed || post.id == null) return null;
+    try {
+      final comment = await api.createCommunityComment(
+        post.id!,
+        content,
+        parentId: parentId,
+      );
+      final display = _toDisplayComment(comment);
+      if (mounted) {
+        setState(() {
+          final index = _posts.indexWhere((item) => item.id == post.id);
+          if (index != -1) {
+            final current = _posts[index];
+            _posts[index] = current.copyWith(
+              commentCount: current.commentCount + 1,
+            );
+          }
+        });
+      }
+      return display;
+    } on NovaApiException {
+      if (mounted) _showMessage('Không thể gửi bình luận. Hãy thử lại.');
+      return null;
+    }
+  }
+
+  PostComment _toDisplayComment(NovaCommunityComment comment) {
+    return PostComment(
+      id: comment.id,
+      authorId: comment.author.id,
+      authorName: comment.author.displayName,
+      headline: comment.author.headline.isEmpty
+          ? 'Thành viên Nova'
+          : comment.author.headline,
+      content: comment.content,
+      timeLabel: _relativeTime(comment.createdAt),
+      avatarUrl: comment.author.avatarUrl == null
+          ? null
+          : widget.postsApi?.mediaUri(comment.author.avatarUrl!).toString(),
+      isMine: comment.author.id == _remoteMe?.id,
+      likeCount: comment.reactionCount,
+      isLiked: comment.myReaction != null,
+      replies: comment.replies
+          .map(
+            (reply) => PostCommentReply(
+              id: reply.id,
+              authorId: reply.author.id,
+              authorName: reply.author.displayName,
+              headline: reply.author.headline.isEmpty
+                  ? 'Thành viên Nova'
+                  : reply.author.headline,
+              content: reply.content,
+              timeLabel: _relativeTime(reply.createdAt),
+              avatarUrl: reply.author.avatarUrl == null
+                  ? null
+                  : widget.postsApi
+                        ?.mediaUri(reply.author.avatarUrl!)
+                        .toString(),
+              isMine: reply.author.id == _remoteMe?.id,
+              likeCount: reply.reactionCount,
+              isLiked: reply.myReaction != null,
+            ),
+          )
+          .toList(),
+    );
   }
 
   void _addReplyToComment(
@@ -577,6 +952,67 @@ class _PostsScreenState extends State<PostsScreen> {
     });
   }
 
+  Future<PostComment?> _editComment(
+    _DemoPost post,
+    String commentId,
+    String content,
+  ) async {
+    final api = widget.postsApi;
+    if (api == null || !_usingRemoteFeed) return null;
+    try {
+      return _toDisplayComment(
+        await api.editCommunityComment(commentId, content),
+      );
+    } on NovaApiException {
+      if (mounted) _showMessage('Không thể chỉnh sửa bình luận.');
+      return null;
+    }
+  }
+
+  Future<bool> _deleteComment(_DemoPost post, String commentId) async {
+    final api = widget.postsApi;
+    if (api == null || !_usingRemoteFeed) return false;
+    try {
+      await api.deleteCommunityComment(commentId);
+      if (mounted) {
+        setState(() {
+          final index = _posts.indexWhere((item) => item.id == post.id);
+          if (index != -1) {
+            final current = _posts[index];
+            _posts[index] = current.copyWith(
+              commentCount: (current.commentCount - 1).clamp(0, 999999),
+            );
+          }
+        });
+      }
+      return true;
+    } on NovaApiException {
+      if (mounted) _showMessage('Không thể xóa bình luận.');
+      return false;
+    }
+  }
+
+  Future<PostComment?> _toggleCommentReaction(
+    _DemoPost post,
+    String commentId,
+    bool isLiked,
+  ) async {
+    final api = widget.postsApi;
+    if (api == null || !_usingRemoteFeed) {
+      _toggleCommentLike(post, commentId);
+      return null;
+    }
+    try {
+      final updated = isLiked
+          ? await api.removeCommunityCommentReaction(commentId)
+          : await api.reactToCommunityComment(commentId, 'LIKE');
+      return _toDisplayComment(updated);
+    } on NovaApiException {
+      if (mounted) _showMessage('Không thể cập nhật cảm xúc bình luận.');
+      return null;
+    }
+  }
+
   PublicProfileData _postAuthor(_DemoPost post) {
     return _buildAuthorForPost(post);
   }
@@ -608,6 +1044,10 @@ class _PostsScreenState extends State<PostsScreen> {
   }
 
   void _openProfile(PublicProfileData profile) {
+    if (profile.userId != null && widget.postsApi != null) {
+      unawaited(_openRemoteProfile(profile.userId!));
+      return;
+    }
     final postsForProfile = profile.isSelf
         ? _posts
               .where((p) => p.isMine && !p.isHidden)
@@ -616,10 +1056,7 @@ class _PostsScreenState extends State<PostsScreen> {
                   content: p.content,
                   timeLabel: p.timeLabel,
                   reactionCount: p.reactionCount,
-                  commentCount: p.comments.fold<int>(
-                    0,
-                    (sum, c) => sum + 1 + c.replies.length,
-                  ),
+                  commentCount: p.totalCommentCount,
                   imageCount: p.images.length,
                 ),
               )
@@ -636,10 +1073,7 @@ class _PostsScreenState extends State<PostsScreen> {
                   content: p.content,
                   timeLabel: p.timeLabel,
                   reactionCount: p.reactionCount,
-                  commentCount: p.comments.fold<int>(
-                    0,
-                    (sum, c) => sum + 1 + c.replies.length,
-                  ),
+                  commentCount: p.totalCommentCount,
                   imageCount: p.images.length,
                 ),
               )
@@ -659,6 +1093,71 @@ class _PostsScreenState extends State<PostsScreen> {
         .then((_) {
           if (mounted) setState(() {});
         });
+  }
+
+  Future<void> _openRemoteProfile(String userId) async {
+    final api = widget.postsApi;
+    if (api == null) return;
+    try {
+      final wall = await api.profileWall(userId);
+      if (!mounted) return;
+      final remote = wall.profile;
+      final local = _profileController.profile;
+      final isSelf = remote.id == _remoteMe?.id;
+      final profile = PublicProfileData(
+        userId: remote.id,
+        kind: PublicProfileKind.freelancer,
+        displayName: remote.displayName,
+        handle: isSelf ? local.username : 'member-${remote.id.substring(0, 8)}',
+        headline: remote.headline.isEmpty ? 'Thành viên Nova' : remote.headline,
+        location: isSelf ? local.location : 'Cộng đồng Nova',
+        bio: remote.bio,
+        tags: isSelf ? local.skills : const [],
+        stats: isSelf
+            ? [
+                (
+                  label: 'Năng lực mỗi tuần',
+                  value: '${local.weeklyCapacityHours} giờ',
+                ),
+                (label: 'Hình thức', value: local.workPreference),
+              ]
+            : const [],
+        avatarPath: isSelf ? local.avatarPath : null,
+        avatarUrl: remote.avatarUrl == null
+            ? null
+            : api.mediaUri(remote.avatarUrl!).toString(),
+        coverPath: isSelf ? local.coverPath : null,
+        isSelf: isSelf,
+        isVerified: true,
+        postCount: remote.postCount,
+        status: isSelf && local.isAvailable
+            ? 'Sẵn sàng nhận việc'
+            : 'Đang hoạt động',
+      );
+      final profilePosts = wall.posts
+          .map(
+            (post) => CompactPost(
+              content: post.content,
+              timeLabel: _relativeTime(post.createdAt),
+              reactionCount: post.reactionCount,
+              commentCount: post.commentCount,
+              imageCount: 0,
+            ),
+          )
+          .toList(growable: false);
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => PublicProfileScreen(
+            profile: profile,
+            profilePosts: profilePosts,
+            isFollowing: _followedHandles.contains(profile.handle),
+            onToggleFollow: () => _toggleFollow(profile.handle),
+          ),
+        ),
+      );
+    } on NovaApiException {
+      if (mounted) _showMessage('Không thể tải trang cá nhân lúc này.');
+    }
   }
 
   void _openExampleProfiles() {
@@ -1021,7 +1520,9 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                                 setState(() {});
                               },
                               onBlockUser: () {
-                                widget.onBlock?.call(_buildAuthorForPost(post).handle);
+                                widget.onBlock?.call(
+                                  _buildAuthorForPost(post).handle,
+                                );
                                 setState(() {});
                               },
                               onReact: (reaction) {
@@ -1091,7 +1592,9 @@ class _MyPostsScreenState extends State<_MyPostsScreen> {
                                 setState(() {});
                               },
                               onBlockUser: () {
-                                widget.onBlock?.call(_buildAuthorForPost(post).handle);
+                                widget.onBlock?.call(
+                                  _buildAuthorForPost(post).handle,
+                                );
                                 setState(() {});
                               },
                               onReact: (reaction) {
@@ -1595,84 +2098,87 @@ class _PostComposer extends StatelessWidget {
           SizedBox(
             height: 44,
             child: Row(
-            children: [
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: isPublishing ? null : onPickImages,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.image_outlined,
-                    size: 20,
-                    color: theme.success,
-                  ),
-                  label: Text(
-                    images.isEmpty ? 'Ảnh' : 'Ảnh (${images.length}/10)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: isPublishing ? null : () {},
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.tag_rounded,
-                    size: 19,
-                    color: theme.primary,
-                  ),
-                  label: const Text(
-                    'Chủ đề',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 92,
-                height: 40,
-                child: ListenableBuilder(
-                  listenable: controller,
-                  builder: (context, _) {
-                    final hasContent =
-                        controller.text.trim().isNotEmpty || images.isNotEmpty;
-                    final canPublish = !isPublishing && hasContent;
-                    return FilledButton(
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
+              children: [
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: isPublishing ? null : onPickImages,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      onPressed: canPublish ? onPublish : null,
-                      child: isPublishing
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Đăng'),
-                    );
-                  },
+                    ),
+                    icon: Icon(
+                      Icons.image_outlined,
+                      size: 20,
+                      color: theme.success,
+                    ),
+                    label: Text(
+                      images.isEmpty ? 'Ảnh' : 'Ảnh (${images.length}/10)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: isPublishing ? null : () {},
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: Icon(
+                      Icons.tag_rounded,
+                      size: 19,
+                      color: theme.primary,
+                    ),
+                    label: const Text(
+                      'Chủ đề',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 92,
+                  height: 40,
+                  child: ListenableBuilder(
+                    listenable: controller,
+                    builder: (context, _) {
+                      final hasContent =
+                          controller.text.trim().isNotEmpty ||
+                          images.isNotEmpty;
+                      final canPublish = !isPublishing && hasContent;
+                      return FilledButton(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        onPressed: canPublish ? onPublish : null,
+                        child: isPublishing
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Đăng'),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
         ],
       ),
     );
@@ -1744,6 +2250,7 @@ class _PostCard extends StatefulWidget {
     required this.ownAvatarPath,
     required this.ownDisplayName,
     required this.ownHeadline,
+    this.ownAvatarUrl,
     required this.onOpenProfile,
     this.isFollowingAuthor = false,
     this.onToggleFollowAuthor,
@@ -1755,13 +2262,20 @@ class _PostCard extends StatefulWidget {
     this.onReact,
     this.onAddComment,
     this.onAddReply,
+    this.loadComments,
+    this.submitComment,
     this.onToggleCommentLike,
+    this.editComment,
+    this.deleteComment,
+    this.toggleCommentReaction,
+    this.onOpenCommentProfile,
   });
 
   final _DemoPost post;
   final String? ownAvatarPath;
   final String ownDisplayName;
   final String ownHeadline;
+  final String? ownAvatarUrl;
   final VoidCallback onOpenProfile;
   final bool isFollowingAuthor;
   final VoidCallback? onToggleFollowAuthor;
@@ -1773,7 +2287,16 @@ class _PostCard extends StatefulWidget {
   final ValueChanged<PostReaction>? onReact;
   final ValueChanged<PostComment>? onAddComment;
   final void Function(String parentId, PostCommentReply reply)? onAddReply;
+  final Future<List<PostComment>> Function()? loadComments;
+  final Future<PostComment?> Function(String content, String? parentId)?
+  submitComment;
   final ValueChanged<String>? onToggleCommentLike;
+  final Future<PostComment?> Function(String commentId, String content)?
+  editComment;
+  final Future<bool> Function(String commentId)? deleteComment;
+  final Future<PostComment?> Function(String commentId, bool isLiked)?
+  toggleCommentReaction;
+  final ValueChanged<String>? onOpenCommentProfile;
 
   @override
   State<_PostCard> createState() => _PostCardState();
@@ -1824,10 +2347,17 @@ class _PostCardState extends State<_PostCard> {
       ownAvatarPath: widget.ownAvatarPath,
       ownDisplayName: widget.ownDisplayName,
       ownHeadline: widget.ownHeadline,
+      ownAvatarUrl: widget.ownAvatarUrl,
       onAddComment: (comment) => widget.onAddComment?.call(comment),
       onAddReply: (parentId, reply) => widget.onAddReply?.call(parentId, reply),
+      loadComments: widget.loadComments,
+      submitComment: widget.submitComment,
       onToggleCommentLike: (commentId) =>
           widget.onToggleCommentLike?.call(commentId),
+      editComment: widget.editComment,
+      deleteComment: widget.deleteComment,
+      toggleCommentReaction: widget.toggleCommentReaction,
+      onOpenCommentProfile: widget.onOpenCommentProfile,
     );
   }
 
@@ -1898,13 +2428,23 @@ class _PostCardState extends State<_PostCard> {
                             post.author.kind == PublicProfileKind.business)
                         ? theme.warning.withValues(alpha: 0.14)
                         : theme.primary.withValues(alpha: 0.12),
-                    foregroundImage:
-                        (post.isMine && widget.ownAvatarPath != null)
-                        ? FileImage(File(widget.ownAvatarPath!))
-                        : null,
-                    child: (post.isMine && widget.ownAvatarPath != null)
-                        ? null
-                        : Icon(
+                    foregroundImage: _commentAvatarImage(
+                      post.isMine
+                          ? widget.ownAvatarPath
+                          : post.author.avatarPath,
+                      post.author.avatarUrl ??
+                          (post.isMine ? widget.ownAvatarUrl : null),
+                    ),
+                    child:
+                        _commentAvatarImage(
+                              post.isMine
+                                  ? widget.ownAvatarPath
+                                  : post.author.avatarPath,
+                              post.author.avatarUrl ??
+                                  (post.isMine ? widget.ownAvatarUrl : null),
+                            ) ==
+                            null
+                        ? Icon(
                             (!post.isMine &&
                                     post.author.kind ==
                                         PublicProfileKind.business)
@@ -1917,14 +2457,15 @@ class _PostCardState extends State<_PostCard> {
                                 ? theme.warning
                                 : theme.primary,
                             size: 24,
-                          ),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                Row(
+                        Row(
                           children: [
                             Flexible(
                               child: Text(
@@ -1978,20 +2519,20 @@ class _PostCardState extends State<_PostCard> {
                     ),
                   ),
                   IconButton(
-                      tooltip: 'Tùy chọn bài đăng',
-                      onPressed: () => _showPostOptionsSheet(
-                        context,
-                        post,
-                        onTogglePin: widget.onTogglePin,
-                        onToggleSave: widget.onToggleSave,
-                        onHide: widget.onHide,
-                        onDeletePost: widget.onDeletePost,
-                        onBlockUser: widget.onBlockUser,
-                        onToggleFollow: widget.onToggleFollowAuthor,
-                        isFollowing: widget.isFollowingAuthor,
-                      ),
-                      icon: const Icon(Icons.more_horiz_rounded),
+                    tooltip: 'Tùy chọn bài đăng',
+                    onPressed: () => _showPostOptionsSheet(
+                      context,
+                      post,
+                      onTogglePin: widget.onTogglePin,
+                      onToggleSave: widget.onToggleSave,
+                      onHide: widget.onHide,
+                      onDeletePost: widget.onDeletePost,
+                      onBlockUser: widget.onBlockUser,
+                      onToggleFollow: widget.onToggleFollowAuthor,
+                      isFollowing: widget.isFollowingAuthor,
                     ),
+                    icon: const Icon(Icons.more_horiz_rounded),
+                  ),
                 ],
               ),
             ),
@@ -2011,9 +2552,7 @@ class _PostCardState extends State<_PostCard> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               children: [
-                _ReactionBadgesStack(
-                  reactionCounts: post.reactionCounts,
-                ),
+                _ReactionBadgesStack(reactionCounts: post.reactionCounts),
                 const Spacer(),
                 InkWell(
                   onTap: () => _openComments(context),
@@ -2024,7 +2563,7 @@ class _PostCardState extends State<_PostCard> {
                       horizontal: 4,
                     ),
                     child: Text(
-                      '${post.comments.fold<int>(0, (sum, c) => sum + 1 + c.replies.length)} bình luận',
+                      '${post.totalCommentCount} bình luận',
                       style: TextStyle(
                         color: theme.textSecondary,
                         fontSize: 11.5,
@@ -2455,14 +2994,15 @@ class _ReactionBadgesStack extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final badges = PostReaction.values
-        .where((reaction) => (reactionCounts[reaction] ?? 0) > 0)
-        .toList()
-      ..sort(
-        (left, right) => (reactionCounts[right] ?? 0).compareTo(
-          reactionCounts[left] ?? 0,
-        ),
-      );
+    final badges =
+        PostReaction.values
+            .where((reaction) => (reactionCounts[reaction] ?? 0) > 0)
+            .toList()
+          ..sort(
+            (left, right) => (reactionCounts[right] ?? 0).compareTo(
+              reactionCounts[left] ?? 0,
+            ),
+          );
     final visibleBadges = badges.take(3).toList(growable: false);
 
     return Row(
@@ -2554,9 +3094,18 @@ void _showCommentSheet(
   required String? ownAvatarPath,
   required String ownDisplayName,
   required String ownHeadline,
+  String? ownAvatarUrl,
   required ValueChanged<PostComment> onAddComment,
   required void Function(String parentId, PostCommentReply reply) onAddReply,
+  Future<List<PostComment>> Function()? loadComments,
+  Future<PostComment?> Function(String content, String? parentId)?
+  submitComment,
   required ValueChanged<String> onToggleCommentLike,
+  Future<PostComment?> Function(String commentId, String content)? editComment,
+  Future<bool> Function(String commentId)? deleteComment,
+  Future<PostComment?> Function(String commentId, bool isLiked)?
+  toggleCommentReaction,
+  ValueChanged<String>? onOpenCommentProfile,
 }) {
   showModalBottomSheet<void>(
     context: context,
@@ -2568,9 +3117,16 @@ void _showCommentSheet(
       ownAvatarPath: ownAvatarPath,
       ownDisplayName: ownDisplayName,
       ownHeadline: ownHeadline,
+      ownAvatarUrl: ownAvatarUrl,
       onAddComment: onAddComment,
       onAddReply: onAddReply,
+      loadComments: loadComments,
+      submitComment: submitComment,
       onToggleCommentLike: onToggleCommentLike,
+      editComment: editComment,
+      deleteComment: deleteComment,
+      toggleCommentReaction: toggleCommentReaction,
+      onOpenCommentProfile: onOpenCommentProfile,
     ),
   );
 }
@@ -2581,60 +3137,107 @@ class _CommentSheetWidget extends StatefulWidget {
     required this.ownAvatarPath,
     required this.ownDisplayName,
     required this.ownHeadline,
+    this.ownAvatarUrl,
     required this.onAddComment,
     required this.onAddReply,
+    this.loadComments,
+    this.submitComment,
     required this.onToggleCommentLike,
+    this.editComment,
+    this.deleteComment,
+    this.toggleCommentReaction,
+    this.onOpenCommentProfile,
   });
 
   final _DemoPost post;
   final String? ownAvatarPath;
   final String ownDisplayName;
   final String ownHeadline;
+  final String? ownAvatarUrl;
   final ValueChanged<PostComment> onAddComment;
   final void Function(String parentId, PostCommentReply reply) onAddReply;
+  final Future<List<PostComment>> Function()? loadComments;
+  final Future<PostComment?> Function(String content, String? parentId)?
+  submitComment;
   final ValueChanged<String> onToggleCommentLike;
+  final Future<PostComment?> Function(String commentId, String content)?
+  editComment;
+  final Future<bool> Function(String commentId)? deleteComment;
+  final Future<PostComment?> Function(String commentId, bool isLiked)?
+  toggleCommentReaction;
+  final ValueChanged<String>? onOpenCommentProfile;
 
   @override
   State<_CommentSheetWidget> createState() => _CommentSheetWidgetState();
 }
 
 class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
-  late final List<PostComment> _comments;
+  late List<PostComment> _comments;
+  bool _isLoading = false;
+  bool _isSending = false;
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
+  TextEditingController? _editController;
 
   String? _replyingToCommentId;
   String? _replyingToAuthorName;
+  String? _editingCommentId;
+  String? _editingOriginalContent;
 
   @override
   void initState() {
     super.initState();
     _comments = List<PostComment>.from(widget.post.comments);
+    _loadRemoteComments();
+  }
+
+  Future<void> _loadRemoteComments() async {
+    final loader = widget.loadComments;
+    if (loader == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final comments = await loader();
+      if (mounted) setState(() => _comments = comments);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   void dispose() {
     _textController.dispose();
+    _editController?.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  void _sendComment() {
+  Future<void> _sendComment() async {
     final text = _textController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isSending) return;
+    final parentId = _replyingToCommentId;
+    setState(() => _isSending = true);
+    final remote = widget.submitComment == null
+        ? null
+        : await widget.submitComment!(text, parentId);
+    if (widget.submitComment != null && remote == null) {
+      if (mounted) setState(() => _isSending = false);
+      return;
+    }
+    if (!mounted) return;
 
-    if (_replyingToCommentId != null) {
-      final parentId = _replyingToCommentId!;
+    if (parentId != null) {
       final newReply = PostCommentReply(
-        id: 'reply-${DateTime.now().millisecondsSinceEpoch}',
-        authorName: widget.ownDisplayName,
-        headline: widget.ownHeadline,
-        content: text,
-        timeLabel: 'Vừa xong',
+        id: remote?.id ?? 'reply-${DateTime.now().millisecondsSinceEpoch}',
+        authorId: remote?.authorId ?? _remoteAuthorId,
+        authorName: remote?.authorName ?? widget.ownDisplayName,
+        headline: remote?.headline ?? widget.ownHeadline,
+        content: remote?.content ?? text,
+        timeLabel: remote?.timeLabel ?? 'Vừa xong',
         replyingToName: _replyingToAuthorName,
         avatarPath: widget.ownAvatarPath,
+        avatarUrl: remote?.avatarUrl ?? widget.ownAvatarUrl,
         isMine: true,
       );
 
@@ -2651,15 +3254,18 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
         _replyingToCommentId = null;
         _replyingToAuthorName = null;
         _textController.clear();
+        _isSending = false;
       });
     } else {
       final newComment = PostComment(
-        id: 'comment-${DateTime.now().millisecondsSinceEpoch}',
-        authorName: widget.ownDisplayName,
-        headline: widget.ownHeadline,
-        content: text,
-        timeLabel: 'Vừa xong',
+        id: remote?.id ?? 'comment-${DateTime.now().millisecondsSinceEpoch}',
+        authorId: remote?.authorId ?? _remoteAuthorId,
+        authorName: remote?.authorName ?? widget.ownDisplayName,
+        headline: remote?.headline ?? widget.ownHeadline,
+        content: remote?.content ?? text,
+        timeLabel: remote?.timeLabel ?? 'Vừa xong',
         avatarPath: widget.ownAvatarPath,
+        avatarUrl: remote?.avatarUrl ?? widget.ownAvatarUrl,
         isMine: true,
       );
 
@@ -2668,6 +3274,7 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
       setState(() {
         _comments.insert(0, newComment);
         _textController.clear();
+        _isSending = false;
       });
 
       if (_scrollController.hasClients) {
@@ -2680,17 +3287,36 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
     }
   }
 
-  void _toggleLike(String commentOrReplyId) {
+  String? get _remoteAuthorId {
+    for (final comment in _comments) {
+      if (comment.isMine && comment.authorId != null) return comment.authorId;
+      for (final reply in comment.replies) {
+        if (reply.isMine && reply.authorId != null) return reply.authorId;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _toggleLike(String commentOrReplyId) async {
+    final currentLiked = _commentLiked(commentOrReplyId);
+    final remote = widget.toggleCommentReaction == null
+        ? null
+        : await widget.toggleCommentReaction!(commentOrReplyId, currentLiked);
+    if (widget.toggleCommentReaction != null && remote == null) return;
     widget.onToggleCommentLike(commentOrReplyId);
+    if (!mounted) return;
     setState(() {
       final index = _comments.indexWhere((c) => c.id == commentOrReplyId);
       if (index != -1) {
         final current = _comments[index];
-        final isLiked = !current.isLiked;
-        final count = isLiked
-            ? current.likeCount + 1
-            : (current.likeCount - 1).clamp(0, 999999);
-        _comments[index] = current.copyWith(isLiked: isLiked, likeCount: count);
+        _comments[index] =
+            remote ??
+            current.copyWith(
+              isLiked: !current.isLiked,
+              likeCount: current.isLiked
+                  ? (current.likeCount - 1).clamp(0, 999999)
+                  : current.likeCount + 1,
+            );
         return;
       }
       for (int i = 0; i < _comments.length; i++) {
@@ -2700,18 +3326,235 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
         );
         if (replyIdx != -1) {
           final reply = parent.replies[replyIdx];
-          final isLiked = !reply.isLiked;
-          final count = isLiked
-              ? reply.likeCount + 1
-              : (reply.likeCount - 1).clamp(0, 999999);
           final updatedReplies = List<PostCommentReply>.from(parent.replies);
-          updatedReplies[replyIdx] = reply.copyWith(
-            isLiked: isLiked,
-            likeCount: count,
-          );
+          updatedReplies[replyIdx] = remote == null
+              ? reply.copyWith(
+                  isLiked: !reply.isLiked,
+                  likeCount: reply.isLiked
+                      ? (reply.likeCount - 1).clamp(0, 999999)
+                      : reply.likeCount + 1,
+                )
+              : reply.copyWith(
+                  content: remote.content,
+                  isLiked: remote.isLiked,
+                  likeCount: remote.likeCount,
+                  avatarUrl: remote.avatarUrl,
+                );
           _comments[i] = parent.copyWith(replies: updatedReplies);
           return;
         }
+      }
+    });
+  }
+
+  bool _commentLiked(String id) {
+    for (final comment in _comments) {
+      if (comment.id == id) return comment.isLiked;
+      for (final reply in comment.replies) {
+        if (reply.id == id) return reply.isLiked;
+      }
+    }
+    return false;
+  }
+
+  void _beginEditingComment(String id, String currentContent) {
+    final previousController = _editController;
+    setState(() {
+      _editingCommentId = id;
+      _editingOriginalContent = currentContent;
+      _editController = TextEditingController(text: currentContent);
+    });
+    if (previousController != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        previousController.dispose();
+      });
+    }
+  }
+
+  void _cancelEditingComment() {
+    final controller = _editController;
+    setState(() {
+      _editController = null;
+      _editingCommentId = null;
+      _editingOriginalContent = null;
+    });
+    if (controller != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    }
+  }
+
+  Future<void> _saveEditedComment() async {
+    final id = _editingCommentId;
+    final original = _editingOriginalContent;
+    final content = _editController?.text.trim() ?? '';
+    if (id == null || original == null || content.isEmpty) return;
+    _cancelEditingComment();
+    if (content == original) return;
+    final updated = await widget.editComment?.call(id, content);
+    if (widget.editComment != null && updated == null) return;
+    if (!mounted) return;
+    setState(() {
+      for (int i = 0; i < _comments.length; i++) {
+        final comment = _comments[i];
+        if (comment.id == id) {
+          _comments[i] = updated ?? comment.copyWith(content: content);
+          return;
+        }
+        final replyIndex = comment.replies.indexWhere(
+          (reply) => reply.id == id,
+        );
+        if (replyIndex != -1) {
+          final replies = List<PostCommentReply>.from(comment.replies);
+          replies[replyIndex] = replies[replyIndex].copyWith(content: content);
+          _comments[i] = comment.copyWith(replies: replies);
+          return;
+        }
+      }
+    });
+  }
+
+  Widget _buildCommentEditor(NivexThemeExtension theme) {
+    final controller = _editController!;
+    return Material(
+      color: Colors.black.withValues(alpha: 0.56),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.divider),
+              ),
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.edit_outlined, color: theme.primary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Chỉnh sửa bình luận',
+                            style: TextStyle(
+                              color: theme.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Đóng',
+                          onPressed: _cancelEditingComment,
+                          color: theme.textSecondary,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      minLines: 3,
+                      maxLines: 6,
+                      maxLength: 1000,
+                      style: TextStyle(color: theme.textPrimary, fontSize: 15),
+                      decoration: InputDecoration(
+                        hintText: 'Viết lại bình luận của bạn',
+                        hintStyle: TextStyle(color: theme.textSecondary),
+                        counterText: '',
+                        filled: true,
+                        fillColor: theme.surfaceSubtle,
+                        contentPadding: const EdgeInsets.all(14),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: theme.divider),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '${value.text.length}/1000',
+                        style: TextStyle(
+                          color: theme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _cancelEditingComment,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              foregroundColor: theme.textPrimary,
+                              side: BorderSide(color: theme.divider),
+                            ),
+                            child: const Text('Hủy'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: value.text.trim().isEmpty
+                                ? null
+                                : _saveEditedComment,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(48),
+                              backgroundColor: theme.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Lưu thay đổi'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteExistingComment(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xóa bình luận?'),
+        content: const Text('Bình luận sẽ bị xóa khỏi bài viết.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final deleted = await widget.deleteComment?.call(id) ?? true;
+    if (!deleted || !mounted) return;
+    setState(() {
+      _comments.removeWhere((comment) => comment.id == id);
+      for (int i = 0; i < _comments.length; i++) {
+        final comment = _comments[i];
+        _comments[i] = comment.copyWith(
+          replies: comment.replies.where((reply) => reply.id != id).toList(),
+        );
       }
     });
   }
@@ -2751,264 +3594,380 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
       (sum, c) => sum + 1 + c.replies.length,
     );
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: BoxDecoration(
-        color: theme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
+    return Stack(
+      children: [
+        Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+          decoration: BoxDecoration(
+            color: theme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
               ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(
-                children: [
-                  Text(
-                    'Bình luận ($totalCommentCount)',
-                    style: TextStyle(
-                      color: theme.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+            ],
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.border,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
                   ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: theme.divider),
-            Expanded(
-              child: _comments.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 40,
-                              color: theme.textSecondary.withValues(alpha: 0.5),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Bình luận ($totalCommentCount)',
+                        style: TextStyle(
+                          color: theme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: theme.divider),
+                Expanded(
+                  child: _comments.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  size: 40,
+                                  color: theme.textSecondary.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Chưa có bình luận nào',
+                                  style: TextStyle(
+                                    color: theme.textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Hãy là người đầu tiên để lại ý kiến của bạn!',
+                                  style: TextStyle(
+                                    color: theme.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Chưa có bình luận nào',
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          itemCount: _comments.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 14),
+                          itemBuilder: (context, index) {
+                            final comment = _comments[index];
+                            final isAuthor =
+                                comment.authorName == postAuthorName;
+                            return _CommentItem(
+                              comment: comment,
+                              isAuthor: isAuthor,
+                              postAuthorName: postAuthorName,
+                              ownAvatarPath: widget.ownAvatarPath,
+                              onLike: () => _toggleLike(comment.id),
+                              onReply: () => _replyTo(comment),
+                              onActions: () => _showCommentActions(
+                                context,
+                                content: comment.content,
+                                isMine: comment.isMine,
+                                onReply: () => _replyTo(comment),
+                                onEdit: () => _beginEditingComment(
+                                  comment.id,
+                                  comment.content,
+                                ),
+                                onDelete: () =>
+                                    _deleteExistingComment(comment.id),
+                              ),
+                              onLikeReply: (replyId) => _toggleLike(replyId),
+                              onReplyToReply: (reply) =>
+                                  _replyToReply(comment, reply),
+                              onOpenProfile: comment.authorId == null
+                                  ? null
+                                  : () => widget.onOpenCommentProfile?.call(
+                                      comment.authorId!,
+                                    ),
+                              onOpenReplyProfile: (reply) {
+                                final id = reply.authorId;
+                                if (id != null) {
+                                  widget.onOpenCommentProfile?.call(id);
+                                }
+                              },
+                              onEditReply: (reply) =>
+                                  _beginEditingComment(reply.id, reply.content),
+                              onDeleteReply: (reply) =>
+                                  _deleteExistingComment(reply.id),
+                            );
+                          },
+                        ),
+                ),
+                Divider(height: 1, color: theme.divider),
+                if (_replyingToAuthorName != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 7,
+                    ),
+                    color: theme.surfaceSubtle.withValues(alpha: 0.7),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.reply_rounded,
+                          size: 16,
+                          color: theme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              text: 'Đang trả lời ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.textSecondary,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: _replyingToAuthorName,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _cancelReply,
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: theme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 17,
+                          backgroundColor: theme.primary.withValues(
+                            alpha: 0.16,
+                          ),
+                          foregroundImage: _commentAvatarImage(
+                            widget.ownAvatarPath,
+                            widget.ownAvatarUrl,
+                          ),
+                          child:
+                              _commentAvatarImage(
+                                    widget.ownAvatarPath,
+                                    widget.ownAvatarUrl,
+                                  ) !=
+                                  null
+                              ? null
+                              : Icon(
+                                  Icons.person_outline_rounded,
+                                  color: theme.primary,
+                                  size: 18,
+                                ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: theme.surfaceSubtle,
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            child: TextField(
+                              controller: _textController,
+                              focusNode: _focusNode,
+                              minLines: 1,
+                              maxLines: 4,
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _sendComment(),
+                              decoration: InputDecoration(
+                                hintText: _replyingToAuthorName != null
+                                    ? 'Trả lời $_replyingToAuthorName...'
+                                    : 'Viết bình luận...',
+                                hintStyle: TextStyle(
+                                  color: theme.textSecondary.withValues(
+                                    alpha: 0.75,
+                                  ),
+                                  fontSize: 14,
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                isDense: true,
+                                filled: false,
+                                fillColor: Colors.transparent,
+                                contentPadding: EdgeInsets.zero,
+                              ),
                               style: TextStyle(
                                 color: theme.textPrimary,
                                 fontSize: 14,
-                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Hãy là người đầu tiên để lại ý kiến của bạn!',
-                              style: TextStyle(
-                                color: theme.textSecondary,
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    )
-                  : ListView.separated(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      itemCount: _comments.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 14),
-                      itemBuilder: (context, index) {
-                        final comment = _comments[index];
-                        final isAuthor = comment.authorName == postAuthorName;
-                        return _CommentItem(
-                          comment: comment,
-                          isAuthor: isAuthor,
-                          postAuthorName: postAuthorName,
-                          ownAvatarPath: widget.ownAvatarPath,
-                          onLike: () => _toggleLike(comment.id),
-                          onReply: () => _replyTo(comment),
-                          onLikeReply: (replyId) => _toggleLike(replyId),
-                          onReplyToReply: (reply) =>
-                              _replyToReply(comment, reply),
-                        );
-                      },
+                        const SizedBox(width: 8),
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _textController,
+                          builder: (context, value, _) {
+                            final hasText = value.text.trim().isNotEmpty;
+                            return GestureDetector(
+                              onTap: hasText ? _sendComment : null,
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Icon(
+                                  Icons.send_rounded,
+                                  color: hasText
+                                      ? (theme.isDark
+                                            ? const Color(0xFF38BDF8)
+                                            : const Color(0xFF0064E0))
+                                      : theme.textSecondary.withValues(
+                                          alpha: 0.35,
+                                        ),
+                                  size: 22,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
+                  ),
+                ),
+              ],
             ),
-            Divider(height: 1, color: theme.divider),
-            if (_replyingToAuthorName != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 7,
-                ),
-                color: theme.surfaceSubtle.withValues(alpha: 0.7),
-                child: Row(
-                  children: [
-                    Icon(Icons.reply_rounded, size: 16, color: theme.primary),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          text: 'Đang trả lời ',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.textSecondary,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: _replyingToAuthorName,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: theme.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _cancelReply,
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 18,
-                          color: theme.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    CircleAvatar(
-                      radius: 17,
-                      backgroundColor: theme.primary.withValues(alpha: 0.16),
-                      foregroundImage: widget.ownAvatarPath != null
-                          ? FileImage(File(widget.ownAvatarPath!))
-                          : null,
-                      child: widget.ownAvatarPath != null
-                          ? null
-                          : Icon(
-                              Icons.person_outline_rounded,
-                              color: theme.primary,
-                              size: 18,
-                            ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.surfaceSubtle,
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        child: TextField(
-                          controller: _textController,
-                          focusNode: _focusNode,
-                          minLines: 1,
-                          maxLines: 4,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _sendComment(),
-                          decoration: InputDecoration(
-                            hintText: _replyingToAuthorName != null
-                                ? 'Trả lời $_replyingToAuthorName...'
-                                : 'Viết bình luận...',
-                            hintStyle: TextStyle(
-                              color: theme.textSecondary.withValues(
-                                alpha: 0.75,
-                              ),
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            focusedErrorBorder: InputBorder.none,
-                            isDense: true,
-                            filled: false,
-                            fillColor: Colors.transparent,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          style: TextStyle(
-                            color: theme.textPrimary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _textController,
-                      builder: (context, value, _) {
-                        final hasText = value.text.trim().isNotEmpty;
-                        return GestureDetector(
-                          onTap: hasText ? _sendComment : null,
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.send_rounded,
-                              color: hasText
-                                  ? (theme.isDark
-                                        ? const Color(0xFF38BDF8)
-                                        : const Color(0xFF0064E0))
-                                  : theme.textSecondary.withValues(alpha: 0.35),
-                              size: 22,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (_editController != null)
+          Positioned.fill(child: _buildCommentEditor(theme)),
+      ],
     );
+  }
+}
+
+enum _CommentAction { reply, copy, edit, delete }
+
+Future<void> _showCommentActions(
+  BuildContext context, {
+  required String content,
+  required bool isMine,
+  required VoidCallback onReply,
+  VoidCallback? onEdit,
+  VoidCallback? onDelete,
+}) async {
+  final theme = context.nivexTheme;
+  final action = await showModalBottomSheet<_CommentAction>(
+    context: context,
+    backgroundColor: theme.surface,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.reply_rounded),
+            title: const Text('Trả lời'),
+            onTap: () => Navigator.pop(sheetContext, _CommentAction.reply),
+          ),
+          ListTile(
+            leading: const Icon(Icons.copy_outlined),
+            title: const Text('Sao chép'),
+            onTap: () => Navigator.pop(sheetContext, _CommentAction.copy),
+          ),
+          if (isMine)
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Chỉnh sửa'),
+              onTap: () => Navigator.pop(sheetContext, _CommentAction.edit),
+            ),
+          if (isMine)
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded),
+              iconColor: Colors.redAccent,
+              textColor: Colors.redAccent,
+              title: const Text('Xóa'),
+              onTap: () => Navigator.pop(sheetContext, _CommentAction.delete),
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+
+  if (!context.mounted || action == null) return;
+  switch (action) {
+    case _CommentAction.reply:
+      onReply();
+    case _CommentAction.copy:
+      await Clipboard.setData(ClipboardData(text: content));
+    case _CommentAction.edit:
+      onEdit?.call();
+    case _CommentAction.delete:
+      onDelete?.call();
   }
 }
 
@@ -3020,8 +3979,13 @@ class _CommentItem extends StatelessWidget {
     required this.ownAvatarPath,
     required this.onLike,
     required this.onReply,
+    required this.onActions,
     required this.onLikeReply,
     required this.onReplyToReply,
+    this.onOpenProfile,
+    required this.onOpenReplyProfile,
+    required this.onEditReply,
+    required this.onDeleteReply,
   });
 
   final PostComment comment;
@@ -3030,8 +3994,13 @@ class _CommentItem extends StatelessWidget {
   final String? ownAvatarPath;
   final VoidCallback onLike;
   final VoidCallback onReply;
+  final VoidCallback onActions;
   final ValueChanged<String> onLikeReply;
   final ValueChanged<PostCommentReply> onReplyToReply;
+  final VoidCallback? onOpenProfile;
+  final ValueChanged<PostCommentReply> onOpenReplyProfile;
+  final ValueChanged<PostCommentReply> onEditReply;
+  final ValueChanged<PostCommentReply> onDeleteReply;
 
   @override
   Widget build(BuildContext context) {
@@ -3045,22 +4014,25 @@ class _CommentItem extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 17,
-              backgroundColor: theme.primary.withValues(alpha: 0.14),
-              foregroundImage: avatar != null ? FileImage(File(avatar)) : null,
-              child: avatar != null
-                  ? null
-                  : Text(
-                      comment.authorName.isNotEmpty
-                          ? comment.authorName[0].toUpperCase()
-                          : 'U',
-                      style: TextStyle(
-                        color: theme.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+            GestureDetector(
+              onTap: onOpenProfile,
+              child: CircleAvatar(
+                radius: 17,
+                backgroundColor: theme.primary.withValues(alpha: 0.14),
+                foregroundImage: _commentAvatarImage(avatar, comment.avatarUrl),
+                child: _commentAvatarImage(avatar, comment.avatarUrl) != null
+                    ? null
+                    : Text(
+                        comment.authorName.isNotEmpty
+                            ? comment.authorName[0].toUpperCase()
+                            : 'U',
+                        style: TextStyle(
+                          color: theme.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -3212,6 +4184,21 @@ class _CommentItem extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        Tooltip(
+                          message: 'Tùy chọn bình luận',
+                          child: IconButton(
+                            onPressed: onActions,
+                            icon: const Icon(Icons.more_horiz_rounded),
+                            iconSize: 19,
+                            color: theme.textSecondary,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 28,
+                              height: 28,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -3234,6 +4221,15 @@ class _CommentItem extends StatelessWidget {
                     ownAvatarPath: ownAvatarPath,
                     onLike: () => onLikeReply(reply.id),
                     onReply: () => onReplyToReply(reply),
+                    onActions: () => _showCommentActions(
+                      context,
+                      content: reply.content,
+                      isMine: reply.isMine,
+                      onReply: () => onReplyToReply(reply),
+                      onEdit: () => onEditReply(reply),
+                      onDelete: () => onDeleteReply(reply),
+                    ),
+                    onOpenProfile: () => onOpenReplyProfile(reply),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -3253,6 +4249,8 @@ class _CommentReplyItem extends StatelessWidget {
     required this.ownAvatarPath,
     required this.onLike,
     required this.onReply,
+    required this.onActions,
+    this.onOpenProfile,
   });
 
   final PostCommentReply reply;
@@ -3260,6 +4258,8 @@ class _CommentReplyItem extends StatelessWidget {
   final String? ownAvatarPath;
   final VoidCallback onLike;
   final VoidCallback onReply;
+  final VoidCallback onActions;
+  final VoidCallback? onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -3270,22 +4270,25 @@ class _CommentReplyItem extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 14,
-          backgroundColor: theme.primary.withValues(alpha: 0.14),
-          foregroundImage: avatar != null ? FileImage(File(avatar)) : null,
-          child: avatar != null
-              ? null
-              : Text(
-                  reply.authorName.isNotEmpty
-                      ? reply.authorName[0].toUpperCase()
-                      : 'U',
-                  style: TextStyle(
-                    color: theme.primary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
+        GestureDetector(
+          onTap: onOpenProfile,
+          child: CircleAvatar(
+            radius: 14,
+            backgroundColor: theme.primary.withValues(alpha: 0.14),
+            foregroundImage: _commentAvatarImage(avatar, reply.avatarUrl),
+            child: _commentAvatarImage(avatar, reply.avatarUrl) != null
+                ? null
+                : Text(
+                    reply.authorName.isNotEmpty
+                        ? reply.authorName[0].toUpperCase()
+                        : 'U',
+                    style: TextStyle(
+                      color: theme.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
                   ),
-                ),
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -3442,6 +4445,21 @@ class _CommentReplyItem extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(width: 3),
+                    Tooltip(
+                      message: 'Tùy chọn bình luận',
+                      child: IconButton(
+                        onPressed: onActions,
+                        icon: const Icon(Icons.more_horiz_rounded),
+                        iconSize: 18,
+                        color: theme.textSecondary,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 26,
+                          height: 26,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -3451,6 +4469,19 @@ class _CommentReplyItem extends StatelessWidget {
       ],
     );
   }
+}
+
+ImageProvider<Object>? _commentAvatarImage(
+  String? localPath,
+  String? remoteUrl,
+) {
+  if (localPath != null && File(localPath).existsSync()) {
+    return FileImage(File(localPath));
+  }
+  if (remoteUrl != null && remoteUrl.isNotEmpty) {
+    return NetworkImage(remoteUrl);
+  }
+  return null;
 }
 
 class _ExpandablePostContent extends StatefulWidget {
@@ -3802,10 +4833,10 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
 enum PostReaction {
   like('Thích', Icons.thumb_up_alt_rounded, Color(0xFF38BDF8)),
   love('Yêu thích', Icons.favorite_rounded, Color(0xFFF43F5E)),
+  deal('Haha', Icons.sentiment_very_satisfied_rounded, Color(0xFFF59E0B)),
   trust('Tin cậy', Icons.verified_user_rounded, Color(0xFF22C55E)),
   build('Đang xây', Icons.construction_rounded, Color(0xFFF59E0B)),
   insightful('Hay', Icons.lightbulb_rounded, Color(0xFF06B6D4)),
-  deal('Haha', Icons.sentiment_very_satisfied_rounded, Color(0xFFF59E0B)),
   launch('Bứt phá', Icons.rocket_launch_rounded, Color(0xFFEC4899));
 
   const PostReaction(this.label, this.icon, this.color);
@@ -3821,44 +4852,52 @@ class PostCommentReply {
     required this.headline,
     required this.content,
     required this.timeLabel,
+    this.authorId,
     this.replyingToName,
     this.avatarPath,
+    this.avatarUrl,
     this.isMine = false,
     this.likeCount = 0,
     this.isLiked = false,
   });
 
   final String id;
+  final String? authorId;
   final String authorName;
   final String headline;
   final String content;
   final String timeLabel;
   final String? replyingToName;
   final String? avatarPath;
+  final String? avatarUrl;
   final bool isMine;
   final int likeCount;
   final bool isLiked;
 
   PostCommentReply copyWith({
     String? id,
+    String? authorId,
     String? authorName,
     String? headline,
     String? content,
     String? timeLabel,
     String? replyingToName,
     String? avatarPath,
+    String? avatarUrl,
     bool? isMine,
     int? likeCount,
     bool? isLiked,
   }) {
     return PostCommentReply(
       id: id ?? this.id,
+      authorId: authorId ?? this.authorId,
       authorName: authorName ?? this.authorName,
       headline: headline ?? this.headline,
       content: content ?? this.content,
       timeLabel: timeLabel ?? this.timeLabel,
       replyingToName: replyingToName ?? this.replyingToName,
       avatarPath: avatarPath ?? this.avatarPath,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       isMine: isMine ?? this.isMine,
       likeCount: likeCount ?? this.likeCount,
       isLiked: isLiked ?? this.isLiked,
@@ -3873,7 +4912,9 @@ class PostComment {
     required this.headline,
     required this.content,
     required this.timeLabel,
+    this.authorId,
     this.avatarPath,
+    this.avatarUrl,
     this.isMine = false,
     this.likeCount = 0,
     this.isLiked = false,
@@ -3881,11 +4922,13 @@ class PostComment {
   });
 
   final String id;
+  final String? authorId;
   final String authorName;
   final String headline;
   final String content;
   final String timeLabel;
   final String? avatarPath;
+  final String? avatarUrl;
   final bool isMine;
   final int likeCount;
   final bool isLiked;
@@ -3893,11 +4936,13 @@ class PostComment {
 
   PostComment copyWith({
     String? id,
+    String? authorId,
     String? authorName,
     String? headline,
     String? content,
     String? timeLabel,
     String? avatarPath,
+    String? avatarUrl,
     bool? isMine,
     int? likeCount,
     bool? isLiked,
@@ -3905,11 +4950,13 @@ class PostComment {
   }) {
     return PostComment(
       id: id ?? this.id,
+      authorId: authorId ?? this.authorId,
       authorName: authorName ?? this.authorName,
       headline: headline ?? this.headline,
       content: content ?? this.content,
       timeLabel: timeLabel ?? this.timeLabel,
       avatarPath: avatarPath ?? this.avatarPath,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       isMine: isMine ?? this.isMine,
       likeCount: likeCount ?? this.likeCount,
       isLiked: isLiked ?? this.isLiked,
@@ -3933,6 +4980,7 @@ class _DemoPost {
     this.reactionCounts = const {},
     this.myReaction,
     this.comments = const [],
+    this.commentCount = 0,
     this.author = const PublicProfileData(
       kind: PublicProfileKind.freelancer,
       displayName: 'Minh Anh',
@@ -3958,7 +5006,16 @@ class _DemoPost {
   final Map<PostReaction, int> reactionCounts;
   final PostReaction? myReaction;
   final List<PostComment> comments;
+  final int commentCount;
   final PublicProfileData author;
+
+  int get totalCommentCount {
+    if (commentCount > 0) return commentCount;
+    return comments.fold<int>(
+      0,
+      (sum, comment) => sum + 1 + comment.replies.length,
+    );
+  }
 
   _DemoPost copyWith({
     String? id,
@@ -3975,6 +5032,7 @@ class _DemoPost {
     PostReaction? myReaction,
     bool clearMyReaction = false,
     List<PostComment>? comments,
+    int? commentCount,
     PublicProfileData? author,
   }) {
     return _DemoPost(
@@ -3991,6 +5049,7 @@ class _DemoPost {
       reactionCounts: reactionCounts ?? this.reactionCounts,
       myReaction: clearMyReaction ? null : (myReaction ?? this.myReaction),
       comments: comments ?? this.comments,
+      commentCount: commentCount ?? this.commentCount,
       author: author ?? this.author,
     );
   }
@@ -4023,11 +5082,7 @@ void _showConfirmDeleteDialog(BuildContext context, VoidCallback? onDelete) {
       ),
       content: Text(
         'Bài viết sẽ bị xóa khỏi cộng đồng và không thể khôi phục.',
-        style: TextStyle(
-          color: theme.textSecondary,
-          fontSize: 14,
-          height: 1.4,
-        ),
+        style: TextStyle(color: theme.textSecondary, fontSize: 14, height: 1.4),
       ),
       actions: [
         TextButton(
@@ -4093,11 +5148,7 @@ void _showConfirmBlockDialog(BuildContext context, VoidCallback? onBlock) {
       ),
       content: Text(
         'Bạn sẽ không còn thấy bài viết, bình luận và tin nhắn từ người dùng này. Người này cũng không thể tương tác với bạn trong Nova.',
-        style: TextStyle(
-          color: theme.textSecondary,
-          fontSize: 14,
-          height: 1.4,
-        ),
+        style: TextStyle(color: theme.textSecondary, fontSize: 14, height: 1.4),
       ),
       actions: [
         TextButton(
@@ -4180,10 +5231,7 @@ void _showReportDialog(BuildContext context) {
                   groupValue: selectedReason,
                   title: Text(
                     reason,
-                    style: TextStyle(
-                      color: theme.textPrimary,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: theme.textPrimary, fontSize: 14),
                   ),
                   activeColor: theme.primary,
                   contentPadding: EdgeInsets.zero,
@@ -4297,10 +5345,7 @@ void _showPrivacyDialog(BuildContext context) {
                 ),
                 subtitle: Text(
                   opt['desc'] as String,
-                  style: TextStyle(
-                    color: theme.textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: theme.textSecondary, fontSize: 12),
                 ),
                 onTap: () {
                   Navigator.of(bottomSheetContext).pop();
@@ -4308,9 +5353,7 @@ void _showPrivacyDialog(BuildContext context) {
                     ..hideCurrentSnackBar()
                     ..showSnackBar(
                       SnackBar(
-                        content: Text(
-                          'Đã đổi quyền riêng tư: ${opt['title']}',
-                        ),
+                        content: Text('Đã đổi quyền riêng tư: ${opt['title']}'),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(milliseconds: 2200),
                         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -4424,7 +5467,7 @@ class _OwnerPostOptionsSheet extends StatelessWidget {
     final isSaved = post.isSaved;
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -4555,7 +5598,7 @@ class _ViewerPostOptionsSheet extends StatelessWidget {
     final isSaved = post.isSaved;
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -4631,7 +5674,8 @@ class _ViewerPostOptionsSheet extends StatelessWidget {
               iconColor: theme.danger,
               textColor: theme.danger,
               title: 'Chặn trang cá nhân này',
-              subtitle: 'Bạn sẽ không còn thấy bài viết hoặc tin nhắn từ người này.',
+              subtitle:
+                  'Bạn sẽ không còn thấy bài viết hoặc tin nhắn từ người này.',
               onTap: () {
                 Navigator.of(context).pop();
                 onBlock?.call();
