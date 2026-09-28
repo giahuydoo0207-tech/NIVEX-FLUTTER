@@ -15,18 +15,21 @@ import 'package:nivex_flutter/features/session/presentation/session_unlock_sheet
 import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
 import 'package:nivex_flutter/features/transactions/presentation/transactions_screen.dart';
 import 'package:nivex_flutter/features/wallet/presentation/wallet_screen.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
     this.initialTab = 0,
     this.themeController,
     this.cashoutAuthService,
+    this.homeApi,
     super.key,
   });
 
   final int initialTab;
   final ThemeController? themeController;
   final CashoutAuthService? cashoutAuthService;
+  final NovaApiClient? homeApi;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -78,9 +81,10 @@ class _AppShellState extends State<AppShell> {
         onJobs: () => _selectTab(1),
         onProfile: _openProfile,
         onCreatePost: () => _selectTab(2),
+        homeApi: widget.homeApi,
       ),
       const JobsScreen(),
-      const PostsScreen(),
+      PostsScreen(postsApi: widget.homeApi),
       const MessagesScreen(),
       WalletScreen(
         onReceive: _openReceive,

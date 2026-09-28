@@ -5,18 +5,21 @@ import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.onJobs,
     required this.onProfile,
     required this.onCreatePost,
+    this.homeApi,
     super.key,
   });
 
   final VoidCallback onJobs;
   final VoidCallback onProfile;
   final VoidCallback onCreatePost;
+  final NovaApiClient? homeApi;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -24,6 +27,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _balanceVisible = false;
+  NovaHomeSnapshot? _snapshot;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHome();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.homeApi != widget.homeApi) _loadHome();
+  }
+
+  Future<void> _loadHome() async {
+    final api = widget.homeApi;
+    if (api == null) return;
+    try {
+      final snapshot = await api.home();
+      if (mounted) setState(() => _snapshot = snapshot);
+    } on NovaApiException {
+      // Keep the demo fixture visible while an offline session reconnects.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,26 +60,36 @@ class _HomeScreenState extends State<HomeScreen> {
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
-      child: SingleChildScrollView(
-        key: const PageStorageKey('home-scroll'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _HomeHero(
-              onNotifications: () => _showNotifications(context),
-              onProfile: widget.onProfile,
-              balanceVisible: _balanceVisible,
-              onToggleBalance: () {
-                setState(() => _balanceVisible = !_balanceVisible);
-              },
-            ),
-            _HomeDashboard(onOpenCommunity: widget.onCreatePost),
-            const SizedBox(height: 8),
-            const NivexEducationSection(),
-            SizedBox(
-              height: 80.0 + MediaQuery.paddingOf(context).bottom + 24.0,
-            ),
-          ],
+      child: RefreshIndicator(
+        onRefresh: _loadHome,
+        child: SingleChildScrollView(
+          key: const PageStorageKey('home-scroll'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _HomeHero(
+                onNotifications: () => _showNotifications(context),
+                onProfile: widget.onProfile,
+                balanceVisible: _balanceVisible,
+                onToggleBalance: () {
+                  setState(() => _balanceVisible = !_balanceVisible);
+                },
+                profileName: _snapshot?.profile.displayName ?? 'Minh Anh',
+                unreadNotifications: _snapshot?.unreadNotificationCount ?? 1,
+                incomeLast7DaysMinor: _snapshot?.finalizedIncomeLast7DaysMinor,
+              ),
+              _HomeDashboard(
+                onOpenCommunity: widget.onCreatePost,
+                snapshot: _snapshot,
+              ),
+              const SizedBox(height: 8),
+              const NivexEducationSection(),
+              SizedBox(
+                height: 80.0 + MediaQuery.paddingOf(context).bottom + 24.0,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -69,9 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeDashboard extends StatelessWidget {
-  const _HomeDashboard({required this.onOpenCommunity});
+  const _HomeDashboard({required this.onOpenCommunity, required this.snapshot});
 
   final VoidCallback onOpenCommunity;
+  final NovaHomeSnapshot? snapshot;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +145,7 @@ class _HomeDashboard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Text(
-                        'TB',
+                        _initials(snapshot?.communityHighlight?.authorName ?? 'Trần Bảo Long'),
                         style: TextStyle(
                           color: theme.primary,
                           fontWeight: FontWeight.w800,
@@ -129,7 +167,7 @@ class _HomeDashboard extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            '“Clarity beats cleverness. Spec rõ ràng giúp cả team tiết kiệm hàng tuần làm lại.”',
+                            _highlightContent(snapshot),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -140,7 +178,7 @@ class _HomeDashboard extends StatelessWidget {
                           ),
                           const SizedBox(height: 7),
                           Text(
-                            'Trần Bảo Long, 41 lượt tương tác',
+                            _highlightMeta(snapshot),
                             style: TextStyle(
                               color: theme.textSecondary,
                               fontSize: 12,
@@ -167,9 +205,9 @@ class _HomeDashboard extends StatelessWidget {
                 child: _DashboardMetric(
                   icon: Icons.workspace_premium_outlined,
                   iconColor: theme.secondary,
-                  title: 'Đồng hành cùng Nova',
-                  value: '6 tháng',
-                  detail: '3 dự án đã hoàn thành',
+                  title: 'Hồ sơ đang xử lý',
+                  value: '${snapshot?.activeApplicationCount ?? 2}',
+                  detail: 'Cơ hội đang được theo dõi',
                 ),
               ),
               const SizedBox(width: 10),
@@ -177,16 +215,43 @@ class _HomeDashboard extends StatelessWidget {
                 child: _DashboardMetric(
                   icon: Icons.local_fire_department_outlined,
                   iconColor: theme.warning,
-                  title: 'Chuỗi phản hồi',
-                  value: '12 ngày',
-                  detail: 'Đúng hẹn liên tục',
+                  title: 'Dự án đã đạt',
+                  value: '${snapshot?.completedProjectCount ?? 3}',
+                  detail: 'Cơ hội đã hoàn thành',
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          const _ResponseStreakCard(),
         ],
       ),
     );
+  }
+
+  String _highlightContent(NovaHomeSnapshot? snapshot) {
+    final highlight = snapshot?.communityHighlight;
+    if (highlight != null) return '“${highlight.content}”';
+    if (snapshot != null) return 'Cộng đồng đang chờ bài chia sẻ đầu tiên của bạn.';
+    return '“Clarity beats cleverness. Spec rõ ràng giúp cả team tiết kiệm hàng tuần làm lại.”';
+  }
+
+  String _highlightMeta(NovaHomeSnapshot? snapshot) {
+    final highlight = snapshot?.communityHighlight;
+    if (highlight == null) {
+      return snapshot == null ? 'Trần Bảo Long, 41 lượt tương tác' : 'Hãy bắt đầu một cuộc trao đổi';
+    }
+    return '${highlight.authorName}, ${highlight.reactionCount} lượt tương tác';
+  }
+
+  String _initials(String name) {
+    return name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0])
+        .join()
+        .toUpperCase();
   }
 }
 
@@ -250,18 +315,191 @@ class _DashboardMetric extends StatelessWidget {
   }
 }
 
+class _ResponseStreakCard extends StatefulWidget {
+  const _ResponseStreakCard();
+
+  @override
+  State<_ResponseStreakCard> createState() => _ResponseStreakCardState();
+}
+
+class _ResponseStreakCardState extends State<_ResponseStreakCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 760),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _celebrate() {
+    HapticFeedback.lightImpact();
+    _controller.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    return NivexCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: _celebrate,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: 82,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 13, 74, 13),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: theme.warningSoft,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.local_fire_department_rounded,
+                          color: theme.warning,
+                          size: 25,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Chuỗi phản hồi đúng hạn',
+                              style: TextStyle(
+                                color: theme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '12 ngày liên tiếp',
+                              style: TextStyle(
+                                color: theme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 15,
+                top: 12,
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, child) {
+                      final bounce = Curves.elasticOut.transform(
+                        _controller.value.clamp(0, 0.72) / 0.72,
+                      );
+                      return SizedBox(
+                        width: 50,
+                        height: 56,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            _BurstFire(
+                              progress: bounce,
+                              offset: const Offset(-16, -11),
+                              size: 17,
+                              color: theme.warning.withValues(alpha: 0.82),
+                            ),
+                            _BurstFire(
+                              progress: bounce,
+                              offset: const Offset(18, -5),
+                              size: 15,
+                              color: theme.warning.withValues(alpha: 0.74),
+                            ),
+                            Center(
+                              child: Transform.scale(
+                                scale: 1 + (0.16 * bounce),
+                                child: Icon(
+                                  Icons.local_fire_department_rounded,
+                                  color: theme.warning,
+                                  size: 38,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BurstFire extends StatelessWidget {
+  const _BurstFire({
+    required this.progress,
+    required this.offset,
+    required this.size,
+    required this.color,
+  });
+
+  final double progress;
+  final Offset offset;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      right: 16 - (offset.dx * progress),
+      top: 18 - (offset.dy * progress),
+      child: Opacity(
+        opacity: progress == 0 ? 0 : (1 - (progress * 0.42)).clamp(0, 1),
+        child: Transform.scale(
+          scale: 0.45 + (progress * 0.75),
+          child: Icon(Icons.local_fire_department_rounded, color: color, size: size),
+        ),
+      ),
+    );
+  }
+}
+
 class _HomeHero extends StatelessWidget {
   const _HomeHero({
     required this.onNotifications,
     required this.onProfile,
     required this.balanceVisible,
     required this.onToggleBalance,
+    required this.profileName,
+    required this.unreadNotifications,
+    required this.incomeLast7DaysMinor,
   });
 
   final VoidCallback onNotifications;
   final VoidCallback onProfile;
   final bool balanceVisible;
   final VoidCallback onToggleBalance;
+  final String profileName;
+  final int unreadNotifications;
+  final BigInt? incomeLast7DaysMinor;
 
   @override
   Widget build(BuildContext context) {
@@ -300,7 +538,10 @@ class _HomeHero extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const NivexLogo(isLight: true, height: 26),
-                      _NotificationBell(onTap: onNotifications),
+                      _NotificationBell(
+                        onTap: onNotifications,
+                        unreadCount: unreadNotifications,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -322,16 +563,16 @@ class _HomeHero extends StatelessWidget {
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
+                              children: [
+                                const Icon(
                                   Icons.account_circle_outlined,
                                   color: Colors.white,
                                   size: 28,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
-                                  'Minh Anh',
-                                  style: TextStyle(
+                                  profileName,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
@@ -411,6 +652,7 @@ class _HomeHero extends StatelessWidget {
                   _HeroIncomeSnapshot(
                     isBalanceVisible: balanceVisible,
                     trendColor: theme.secondary,
+                    incomeMinor: incomeLast7DaysMinor,
                     backgroundColor: theme.isDark
                         ? theme.surface.withValues(alpha: 0.88)
                         : const Color(0xC0121C2E),
@@ -430,11 +672,13 @@ class _HeroIncomeSnapshot extends StatelessWidget {
     required this.isBalanceVisible,
     required this.trendColor,
     required this.backgroundColor,
+    required this.incomeMinor,
   });
 
   final bool isBalanceVisible;
   final Color trendColor;
   final Color backgroundColor;
+  final BigInt? incomeMinor;
 
   @override
   Widget build(BuildContext context) {
@@ -461,7 +705,11 @@ class _HeroIncomeSnapshot extends StatelessWidget {
           Icon(Icons.trending_up_rounded, color: trendColor, size: 20),
           const SizedBox(width: 5),
           Text(
-            isBalanceVisible ? '+15%' : '•••',
+            isBalanceVisible
+                ? incomeMinor == null
+                    ? '+15%'
+                    : '+${formatUsdc(incomeMinor!)} USDC'
+                : '•••',
             style: TextStyle(
               color: trendColor,
               fontSize: 16,
@@ -475,9 +723,10 @@ class _HeroIncomeSnapshot extends StatelessWidget {
 }
 
 class _NotificationBell extends StatelessWidget {
-  const _NotificationBell({required this.onTap});
+  const _NotificationBell({required this.onTap, required this.unreadCount});
 
   final VoidCallback onTap;
+  final int unreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -495,18 +744,28 @@ class _NotificationBell extends StatelessWidget {
               color: Colors.white,
               size: 26,
             ),
-            Positioned(
-              top: 8,
-              right: 10,
-              child: Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
-                  shape: BoxShape.circle,
+            if (unreadCount > 0)
+              Positioned(
+                top: 6,
+                right: 7,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    unreadCount > 9 ? '9+' : '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

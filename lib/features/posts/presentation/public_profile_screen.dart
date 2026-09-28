@@ -90,7 +90,9 @@ class PublicProfileData {
     required this.bio,
     required this.tags,
     required this.stats,
+    this.userId,
     this.avatarPath,
+    this.avatarUrl,
     this.coverPath,
     this.status = 'Đang hoạt động',
     this.isVerified = false,
@@ -106,6 +108,7 @@ class PublicProfileData {
   });
 
   final PublicProfileKind kind;
+  final String? userId;
   final String displayName;
   final String handle;
   final String headline;
@@ -114,6 +117,7 @@ class PublicProfileData {
   final List<String> tags;
   final List<({String label, String value})> stats;
   final String? avatarPath;
+  final String? avatarUrl;
   final String? coverPath;
   final String status;
   final bool isVerified;
@@ -414,10 +418,8 @@ class _ProfileHero extends StatelessWidget {
                         backgroundColor: isBusiness
                             ? theme.warning.withValues(alpha: 0.14)
                             : theme.primary.withValues(alpha: 0.12),
-                        foregroundImage: profile.avatarPath != null
-                            ? FileImage(File(profile.avatarPath!))
-                            : null,
-                        child: profile.avatarPath == null
+                        foregroundImage: _avatarImage(profile),
+                        child: _avatarImage(profile) == null
                             ? Icon(
                                 isBusiness
                                     ? Icons.business_outlined
@@ -728,10 +730,8 @@ class _ProfilePostCard extends StatelessWidget {
                   backgroundColor: isBusiness
                       ? theme.warning.withValues(alpha: 0.14)
                       : theme.primary.withValues(alpha: 0.12),
-                  foregroundImage: profile.avatarPath != null
-                      ? FileImage(File(profile.avatarPath!))
-                      : null,
-                  child: profile.avatarPath == null
+                  foregroundImage: _avatarImage(profile),
+                  child: _avatarImage(profile) == null
                       ? Icon(
                           isBusiness
                               ? Icons.business_outlined
@@ -856,6 +856,14 @@ class _ProfilePostCard extends StatelessWidget {
       ),
     );
   }
+}
+
+ImageProvider<Object>? _avatarImage(PublicProfileData profile) {
+  final path = profile.avatarPath;
+  if (path != null && File(path).existsSync()) return FileImage(File(path));
+  final url = profile.avatarUrl;
+  if (url != null && url.isNotEmpty) return NetworkImage(url);
+  return null;
 }
 
 // ---------------------------------------------------------------------------

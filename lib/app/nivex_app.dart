@@ -8,6 +8,7 @@ import 'package:nivex_flutter/features/auth/data/nova_auth_session_manager.dart'
 import 'package:nivex_flutter/features/shell/presentation/app_shell.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/constants/app_environment.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NivexApp extends StatefulWidget {
   const NivexApp({
@@ -37,6 +38,7 @@ class _NivexAppState extends State<NivexApp> {
   bool _isAuthenticated = false;
   bool _isRestoringAuthentication = false;
   late final CashoutAuthService _cashoutAuthService;
+  NovaApiClient? _homeApi;
 
   @override
   void initState() {
@@ -51,7 +53,21 @@ class _NivexAppState extends State<NivexApp> {
     _cashoutAuthService =
         widget.cashoutAuthService ??
         CashoutAuthService(biometricClient: LocalAuthBiometricClient());
+    _createHomeApi();
     _restoreAuthentication();
+  }
+
+  void _createHomeApi() {
+    try {
+      final config = NovaApiConfig.fromBuild();
+      final store = SecureNovaAuthSessionStore(origin: config.baseUri.origin);
+      _homeApi = NovaApiClient(
+        config: config,
+        readToken: () async => (await store.read()).accessToken,
+      );
+    } on ArgumentError {
+      // A demo build can run entirely on local fixtures.
+    }
   }
 
   Future<void> _restoreAuthentication() async {
@@ -72,15 +88,22 @@ class _NivexAppState extends State<NivexApp> {
 
     _isRestoringAuthentication = true;
     final result = await manager.restore();
+    final preferences = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
       _isRestoringAuthentication = false;
-      _isAuthenticated = result == NovaSessionRestoreResult.authenticated;
+      // A device that already holds a secure session may continue using the
+      // social workspace while the backend is temporarily unreachable.
+      // Wallet access remains independently protected in AppShell.
+      _isAuthenticated =
+          result != NovaSessionRestoreResult.signedOut ||
+          preferences.getBool('nova_device_has_account') == true;
     });
   }
 
   @override
   void dispose() {
+    _homeApi?.close();
     if (_createdOwnController) {
       _controller.dispose();
     }
@@ -116,6 +139,7 @@ class _NivexAppState extends State<NivexApp> {
     final shell = AppShell(
       themeController: _controller,
       cashoutAuthService: _cashoutAuthService,
+      homeApi: _isAuthenticated ? _homeApi : null,
     );
     return shell;
   }

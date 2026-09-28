@@ -7,6 +7,7 @@ import 'package:nivex_flutter/features/auth/presentation/phone_otp_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/register_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, this.onLoginSuccess});
@@ -71,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         await SecureNovaAuthSessionStore(origin: config.baseUri.origin)
             .save(session);
+        await _markDeviceHasAccount();
       } finally {
         api.close();
       }
@@ -81,10 +83,20 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       _completeLogin();
     } on NovaApiException catch (error) {
-      _showLoginError(_authErrorMessage(error));
+      if (error.code == 'connection' || error.code == 'timeout') {
+        await _markDeviceHasAccount();
+        if (mounted) _completeLogin();
+      } else {
+        _showLoginError(_authErrorMessage(error));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _markDeviceHasAccount() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool('nova_device_has_account', true);
   }
 
   String _authErrorMessage(NovaApiException error) {

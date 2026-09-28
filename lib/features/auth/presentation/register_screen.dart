@@ -5,6 +5,7 @@ import 'package:nivex_flutter/features/auth/data/nova_auth_api.dart';
 import 'package:nivex_flutter/features/auth/data/nova_auth_session_manager.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
@@ -100,6 +101,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         await SecureNovaAuthSessionStore(origin: config.baseUri.origin)
             .save(session);
+        await (await SharedPreferences.getInstance()).setBool(
+          'nova_device_has_account',
+          true,
+        );
       } finally {
         api.close();
       }
