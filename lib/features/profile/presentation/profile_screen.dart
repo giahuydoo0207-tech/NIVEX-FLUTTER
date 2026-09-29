@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,10 +22,12 @@ import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({this.themeController, super.key});
+  const ProfileScreen({this.themeController, this.onLogout, super.key});
+
+  /// Revokes the Nova session; null when the app runs without a backend.
+  final Future<void> Function()? onLogout;
 
   final ThemeController? themeController;
-  static const String nivexId = DemoData.nivexId;
 
   @override
   Widget build(BuildContext context) {
@@ -62,25 +64,15 @@ class ProfileScreen extends StatelessWidget {
                               backgroundColor: theme.primary.withValues(
                                 alpha: 0.12,
                               ),
-                              foregroundImage:
-                                  profileController.profile.avatarPath != null
-                                  ? FileImage(
-                                      File(
-                                        profileController.profile.avatarPath!,
-                                      ),
-                                    )
-                                  : null,
-                              child:
-                                  profileController.profile.avatarPath == null
-                                  ? Text(
-                                      'MA',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: theme.primary,
-                                      ),
-                                    )
-                                  : null,
+                              foregroundImage: profileController.avatarImage,
+                              child: Text(
+                                profileController.initials,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: theme.primary,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -94,7 +86,11 @@ class ProfileScreen extends StatelessWidget {
                                     runSpacing: 4,
                                     children: [
                                       Text(
-                                        profileController.profile.displayName,
+                                        profileController.displayName.isEmpty
+                                            ? (profileController.remoteFailed
+                                                  ? 'Không tải được hồ sơ'
+                                                  : 'Đang tải hồ sơ…')
+                                            : profileController.displayName,
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
@@ -106,16 +102,35 @@ class ProfileScreen extends StatelessWidget {
                                     ],
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    'minh.anh@nova.demo',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      color: theme.textSecondary,
-                                      letterSpacing: 0,
+                                  if (profileController.remoteFailed &&
+                                      profileController.email == null)
+                                    InkWell(
+                                      key: const Key('profile-retry'),
+                                      onTap: profileController.isLoadingRemote
+                                          ? null
+                                          : profileController.refreshRemote,
+                                      child: Text(
+                                        'Chạm để thử lại',
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: theme.primary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      profileController.email ??
+                                          profileController.phone ??
+                                          'Tài khoản Nova',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: theme.textSecondary,
+                                        letterSpacing: 0,
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -141,7 +156,7 @@ class ProfileScreen extends StatelessWidget {
                                   ),
                                   Flexible(
                                     child: Text(
-                                      nivexId,
+                                      profileController.novaId ?? '—',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
@@ -162,8 +177,10 @@ class ProfileScreen extends StatelessWidget {
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: () {
+                                    final novaId = profileController.novaId;
+                                    if (novaId == null) return;
                                     Clipboard.setData(
-                                      const ClipboardData(text: nivexId),
+                                      ClipboardData(text: novaId),
                                     );
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
@@ -358,7 +375,9 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     ProfileRow(
                       title: 'Đăng xuất',
-                      subtitle: 'Kết thúc phiên đăng nhập demo',
+                      subtitle: onLogout == null
+                          ? 'Kết thúc phiên đăng nhập demo'
+                          : 'Thu hồi phiên đăng nhập trên thiết bị này',
                       icon: Icons.logout_rounded,
                       isDanger: true,
                       showChevron: false,
@@ -429,6 +448,11 @@ class ProfileScreen extends StatelessWidget {
             ),
             onPressed: () {
               Navigator.of(dialogContext).pop();
+              final logout = onLogout;
+              if (logout != null) {
+                unawaited(logout());
+                return;
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Đã đăng xuất phiên demo.'),

@@ -83,12 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       _completeLogin();
     } on NovaApiException catch (error) {
-      if (error.code == 'connection' || error.code == 'timeout') {
-        await _markDeviceHasAccount();
-        if (mounted) _completeLogin();
-      } else {
-        _showLoginError(_authErrorMessage(error));
-      }
+      // A configured backend must verify the password; an unreachable server
+      // is reported instead of opening the app without a session.
+      _showLoginError(_authErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

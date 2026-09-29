@@ -265,7 +265,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PersonalInfoScreen), findsOneWidget);
     expect(find.text('Hồ sơ người dùng demo'), findsOneWidget);
-    expect(find.text('Tiếng Việt'), findsOneWidget);
+    expect(find.byKey(const Key('personal-info-name')), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 

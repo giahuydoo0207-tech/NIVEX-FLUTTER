@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:nivex_flutter/features/jobs/data/application_controller.dart';
+import 'package:nivex_flutter/features/jobs/data/demo_job_opportunities.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_opportunity.dart';
 
-class DemoApplicationController extends ChangeNotifier {
+/// Offline fixtures used when the app runs without a Nova backend session.
+class DemoApplicationController extends ApplicationController {
   DemoApplicationController._();
 
   static final instance = DemoApplicationController._();
@@ -22,7 +25,7 @@ class DemoApplicationController extends ChangeNotifier {
       coverNote: 'Mình muốn đóng góp vào trải nghiệm làm việc và chi trả rõ ràng hơn cho đội ngũ remote.',
       portfolioLabel: 'github.com/minhanh-dev',
       availability: 'Có thể bắt đầu ngay',
-      status: JobApplicationStatus.approved,
+      status: JobApplicationStatus.accepted,
       submittedAt: DateTime(2026, 9, 10, 11, 8),
       messages: [
         JobApplicationMessage(
@@ -45,11 +48,21 @@ class DemoApplicationController extends ChangeNotifier {
   final Set<String> _typingApplicationIds = {};
   final Map<String, List<Timer>> _pendingTimers = {};
 
+  @override
+  List<JobOpportunity> get jobs => DemoJobOpportunities.items;
+
+  @override
   List<JobApplication> get applications =>
       List.unmodifiable(_applications.values);
 
+  @override
+  List<JobApplication> get conversations => applications.toList()
+    ..sort((a, b) => b.messages.last.sentAt.compareTo(a.messages.last.sentAt));
+
+  @override
   JobApplication? forJob(String jobId) => _applications[jobId];
 
+  @override
   JobApplication? byId(String applicationId) {
     for (final application in _applications.values) {
       if (application.id == applicationId) return application;
@@ -57,10 +70,18 @@ class DemoApplicationController extends ChangeNotifier {
     return null;
   }
 
+  @override
   bool isBusinessTyping(String applicationId) =>
       _typingApplicationIds.contains(applicationId);
 
-  JobApplication apply(JobOpportunity job) {
+  @override
+  Future<JobApplication?> apply(JobOpportunity job) async {
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+    return applyNow(job);
+  }
+
+  @visibleForTesting
+  JobApplication applyNow(JobOpportunity job) {
     final existing = _applications[job.id];
     if (existing != null) return existing;
 
@@ -102,14 +123,15 @@ class DemoApplicationController extends ChangeNotifier {
     return application;
   }
 
-  void sendTalentMessage(
+  @override
+  Future<bool> sendTalentMessage(
     String applicationId,
     String body, {
     String? replyToId,
-  }) {
+  }) async {
     final application = byId(applicationId);
     final normalized = body.trim();
-    if (application == null || normalized.isEmpty) return;
+    if (application == null || normalized.isEmpty) return false;
     final now = DateTime.now();
     _applications[application.jobId] = application.copyWith(
       messages: [
@@ -169,8 +191,10 @@ class DemoApplicationController extends ChangeNotifier {
       );
       notifyListeners();
     });
+    return true;
   }
 
+  @override
   void cancelPendingActivity(String applicationId) {
     for (final timer in _pendingTimers.remove(applicationId) ?? <Timer>[]) {
       timer.cancel();

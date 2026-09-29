@@ -6,9 +6,11 @@ import 'package:nivex_flutter/features/cashout/presentation/cashout_screen.dart'
 import 'package:nivex_flutter/features/cashout/presentation/quote_screen.dart';
 import 'package:nivex_flutter/features/help/presentation/help_screen.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
+import 'package:nivex_flutter/features/jobs/data/remote_application_controller.dart';
 import 'package:nivex_flutter/features/jobs/presentation/jobs_screen.dart';
 import 'package:nivex_flutter/features/messages/presentation/messages_screen.dart';
 import 'package:nivex_flutter/features/posts/presentation/posts_screen.dart';
+import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
 import 'package:nivex_flutter/features/profile/presentation/profile_screen.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
 import 'package:nivex_flutter/features/session/presentation/session_unlock_sheet.dart';
@@ -23,6 +25,7 @@ class AppShell extends StatefulWidget {
     this.themeController,
     this.cashoutAuthService,
     this.homeApi,
+    this.onLogout,
     super.key,
   });
 
@@ -30,6 +33,9 @@ class AppShell extends StatefulWidget {
   final ThemeController? themeController;
   final CashoutAuthService? cashoutAuthService;
   final NovaApiClient? homeApi;
+
+  /// Revokes the server session and returns to login; null in demo builds.
+  final Future<void> Function()? onLogout;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -50,11 +56,7 @@ class _AppShellState extends State<AppShell> {
       label: 'Cộng đồng',
       isEmphasized: true,
     ),
-    _NavTabConfig(
-      icon: Icons.forum_outlined,
-      label: 'Tin nhắn',
-      badgeCount: 1,
-    ),
+    _NavTabConfig(icon: Icons.forum_outlined, label: 'Tin nhắn', badgeCount: 1),
     _NavTabConfig(icon: Icons.account_balance_wallet_outlined, label: 'Ví'),
   ];
 
@@ -66,6 +68,13 @@ class _AppShellState extends State<AppShell> {
         : AppTabController.index.value;
     AppTabController.index.value = _selectedIndex;
     AppTabController.index.addListener(_handleExternalTabChange);
+    DemoFreelancerProfileController.instance.connect(widget.homeApi);
+  }
+
+  @override
+  void didUpdateWidget(AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    DemoFreelancerProfileController.instance.connect(widget.homeApi);
   }
 
   @override
@@ -83,10 +92,11 @@ class _AppShellState extends State<AppShell> {
         onCreatePost: () => _selectTab(2),
         homeApi: widget.homeApi,
       ),
-      const JobsScreen(),
+      JobsScreen(api: widget.homeApi),
       PostsScreen(postsApi: widget.homeApi),
-      const MessagesScreen(),
+      MessagesScreen(api: widget.homeApi),
       WalletScreen(
+        api: widget.homeApi,
         onReceive: _openReceive,
         onCashout: _openCashout,
         onQuote: _openQuickQuote,
@@ -102,24 +112,57 @@ class _AppShellState extends State<AppShell> {
       },
       child: Scaffold(
         body: IndexedStack(index: _selectedIndex, children: pages),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: _selectTab,
-          destinations: [
-            for (var index = 0; index < _tabs.length; index++)
-              NavigationDestination(
-                icon: _BottomNavIcon(
-                  key: ValueKey('bottom-nav-${_tabs[index].label}'),
-                  tab: _tabs[index],
-                  selected: _selectedIndex == index,
-                ),
-                label: _tabs[index].label,
-              ),
-          ],
-        ),
+        bottomNavigationBar: switch (_liveApplications) {
+          null => _navigationBar(_tabs),
+          final live => ListenableBuilder(
+            listenable: live,
+            builder: (context, _) => _navigationBar(_liveTabs()),
+          ),
+        },
       ),
     );
   }
+
+  RemoteApplicationController? get _liveApplications {
+    final api = widget.homeApi;
+    return api == null ? null : RemoteApplicationController.of(api);
+  }
+
+  /// Badge counts from the backend instead of the demo numbers.
+  List<_NavTabConfig> _liveTabs() {
+    final applications = _liveApplications!;
+    final appliedJobs = {
+      for (final application in applications.applications) application.jobId,
+    };
+    final newJobs = applications.jobs
+        .where((job) => job.isNew && !appliedJobs.contains(job.id))
+        .length;
+    final unread = applications.unreadCount;
+    return [
+      for (final tab in _tabs)
+        switch (tab.label) {
+          'Công việc' => tab.withBadge(newJobs),
+          'Tin nhắn' => tab.withBadge(unread),
+          _ => tab,
+        },
+    ];
+  }
+
+  Widget _navigationBar(List<_NavTabConfig> tabs) => NavigationBar(
+    selectedIndex: _selectedIndex,
+    onDestinationSelected: _selectTab,
+    destinations: [
+      for (var index = 0; index < tabs.length; index++)
+        NavigationDestination(
+          icon: _BottomNavIcon(
+            key: ValueKey('bottom-nav-${tabs[index].label}'),
+            tab: tabs[index],
+            selected: _selectedIndex == index,
+          ),
+          label: tabs[index].label,
+        ),
+    ],
+  );
 
   void _selectTab(int index) {
     if (index == 4 && _selectedIndex != 4) {
@@ -189,7 +232,10 @@ class _AppShellState extends State<AppShell> {
   Future<void> _openProfile() {
     return Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => ProfileScreen(themeController: widget.themeController),
+        builder: (_) => ProfileScreen(
+          themeController: widget.themeController,
+          onLogout: widget.onLogout,
+        ),
       ),
     );
   }
@@ -213,14 +259,17 @@ class _NavTabConfig {
   final String label;
   final int? badgeCount;
   final bool isEmphasized;
+
+  _NavTabConfig withBadge(int count) => _NavTabConfig(
+    icon: icon,
+    label: label,
+    badgeCount: count > 0 ? count : null,
+    isEmphasized: isEmphasized,
+  );
 }
 
 class _BottomNavIcon extends StatelessWidget {
-  const _BottomNavIcon({
-    required this.tab,
-    required this.selected,
-    super.key,
-  });
+  const _BottomNavIcon({required this.tab, required this.selected, super.key});
 
   final _NavTabConfig tab;
   final bool selected;

@@ -4,4 +4,6 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Profile APKs are used for LAN testing against http://<PC-IP>:8080. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nivex_flutter/features/jobs/data/remote_application_controller.dart';
+import 'package:nivex_flutter/features/jobs/presentation/application_thread_screen.dart';
+import 'package:nivex_flutter/features/shell/domain/app_tab_controller.dart';
+import 'package:nivex_flutter/features/wallet/data/wallet_summary_controller.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
+import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
@@ -29,21 +36,48 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _balanceVisible = false;
   NovaHomeSnapshot? _snapshot;
 
+  WalletSummaryController? _wallet;
+
   @override
   void initState() {
     super.initState();
+    _bindWallet();
     _loadHome();
   }
 
   @override
   void didUpdateWidget(covariant HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.homeApi != widget.homeApi) _loadHome();
+    if (oldWidget.homeApi != widget.homeApi) {
+      _bindWallet();
+      _loadHome();
+    }
+  }
+
+  @override
+  void dispose() {
+    _wallet?.removeListener(_onWalletChanged);
+    super.dispose();
+  }
+
+  void _bindWallet() {
+    _wallet?.removeListener(_onWalletChanged);
+    final api = widget.homeApi;
+    if (api == null) {
+      _wallet = null;
+      return;
+    }
+    _wallet = WalletSummaryController.of(api)..addListener(_onWalletChanged);
+  }
+
+  void _onWalletChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadHome() async {
     final api = widget.homeApi;
     if (api == null) return;
+    unawaited(_wallet?.refresh());
     try {
       final snapshot = await api.home();
       if (mounted) setState(() => _snapshot = snapshot);
@@ -75,13 +109,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 onToggleBalance: () {
                   setState(() => _balanceVisible = !_balanceVisible);
                 },
-                profileName: _snapshot?.profile.displayName ?? 'Minh Anh',
-                unreadNotifications: _snapshot?.unreadNotificationCount ?? 1,
+                profileName:
+                    _snapshot?.profile.displayName ??
+                    DemoFreelancerProfileController.instance.displayName,
+                unreadNotifications:
+                    _snapshot?.unreadNotificationCount ??
+                    (widget.homeApi == null ? 1 : 0),
                 incomeLast7DaysMinor: _snapshot?.finalizedIncomeLast7DaysMinor,
+                isLive: widget.homeApi != null,
+                wallet: _wallet?.summary,
+                walletFailed: _wallet?.failed ?? false,
               ),
               _HomeDashboard(
                 onOpenCommunity: widget.onCreatePost,
                 snapshot: _snapshot,
+                isLive: widget.homeApi != null,
               ),
               const SizedBox(height: 8),
               const NivexEducationSection(),
@@ -95,21 +137,70 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showNotifications(BuildContext context) {
-    showModalBottomSheet<void>(
+  Future<void> _showNotifications(BuildContext context) async {
+    final api = widget.homeApi;
+    if (api == null) {
+      await showModalBottomSheet<void>(
+        context: context,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (context) => _NotificationsSheet(onJobs: widget.onJobs),
+      );
+      return;
+    }
+    final opened = await showModalBottomSheet<NovaNotification>(
       context: context,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (context) => _NotificationsSheet(onJobs: widget.onJobs),
+      isScrollControlled: true,
+      builder: (context) => _LiveNotificationsSheet(api: api),
     );
+    unawaited(_loadHome());
+    if (opened == null || !mounted) return;
+    await _openNotificationTarget(api, opened);
+  }
+
+  Future<void> _openNotificationTarget(
+    NovaApiClient api,
+    NovaNotification notification,
+  ) async {
+    final applicationId = notification.applicationId;
+    if (applicationId != null) {
+      final controller = RemoteApplicationController.of(api);
+      await controller.refresh();
+      if (!mounted) return;
+      if (controller.byId(applicationId) != null) {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => ApplicationThreadScreen(
+              applicationId: applicationId,
+              controller: controller,
+            ),
+          ),
+        );
+        return;
+      }
+      widget.onJobs();
+      return;
+    }
+    if (notification.threadId != null) {
+      AppTabController.index.value = 3;
+    }
   }
 }
 
 class _HomeDashboard extends StatelessWidget {
-  const _HomeDashboard({required this.onOpenCommunity, required this.snapshot});
+  const _HomeDashboard({
+    required this.onOpenCommunity,
+    required this.snapshot,
+    required this.isLive,
+  });
 
   final VoidCallback onOpenCommunity;
   final NovaHomeSnapshot? snapshot;
+
+  /// With a backend, placeholders are neutral instead of demo numbers.
+  final bool isLive;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +236,10 @@ class _HomeDashboard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Text(
-                        _initials(snapshot?.communityHighlight?.authorName ?? 'Trần Bảo Long'),
+                        _initials(
+                          snapshot?.communityHighlight?.authorName ??
+                              (isLive ? 'Nova' : 'Trần Bảo Long'),
+                        ),
                         style: TextStyle(
                           color: theme.primary,
                           fontWeight: FontWeight.w800,
@@ -206,7 +300,9 @@ class _HomeDashboard extends StatelessWidget {
                   icon: Icons.workspace_premium_outlined,
                   iconColor: theme.secondary,
                   title: 'Hồ sơ đang xử lý',
-                  value: '${snapshot?.activeApplicationCount ?? 2}',
+                  value: snapshot == null
+                      ? (isLive ? '—' : '2')
+                      : '${snapshot!.activeApplicationCount}',
                   detail: 'Cơ hội đang được theo dõi',
                 ),
               ),
@@ -216,14 +312,19 @@ class _HomeDashboard extends StatelessWidget {
                   icon: Icons.local_fire_department_outlined,
                   iconColor: theme.warning,
                   title: 'Dự án đã đạt',
-                  value: '${snapshot?.completedProjectCount ?? 3}',
+                  value: snapshot == null
+                      ? (isLive ? '—' : '3')
+                      : '${snapshot!.completedProjectCount}',
                   detail: 'Cơ hội đã hoàn thành',
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          const _ResponseStreakCard(),
+          // The response streak is not tracked by the backend yet.
+          if (!isLive) ...[
+            const SizedBox(height: 10),
+            const _ResponseStreakCard(),
+          ],
         ],
       ),
     );
@@ -233,13 +334,15 @@ class _HomeDashboard extends StatelessWidget {
     final highlight = snapshot?.communityHighlight;
     if (highlight != null) return '“${highlight.content}”';
     if (snapshot != null) return 'Cộng đồng đang chờ bài chia sẻ đầu tiên của bạn.';
+    if (isLive) return 'Đang tải điểm nổi bật cộng đồng…';
     return '“Clarity beats cleverness. Spec rõ ràng giúp cả team tiết kiệm hàng tuần làm lại.”';
   }
 
   String _highlightMeta(NovaHomeSnapshot? snapshot) {
     final highlight = snapshot?.communityHighlight;
     if (highlight == null) {
-      return snapshot == null ? 'Trần Bảo Long, 41 lượt tương tác' : 'Hãy bắt đầu một cuộc trao đổi';
+      if (snapshot != null) return 'Hãy bắt đầu một cuộc trao đổi';
+      return isLive ? '' : 'Trần Bảo Long, 41 lượt tương tác';
     }
     return '${highlight.authorName}, ${highlight.reactionCount} lượt tương tác';
   }
@@ -491,6 +594,9 @@ class _HomeHero extends StatelessWidget {
     required this.profileName,
     required this.unreadNotifications,
     required this.incomeLast7DaysMinor,
+    required this.isLive,
+    required this.wallet,
+    required this.walletFailed,
   });
 
   final VoidCallback onNotifications;
@@ -500,6 +606,9 @@ class _HomeHero extends StatelessWidget {
   final String profileName;
   final int unreadNotifications;
   final BigInt? incomeLast7DaysMinor;
+  final bool isLive;
+  final NovaWalletSummary? wallet;
+  final bool walletFailed;
 
   @override
   Widget build(BuildContext context) {
@@ -548,7 +657,7 @@ class _HomeHero extends StatelessWidget {
                   // User Profile Row: Avatar + Name (Tappable with min 48dp target)
                   Semantics(
                     button: true,
-                    label: 'Hồ sơ người dùng Minh Anh',
+                    label: 'Hồ sơ người dùng $profileName',
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -617,7 +726,13 @@ class _HomeHero extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    balanceVisible ? '500.00 USDC' : '••••••••',
+                    !balanceVisible
+                        ? '••••••••'
+                        : !isLive
+                        ? '500.00 USDC'
+                        : wallet == null
+                        ? '—'
+                        : '${formatUsdc2(wallet!.availableBalanceMinor)} USDC',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 32,
@@ -628,7 +743,13 @@ class _HomeHero extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    balanceVisible ? '≈ 12.500.000 VND' : '••••••••',
+                    !balanceVisible
+                        ? '••••••••'
+                        : !isLive
+                        ? '≈ 12.500.000 VND'
+                        : wallet == null
+                        ? ''
+                        : 'Đã nhận qua ví demo: ${formatUsdc2(wallet!.paidViaDemoWalletMinor)} USDC',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -637,9 +758,15 @@ class _HomeHero extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Chưa đồng bộ được Devnet.',
-                    style: TextStyle(
+                  Text(
+                    !isLive
+                        ? 'Chưa đồng bộ được Devnet.'
+                        : wallet == null
+                        ? (walletFailed ? 'Chưa tải được ví.' : 'Đang tải ví…')
+                        : wallet!.isDemoWallet
+                        ? 'Chưa liên kết ví cá nhân · Devnet trả vào ví demo máy chủ.'
+                        : 'Ví cá nhân · Solana ${wallet!.network}',
+                    style: const TextStyle(
                       color: Colors.white60,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
@@ -652,7 +779,11 @@ class _HomeHero extends StatelessWidget {
                   _HeroIncomeSnapshot(
                     isBalanceVisible: balanceVisible,
                     trendColor: theme.secondary,
-                    incomeMinor: incomeLast7DaysMinor,
+                    // Home and Wallet read the same summary.
+                    incomeMinor: isLive
+                        ? wallet?.earnedLast7DaysMinor
+                        : incomeLast7DaysMinor,
+                    isLive: isLive,
                     backgroundColor: theme.isDark
                         ? theme.surface.withValues(alpha: 0.88)
                         : const Color(0xC0121C2E),
@@ -673,12 +804,14 @@ class _HeroIncomeSnapshot extends StatelessWidget {
     required this.trendColor,
     required this.backgroundColor,
     required this.incomeMinor,
+    required this.isLive,
   });
 
   final bool isBalanceVisible;
   final Color trendColor;
   final Color backgroundColor;
   final BigInt? incomeMinor;
+  final bool isLive;
 
   @override
   Widget build(BuildContext context) {
@@ -707,7 +840,7 @@ class _HeroIncomeSnapshot extends StatelessWidget {
           Text(
             isBalanceVisible
                 ? incomeMinor == null
-                    ? '+15%'
+                    ? (isLive ? '—' : '+15%')
                     : '+${formatUsdc(incomeMinor!)} USDC'
                 : '•••',
             style: TextStyle(
@@ -800,6 +933,192 @@ class _SolanaDevnetBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Notifications from the backend. Tapping one marks it read and pops the
+/// sheet with it so the caller can open its target.
+class _LiveNotificationsSheet extends StatefulWidget {
+  const _LiveNotificationsSheet({required this.api});
+
+  final NovaApiClient api;
+
+  @override
+  State<_LiveNotificationsSheet> createState() =>
+      _LiveNotificationsSheetState();
+}
+
+class _LiveNotificationsSheetState extends State<_LiveNotificationsSheet> {
+  List<NovaNotification>? _items;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _failed = false);
+    try {
+      final items = await widget.api.notifications();
+      if (mounted) setState(() => _items = items);
+    } on NovaApiException {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  Future<void> _open(NovaNotification notification) async {
+    if (notification.isUnread) {
+      try {
+        await widget.api.markNotificationRead(notification.id);
+      } on NovaApiException {
+        // Opening still works; the item stays unread until the next try.
+      }
+    }
+    if (mounted) Navigator.of(context).pop(notification);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final items = _items;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Thông báo',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: theme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_failed)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Không tải được thông báo.',
+                      style: TextStyle(color: theme.textSecondary),
+                    ),
+                  ),
+                  TextButton(onPressed: _load, child: const Text('Thử lại')),
+                ],
+              )
+            else if (items == null)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'Bạn chưa có thông báo nào.',
+                  style: TextStyle(color: theme.textSecondary),
+                ),
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  key: const Key('notification-list'),
+                  shrinkWrap: true,
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    final status = item.data['status'];
+                    final icon = switch (item.type) {
+                      'APPLICATION_STATUS' when status == 'accepted' =>
+                        Icons.check_circle_outline_rounded,
+                      'APPLICATION_STATUS' when status == 'rejected' =>
+                        Icons.cancel_outlined,
+                      'APPLICATION_STATUS' => Icons.work_outline_rounded,
+                      _ => Icons.chat_bubble_outline_rounded,
+                    };
+                    final color = status == 'accepted'
+                        ? theme.success
+                        : status == 'rejected'
+                        ? theme.danger
+                        : theme.primary;
+                    return Material(
+                      color: item.isUnread
+                          ? theme.primary.withValues(alpha: 0.08)
+                          : theme.surfaceSubtle,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: item.isUnread
+                              ? theme.primary.withValues(alpha: 0.45)
+                              : theme.border,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => _open(item),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(icon, color: color, size: 22),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.title,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: item.isUnread
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: theme.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      item.body,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: theme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (item.isUnread)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(top: 5),
+                                  decoration: BoxDecoration(
+                                    color: theme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

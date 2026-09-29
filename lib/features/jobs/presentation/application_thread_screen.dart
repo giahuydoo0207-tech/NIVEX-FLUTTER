@@ -1,13 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
+import 'package:nivex_flutter/features/jobs/data/application_controller.dart';
 import 'package:nivex_flutter/features/jobs/data/demo_application_controller.dart';
+import 'package:nivex_flutter/features/jobs/data/remote_application_controller.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
 
 class ApplicationThreadScreen extends StatefulWidget {
-  const ApplicationThreadScreen({required this.applicationId, super.key});
+  const ApplicationThreadScreen({
+    required this.applicationId,
+    this.controller,
+    super.key,
+  });
 
   final String applicationId;
+
+  /// Source of the conversation; defaults to the offline demo fixtures.
+  final ApplicationController? controller;
 
   @override
   State<ApplicationThreadScreen> createState() =>
@@ -17,7 +28,10 @@ class ApplicationThreadScreen extends StatefulWidget {
 class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
-  final _applications = DemoApplicationController.instance;
+  late final ApplicationController _applications =
+      widget.controller ?? DemoApplicationController.instance;
+  Timer? _poll;
+  Timer? _typingPoll;
   JobApplicationMessage? _replyingTo;
   JobApplication? _lastApplicationSnapshot;
   int _lastMessageCount = 0;
@@ -33,10 +47,40 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
     _wasTyping = _applications.isBusinessTyping(widget.applicationId);
     _applications.addListener(_refresh);
     WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToEnd());
+    if (_applications is RemoteApplicationController) {
+      // Opening the thread is what marks business messages as seen; new
+      // replies are fetched while the conversation stays open.
+      unawaited(_syncRemote());
+      _poll = Timer.periodic(
+        const Duration(seconds: 8),
+        (_) => unawaited(_syncRemote()),
+      );
+      // Short-lived typing state; there is no realtime channel to push it.
+      _typingPoll = Timer.periodic(
+        const Duration(milliseconds: 2500),
+        (_) => unawaited(_applications.pollTyping(widget.applicationId)),
+      );
+      _messageController.addListener(_onDraftChanged);
+    }
+  }
+
+  void _onDraftChanged() {
+    if (_messageController.text.trim().isNotEmpty) {
+      _applications.reportTyping(widget.applicationId);
+    }
+  }
+
+  Future<void> _syncRemote() async {
+    await _applications.refresh();
+    if (!mounted) return;
+    await _applications.markConversationRead(widget.applicationId);
   }
 
   @override
   void dispose() {
+    _poll?.cancel();
+    _typingPoll?.cancel();
+    _messageController.removeListener(_onDraftChanged);
     _applications.cancelPendingActivity(widget.applicationId);
     _applications.removeListener(_refresh);
     _messageController.dispose();
@@ -134,7 +178,13 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 180),
                     child: Text(
-                      isTyping ? 'đang nhập...' : 'đang hoạt động',
+                      isTyping
+                          ? 'đang nhập...'
+                          : application.threadStatus == 'PENDING'
+                          ? 'đang chờ chấp nhận tin nhắn'
+                          : _applications is RemoteApplicationController
+                          ? application.jobTitle
+                          : 'đang hoạt động',
                       key: ValueKey(isTyping),
                       style: TextStyle(
                         color: isTyping ? theme.primary : theme.success,
@@ -223,17 +273,26 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
     );
   }
 
-  void _send(JobApplication application) {
+  Future<void> _send(JobApplication application) async {
     final body = _messageController.text.trim();
     if (body.isEmpty) return;
     _forceFollowMessages = true;
-    _applications.sendTalentMessage(
-      application.id,
-      body,
-      replyToId: _replyingTo?.id,
-    );
+    final replyToId = _replyingTo?.id;
     _messageController.clear();
     setState(() => _replyingTo = null);
+    final sent = await _applications.sendTalentMessage(
+      application.id,
+      body,
+      replyToId: replyToId,
+    );
+    if (sent || !mounted) return;
+    // Keep the text so the user can retry after the failure is explained.
+    if (_messageController.text.isEmpty) _messageController.text = body;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_applications.errorMessage ?? 'Không thể gửi tin nhắn.'),
+      ),
+    );
   }
 
   void _showApplicationInfo(JobApplication application) {
@@ -290,9 +349,12 @@ class _ApplicationStrip extends StatelessWidget {
     final theme = context.nivexTheme;
     final color = switch (application.status) {
       JobApplicationStatus.submitted => theme.primary,
-      JobApplicationStatus.inReview => theme.warning,
-      JobApplicationStatus.approved => theme.success,
-      JobApplicationStatus.rejected => theme.danger,
+      JobApplicationStatus.viewed ||
+      JobApplicationStatus.shortlisted ||
+      JobApplicationStatus.interview => theme.warning,
+      JobApplicationStatus.accepted => theme.success,
+      JobApplicationStatus.rejected ||
+      JobApplicationStatus.withdrawn => theme.danger,
     };
     return Container(
       width: double.infinity,

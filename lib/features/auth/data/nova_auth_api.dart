@@ -104,6 +104,35 @@ class NovaAuthApi {
   Future<NovaAuthSession> refreshSession({required String refreshToken}) =>
       _postSession('/api/v1/auth/refresh', {'refreshToken': refreshToken});
 
+  /// Revokes the access token and the refresh token on the server.
+  Future<void> logout({String? accessToken, String? refreshToken}) async {
+    try {
+      final response = await _client
+          .post(
+            config.baseUri.resolve('/api/v1/auth/logout'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Authorization': ?(accessToken == null
+                  ? null
+                  : 'Bearer $accessToken'),
+            },
+            body: jsonEncode({'refreshToken': ?refreshToken}),
+          )
+          .timeout(timeout);
+      if (response.statusCode != 204 && response.statusCode != 200) {
+        throw NovaApiException(
+          'logout_failed',
+          statusCode: response.statusCode,
+        );
+      }
+    } on TimeoutException {
+      throw const NovaApiException('timeout');
+    } on http.ClientException {
+      throw const NovaApiException('connection');
+    }
+  }
+
   Future<NovaPhoneOtpChallenge> requestPhoneOtp({
     required String phoneE164,
   }) async {

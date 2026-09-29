@@ -1,0 +1,15 @@
+{
+  "folders": [
+    { "name": "NIVEX Flutter Mobile", "path": "." },
+    { "name": "NIVEX Business Web + Backend", "path": "../NIVEX-BUSINESS" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.dart_tool": true,
+      "**/.gradle": true,
+      "**/node_modules": true,
+      "**/build": true,
+      "**/target": true
+    }
+  }
+}

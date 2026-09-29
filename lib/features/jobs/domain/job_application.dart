@@ -1,4 +1,19 @@
-enum JobApplicationStatus { submitted, inReview, approved, rejected }
+/// Mirrors the backend `job_applications.status` values shared with Business Web.
+enum JobApplicationStatus {
+  submitted,
+  viewed,
+  shortlisted,
+  interview,
+  accepted,
+  rejected,
+  withdrawn;
+
+  static JobApplicationStatus fromApi(String value) =>
+      JobApplicationStatus.values.firstWhere(
+        (status) => status.name == value.toLowerCase(),
+        orElse: () => JobApplicationStatus.submitted,
+      );
+}
 
 enum JobMessageRole { talent, business, system }
 
@@ -52,6 +67,8 @@ class JobApplication {
     required this.status,
     required this.submittedAt,
     required this.messages,
+    this.threadId,
+    this.threadStatus,
   });
 
   final String id;
@@ -69,18 +86,36 @@ class JobApplication {
   final DateTime submittedAt;
   final List<JobApplicationMessage> messages;
 
+  /// Backend message thread with the organization, when one exists.
+  final String? threadId;
+
+  /// `PENDING` or `ACCEPTED` for backend threads; null in the offline demo.
+  final String? threadStatus;
+
+  bool get canWithdraw => const {
+    JobApplicationStatus.submitted,
+    JobApplicationStatus.viewed,
+    JobApplicationStatus.shortlisted,
+  }.contains(status);
+
   String get statusLabel => switch (status) {
     JobApplicationStatus.submitted => 'Đã gửi',
-    JobApplicationStatus.inReview => 'Đang xem xét',
-    JobApplicationStatus.approved => 'Đã duyệt',
+    JobApplicationStatus.viewed => 'Đã xem',
+    JobApplicationStatus.shortlisted => 'Đã chọn',
+    JobApplicationStatus.interview => 'Phỏng vấn',
+    JobApplicationStatus.accepted => 'Đã nhận',
     JobApplicationStatus.rejected => 'Đã từ chối',
+    JobApplicationStatus.withdrawn => 'Đã rút',
   };
 
   String get statusDescription => switch (status) {
     JobApplicationStatus.submitted => 'Doanh nghiệp đã nhận hồ sơ',
-    JobApplicationStatus.inReview => 'Đội ngũ đang đánh giá hồ sơ',
-    JobApplicationStatus.approved => 'Sẵn sàng trao đổi bước tiếp theo',
+    JobApplicationStatus.viewed => 'Doanh nghiệp đã xem hồ sơ',
+    JobApplicationStatus.shortlisted => 'Hồ sơ nằm trong danh sách được chọn',
+    JobApplicationStatus.interview => 'Doanh nghiệp mời bạn phỏng vấn',
+    JobApplicationStatus.accepted => 'Sẵn sàng trao đổi bước tiếp theo',
     JobApplicationStatus.rejected => 'Quy trình ứng tuyển đã khép lại',
+    JobApplicationStatus.withdrawn => 'Bạn đã rút hồ sơ này',
   };
 
   JobApplication copyWith({
@@ -102,6 +137,8 @@ class JobApplication {
       status: status ?? this.status,
       submittedAt: submittedAt,
       messages: messages ?? this.messages,
+      threadId: threadId,
+      threadStatus: threadStatus,
     );
   }
 }

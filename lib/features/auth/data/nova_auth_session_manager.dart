@@ -104,6 +104,60 @@ class NovaAuthSessionManager {
     }
   }
 
+  Future<String?>? _refreshInFlight;
+
+  /// Exchanges the stored refresh token for a new access token.
+  ///
+  /// Concurrent callers share one request: the backend rotates refresh tokens,
+  /// so a second parallel refresh would present an already revoked token and
+  /// sign the user out. Returns null and clears the session only when the
+  /// server rejects the refresh token; network failures keep the session.
+  Future<String?> refreshAccessToken() => _refreshInFlight ??= _refresh()
+      .whenComplete(() => _refreshInFlight = null);
+
+  Future<String?> _refresh() async {
+    final stored = await store.read();
+    final refreshToken = stored.refreshToken;
+    if (refreshToken == null) return null;
+    final api = _createApi(config);
+    try {
+      final session = await api.refreshSession(refreshToken: refreshToken);
+      await store.save(session);
+      return session.accessToken;
+    } on NovaApiException catch (error) {
+      if (_isUnauthorized(error)) {
+        await store.clear();
+        onSessionExpired?.call();
+      }
+      return null;
+    } finally {
+      api.close();
+    }
+  }
+
+  /// Called after the server rejects the refresh token during normal use.
+  void Function()? onSessionExpired;
+
+  Future<void> logout() async {
+    final stored = await store.read();
+    final api = _createApi(config);
+    try {
+      if (stored.accessToken != null || stored.refreshToken != null) {
+        try {
+          await api.logout(
+            accessToken: stored.accessToken,
+            refreshToken: stored.refreshToken,
+          );
+        } on NovaApiException {
+          // Local credentials are cleared even when the server is unavailable.
+        }
+      }
+    } finally {
+      await store.clear();
+      api.close();
+    }
+  }
+
   bool _isUnauthorized(NovaApiException error) =>
       error.statusCode == 401 || error.statusCode == 403;
 }

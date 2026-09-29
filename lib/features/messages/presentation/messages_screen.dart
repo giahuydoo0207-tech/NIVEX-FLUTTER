@@ -1,26 +1,47 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
-import 'package:nivex_flutter/features/jobs/data/demo_application_controller.dart';
+import 'package:nivex_flutter/features/jobs/data/application_controller.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
 import 'package:nivex_flutter/features/jobs/presentation/application_thread_screen.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 class MessagesScreen extends StatefulWidget {
-  const MessagesScreen({super.key});
+  const MessagesScreen({this.api, super.key});
+
+  /// Signed-in Nova client; null runs the offline demo fixtures.
+  final NovaApiClient? api;
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
 class _MessagesScreenState extends State<MessagesScreen> {
-  final _applications = DemoApplicationController.instance;
+  late ApplicationController _applications;
   final _searchController = TextEditingController();
   String _query = '';
 
   @override
   void initState() {
     super.initState();
-    _applications.addListener(_refresh);
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(covariant MessagesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api) {
+      _applications.removeListener(_refresh);
+      _bind();
+    }
+  }
+
+  void _bind() {
+    _applications = ApplicationController.resolve(widget.api)
+      ..addListener(_refresh);
+    unawaited(_applications.refresh());
   }
 
   @override
@@ -37,16 +58,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = context.nivexTheme;
-    final conversations =
-        _applications.applications.where((application) {
-          final query = _query.trim().toLowerCase();
-          return query.isEmpty ||
-              '${application.organizationName} ${application.jobTitle}'
-                  .toLowerCase()
-                  .contains(query);
-        }).toList()..sort(
-          (a, b) => b.messages.last.sentAt.compareTo(a.messages.last.sentAt),
-        );
+    final conversations = _applications.conversations.where((application) {
+      final query = _query.trim().toLowerCase();
+      return query.isEmpty ||
+          '${application.organizationName} ${application.jobTitle}'
+              .toLowerCase()
+              .contains(query);
+    }).toList();
+    final unreadCount = conversations.where(_isUnread).length;
 
     return NivexPage(
       hideAppBar: true,
@@ -66,19 +85,20 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       tooltip: 'Tin nhắn chưa đọc',
                       onPressed: () {},
                       icon: Badge(
-                        label: const Text('1'),
+                        isLabelVisible: unreadCount > 0,
+                        label: Text('$unreadCount'),
                         child: const Icon(Icons.mark_chat_unread_outlined),
                       ),
                     ),
                     if (_query.isNotEmpty)
                       IconButton(
-                            tooltip: 'Xóa tìm kiếm',
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                            },
-                            icon: const Icon(Icons.close_rounded),
-                          ),
+                        tooltip: 'Xóa tìm kiếm',
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
                   ],
                   onChanged: (value) => setState(() => _query = value),
                 ),
@@ -122,7 +142,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         ),
                         itemBuilder: (context, index) => _ConversationTile(
                           application: conversations[index],
-                          unread: index == 0,
+                          unread: _isUnread(conversations[index]),
                           onTap: () => _openThread(conversations[index]),
                         ),
                       ),
@@ -134,13 +154,23 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
+  /// A conversation is unread while a business message has not been seen.
+  static bool _isUnread(JobApplication application) => application.messages.any(
+    (message) =>
+        message.role == JobMessageRole.business &&
+        message.deliveryStatus != JobMessageDeliveryStatus.seen,
+  );
+
   Future<void> _openThread(JobApplication application) {
     return Navigator.of(context, rootNavigator: true).push<void>(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 280),
         reverseTransitionDuration: const Duration(milliseconds: 220),
         pageBuilder: (_, animation, secondaryAnimation) =>
-            ApplicationThreadScreen(applicationId: application.id),
+            ApplicationThreadScreen(
+              applicationId: application.id,
+              controller: _applications,
+            ),
         transitionsBuilder: (_, animation, secondaryAnimation, child) {
           final slide = Tween(
             begin: const Offset(0.08, 0),

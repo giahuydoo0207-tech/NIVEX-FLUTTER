@@ -199,9 +199,8 @@ class _PostsScreenState extends State<PostsScreen> {
   bool _isLoadingFeed = false;
   bool _isLoadingMore = false;
   bool _usingRemoteFeed = false;
-  NovaPublicProfile? _remoteMe;
-  String? _uploadedAvatarPath;
-  Timer? _profileSyncDebounce;
+  NovaPublicProfile? get _remoteMe => _profileController.remoteProfile;
+  String? _seenIdentity;
   String? _nextCursor;
   final Set<String> _followedHandles = {};
   final Set<String> _blockedHandles = {};
@@ -225,77 +224,36 @@ class _PostsScreenState extends State<PostsScreen> {
   @override
   void dispose() {
     _profileController.removeListener(_refreshProfile);
-    _profileSyncDebounce?.cancel();
     _composerController.dispose();
     super.dispose();
   }
 
+  /// The profile controller owns profile reads and writes; this screen only
+  /// reloads the feed when the name or avatar embedded in posts changes.
   void _refreshProfile() {
     if (mounted) setState(() {});
-    _profileSyncDebounce?.cancel();
-    _profileSyncDebounce = Timer(
-      const Duration(milliseconds: 350),
-      () => unawaited(_syncOwnProfile()),
-    );
+    final remote = _remoteMe;
+    if (remote == null) return;
+    final identity = '${remote.displayName}|${remote.avatarUrl}';
+    if (identity != _seenIdentity) {
+      final changed = _seenIdentity != null;
+      _seenIdentity = identity;
+      if (changed && widget.postsApi != null) {
+        unawaited(_loadFeed(reset: true));
+      }
+    }
   }
 
-  String get _ownDisplayName =>
-      _remoteMe?.displayName ?? _profileController.profile.displayName;
-  String get _ownHeadline => _remoteMe?.headline.isNotEmpty == true
-      ? _remoteMe!.headline
-      : _profileController.profile.headline;
-  String? get _ownAvatarUrl {
-    final value = _remoteMe?.avatarUrl;
-    return value == null ? null : widget.postsApi?.mediaUri(value).toString();
-  }
+  String get _ownDisplayName => _profileController.displayName;
+  String get _ownHeadline => _profileController.profile.headline;
+  String? get _ownAvatarUrl => _profileController.avatarUrl;
 
   Future<void> _loadRemoteProfileThenFeed() async {
     final api = widget.postsApi;
-    if (api != null) {
-      try {
-        final profile = await api.myProfile();
-        if (mounted) setState(() => _remoteMe = profile);
-        await _syncOwnProfile();
-      } on NovaApiException {
-        // The feed still has its existing offline fallback.
-      }
+    if (api != null && _remoteMe == null) {
+      await _profileController.refreshRemote(using: api);
     }
     await _loadFeed(reset: true);
-  }
-
-  Future<void> _syncOwnProfile() async {
-    final api = widget.postsApi;
-    final current = _remoteMe;
-    if (api == null || current == null) return;
-    final local = _profileController.profile;
-    try {
-      var updated = await api.updateMyProfile(
-        displayName: current.displayName,
-        headline: local.headline,
-        bio: local.bio,
-        avatarUrl: current.avatarUrl,
-      );
-      final avatarPath = local.avatarPath;
-      if (avatarPath != null && avatarPath != _uploadedAvatarPath) {
-        final file = File(avatarPath);
-        if (await file.exists()) {
-          final bytes = await file.readAsBytes();
-          final lower = avatarPath.toLowerCase();
-          final contentType = lower.endsWith('.png')
-              ? 'image/png'
-              : lower.endsWith('.webp')
-              ? 'image/webp'
-              : 'image/jpeg';
-          updated = await api.uploadProfileAvatar(bytes, contentType);
-          _uploadedAvatarPath = avatarPath;
-        }
-      }
-      if (mounted) setState(() => _remoteMe = updated);
-    } on NovaApiException {
-      // Profile edits remain available locally and retry on the next change.
-    } on ArgumentError {
-      if (mounted) _showMessage('Ảnh đại diện cần nhỏ hơn 2,5 MB.');
-    }
   }
 
   @override
@@ -409,6 +367,7 @@ class _PostsScreenState extends State<PostsScreen> {
                     onToggleSave: () => _toggleSavePost(post),
                     onHide: () => _hidePost(post),
                     onDeletePost: () => _deletePost(post),
+                    onChangePrivacy: (privacy) => _changePrivacy(post, privacy),
                     onBlockUser: () => _blockUser(_postAuthor(post).handle),
                     onReact: (reaction) {
                       unawaited(_reactToPost(post, reaction));
@@ -613,11 +572,17 @@ class _PostsScreenState extends State<PostsScreen> {
   }
 
   void _toggleSavePost(_DemoPost targetPost) {
+    final saved = !targetPost.isSaved;
     setState(() {
       final index = _posts.indexWhere((p) => p.id == targetPost.id);
       if (index == -1) return;
-      _posts[index] = _posts[index].copyWith(isSaved: !_posts[index].isSaved);
+      _posts[index] = _posts[index].copyWith(isSaved: saved);
     });
+    _syncPostAction(
+      targetPost,
+      (api, id) => api.setCommunityPostSaved(id, saved),
+      'Không thể lưu bài viết.',
+    );
   }
 
   void _hidePost(_DemoPost targetPost) {
@@ -626,12 +591,58 @@ class _PostsScreenState extends State<PostsScreen> {
       if (index == -1) return;
       _posts[index] = _posts[index].copyWith(isHidden: true);
     });
+    _syncPostAction(
+      targetPost,
+      (api, id) => api.setCommunityPostHidden(id, true),
+      'Không thể ẩn bài viết.',
+    );
   }
 
   void _deletePost(_DemoPost targetPost) {
+    final index = _posts.indexWhere((p) => p.id == targetPost.id);
     setState(() {
       _posts.removeWhere((p) => p.id == targetPost.id);
     });
+    _syncPostAction(
+      targetPost,
+      (api, id) => api.deleteCommunityPost(id),
+      'Không thể xóa bài viết trên máy chủ.',
+      onFailure: () {
+        if (index != -1) {
+          _posts.insert(index.clamp(0, _posts.length), targetPost);
+        }
+      },
+    );
+  }
+
+  void _changePrivacy(_DemoPost targetPost, String privacy) {
+    _syncPostAction(
+      targetPost,
+      (api, id) => api.updateCommunityPost(id, privacy: privacy),
+      'Không thể đổi quyền riêng tư.',
+    );
+  }
+
+  /// Applies a post action on the shared backend; local-only posts from the
+  /// offline demo are left as they are.
+  void _syncPostAction(
+    _DemoPost post,
+    Future<Object?> Function(NovaApiClient api, String id) action,
+    String failureMessage, {
+    VoidCallback? onFailure,
+  }) {
+    final api = widget.postsApi;
+    final id = post.id;
+    if (api == null || !_usingRemoteFeed || id == null) return;
+    unawaited(() async {
+      try {
+        await action(api, id);
+      } on NovaApiException {
+        if (!mounted) return;
+        if (onFailure != null) setState(onFailure);
+        _showMessage(failureMessage);
+      }
+    }());
   }
 
   void _blockUser(String authorHandle) {
@@ -756,7 +767,8 @@ class _PostsScreenState extends State<PostsScreen> {
       createdAt: post.createdAt,
       isMine:
           post.author.id == _remoteMe?.id ||
-          (_remoteMe == null && post.author.displayName == profile.displayName),
+          (widget.postsApi == null &&
+              post.author.displayName == profile.displayName),
       reactionCount: post.reactionCount,
       reactionCounts: reactionCounts,
       myReaction: _reactionFromType(post.myReaction),
@@ -879,7 +891,7 @@ class _PostsScreenState extends State<PostsScreen> {
       isMine: comment.author.id == _remoteMe?.id,
       likeCount: comment.reactionCount,
       isLiked: comment.myReaction != null,
-      replies: comment.replies
+      replies: _descendants(comment)
           .map(
             (reply) => PostCommentReply(
               id: reply.id,
@@ -902,6 +914,22 @@ class _PostsScreenState extends State<PostsScreen> {
           )
           .toList(),
     );
+  }
+
+  /// Mobile shows one reply level; deeper replies created elsewhere are listed
+  /// under their top-level comment in chronological order.
+  List<NovaCommunityComment> _descendants(NovaCommunityComment comment) {
+    final all = <NovaCommunityComment>[];
+    void visit(NovaCommunityComment node) {
+      for (final reply in node.replies) {
+        all.add(reply);
+        visit(reply);
+      }
+    }
+
+    visit(comment);
+    all.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return all;
   }
 
   void _addReplyToComment(
@@ -974,13 +1002,22 @@ class _PostsScreenState extends State<PostsScreen> {
     if (api == null || !_usingRemoteFeed) return false;
     try {
       await api.deleteCommunityComment(commentId);
+      // The server removes the replies too, so reload the true total.
+      final remaining = post.id == null
+          ? null
+          : await api.communityComments(post.id!);
       if (mounted) {
         setState(() {
           final index = _posts.indexWhere((item) => item.id == post.id);
           if (index != -1) {
             final current = _posts[index];
             _posts[index] = current.copyWith(
-              commentCount: (current.commentCount - 1).clamp(0, 999999),
+              commentCount: remaining == null
+                  ? (current.commentCount - 1).clamp(0, 999999)
+                  : remaining.fold<int>(
+                      0,
+                      (sum, comment) => sum + 1 + _descendants(comment).length,
+                    ),
             );
           }
         });
@@ -2258,6 +2295,7 @@ class _PostCard extends StatefulWidget {
     this.onToggleSave,
     this.onHide,
     this.onDeletePost,
+    this.onChangePrivacy,
     this.onBlockUser,
     this.onReact,
     this.onAddComment,
@@ -2283,6 +2321,7 @@ class _PostCard extends StatefulWidget {
   final VoidCallback? onToggleSave;
   final VoidCallback? onHide;
   final VoidCallback? onDeletePost;
+  final ValueChanged<String>? onChangePrivacy;
   final VoidCallback? onBlockUser;
   final ValueChanged<PostReaction>? onReact;
   final ValueChanged<PostComment>? onAddComment;
@@ -2530,6 +2569,7 @@ class _PostCardState extends State<_PostCard> {
                       onBlockUser: widget.onBlockUser,
                       onToggleFollow: widget.onToggleFollowAuthor,
                       isFollowing: widget.isFollowingAuthor,
+                      onChangePrivacy: widget.onChangePrivacy,
                     ),
                     icon: const Icon(Icons.more_horiz_rounded),
                   ),
@@ -3199,6 +3239,8 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
     try {
       final comments = await loader();
       if (mounted) setState(() => _comments = comments);
+    } on NovaApiException {
+      // Keep the comments already shown with the post.
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -3654,7 +3696,11 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                 ),
                 Divider(height: 1, color: theme.divider),
                 Expanded(
-                  child: _comments.isEmpty
+                  child: _comments.isEmpty && _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator.adaptive(),
+                        )
+                      : _comments.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
@@ -3708,8 +3754,10 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                               ownAvatarPath: widget.ownAvatarPath,
                               onLike: () => _toggleLike(comment.id),
                               onReply: () => _replyTo(comment),
+                              // The sheet's own context outlives list items
+                              // that rebuild while the menu is open.
                               onActions: () => _showCommentActions(
-                                context,
+                                this.context,
                                 content: comment.content,
                                 isMine: comment.isMine,
                                 onReply: () => _replyTo(comment),
@@ -3738,6 +3786,18 @@ class _CommentSheetWidgetState extends State<_CommentSheetWidget> {
                                   _beginEditingComment(reply.id, reply.content),
                               onDeleteReply: (reply) =>
                                   _deleteExistingComment(reply.id),
+                              onReplyActions: (reply) => _showCommentActions(
+                                this.context,
+                                content: reply.content,
+                                isMine: reply.isMine,
+                                onReply: () => _replyToReply(comment, reply),
+                                onEdit: () => _beginEditingComment(
+                                  reply.id,
+                                  reply.content,
+                                ),
+                                onDelete: () =>
+                                    _deleteExistingComment(reply.id),
+                              ),
                             );
                           },
                         ),
@@ -3993,6 +4053,7 @@ class _CommentItem extends StatelessWidget {
     required this.onOpenReplyProfile,
     required this.onEditReply,
     required this.onDeleteReply,
+    this.onReplyActions,
   });
 
   final PostComment comment;
@@ -4008,6 +4069,7 @@ class _CommentItem extends StatelessWidget {
   final ValueChanged<PostCommentReply> onOpenReplyProfile;
   final ValueChanged<PostCommentReply> onEditReply;
   final ValueChanged<PostCommentReply> onDeleteReply;
+  final ValueChanged<PostCommentReply>? onReplyActions;
 
   @override
   Widget build(BuildContext context) {
@@ -4229,14 +4291,16 @@ class _CommentItem extends StatelessWidget {
                     ownAvatarPath: ownAvatarPath,
                     onLike: () => onLikeReply(reply.id),
                     onReply: () => onReplyToReply(reply),
-                    onActions: () => _showCommentActions(
-                      context,
-                      content: reply.content,
-                      isMine: reply.isMine,
-                      onReply: () => onReplyToReply(reply),
-                      onEdit: () => onEditReply(reply),
-                      onDelete: () => onDeleteReply(reply),
-                    ),
+                    onActions: onReplyActions != null
+                        ? () => onReplyActions!(reply)
+                        : () => _showCommentActions(
+                            context,
+                            content: reply.content,
+                            isMine: reply.isMine,
+                            onReply: () => onReplyToReply(reply),
+                            onEdit: () => onEditReply(reply),
+                            onDelete: () => onDeleteReply(reply),
+                          ),
                     onOpenProfile: () => onOpenReplyProfile(reply),
                   ),
                   const SizedBox(height: 8),
@@ -5298,20 +5362,26 @@ void _showReportDialog(BuildContext context) {
   );
 }
 
-void _showPrivacyDialog(BuildContext context) {
+void _showPrivacyDialog(
+  BuildContext context, {
+  ValueChanged<String>? onSelected,
+}) {
   final theme = context.nivexTheme;
   final options = [
     {
+      'value': 'PUBLIC',
       'title': 'Công khai',
       'desc': 'Bất kỳ ai trong cộng đồng đều có thể xem',
       'icon': Icons.public_rounded,
     },
     {
+      'value': 'FOLLOWERS',
       'title': 'Người theo dõi',
       'desc': 'Chỉ người theo dõi bạn mới có thể xem',
       'icon': Icons.people_outline_rounded,
     },
     {
+      'value': 'ONLY_ME',
       'title': 'Chỉ mình tôi',
       'desc': 'Chỉ bạn mới có thể xem bài viết này',
       'icon': Icons.lock_outline_rounded,
@@ -5358,6 +5428,8 @@ void _showPrivacyDialog(BuildContext context) {
                 ),
                 onTap: () {
                   Navigator.of(bottomSheetContext).pop();
+                  onSelected?.call(opt['value'] as String);
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(
@@ -5393,8 +5465,16 @@ void _showPostOptionsSheet(
   VoidCallback? onEditPost,
   VoidCallback? onEditPrivacy,
   VoidCallback? onReportPost,
+  ValueChanged<String>? onChangePrivacy,
 }) {
   final theme = context.nivexTheme;
+  // Follow-up dialogs open from this post context after the sheet pops.
+  void openAfterSheet(void Function() open) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) open();
+    });
+  }
+
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: theme.surface,
@@ -5428,9 +5508,15 @@ void _showPostOptionsSheet(
           onTogglePin: onTogglePin,
           onToggleSave: onToggleSave,
           onHide: onHide,
-          onDelete: () => _showConfirmDeleteDialog(context, onDeletePost),
+          onDelete: () => openAfterSheet(
+            () => _showConfirmDeleteDialog(context, onDeletePost),
+          ),
           onEdit: onEditPost,
-          onEditPrivacy: onEditPrivacy,
+          onEditPrivacy:
+              onEditPrivacy ??
+              () => openAfterSheet(
+                () => _showPrivacyDialog(context, onSelected: onChangePrivacy),
+              ),
         );
       } else {
         return _ViewerPostOptionsSheet(
@@ -5438,8 +5524,12 @@ void _showPostOptionsSheet(
           onAction: handleAction,
           onToggleSave: onToggleSave,
           onHide: onHide,
-          onReport: onReportPost,
-          onBlock: () => _showConfirmBlockDialog(context, onBlockUser),
+          onReport:
+              onReportPost ??
+              () => openAfterSheet(() => _showReportDialog(context)),
+          onBlock: () => openAfterSheet(
+            () => _showConfirmBlockDialog(context, onBlockUser),
+          ),
           onToggleFollow: onToggleFollow,
           isFollowing: isFollowing,
         );
@@ -5532,11 +5622,7 @@ class _OwnerPostOptionsSheet extends StatelessWidget {
               title: 'Chỉnh sửa quyền riêng tư',
               onTap: () {
                 Navigator.of(context).pop();
-                if (onEditPrivacy != null) {
-                  onEditPrivacy!();
-                } else {
-                  _showPrivacyDialog(context);
-                }
+                onEditPrivacy?.call();
               },
             ),
             _PostOptionTile(
@@ -5669,11 +5755,7 @@ class _ViewerPostOptionsSheet extends StatelessWidget {
                 subtitle: 'Báo cáo vi phạm tiêu chuẩn cộng đồng.',
                 onTap: () {
                   Navigator.of(context).pop();
-                  if (onReport != null) {
-                    onReport!();
-                  } else {
-                    _showReportDialog(context);
-                  }
+                  onReport?.call();
                 },
               ),
             ),

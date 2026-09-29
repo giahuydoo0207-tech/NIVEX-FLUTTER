@@ -8,6 +8,10 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Nivex Flutter</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Nova dùng máy ảnh để chụp ảnh đại diện.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Nova dùng thư viện ảnh để chọn ảnh đại diện.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

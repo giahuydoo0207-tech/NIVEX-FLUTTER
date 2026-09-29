@@ -111,6 +111,7 @@ class FreelancerProfile {
   final String? coverPath;
 
   FreelancerProfile copyWith({
+    String? displayName,
     String? headline,
     String? bio,
     List<String>? skills,
@@ -129,7 +130,7 @@ class FreelancerProfile {
     bool clearCover = false,
   }) {
     return FreelancerProfile(
-      displayName: displayName,
+      displayName: displayName ?? this.displayName,
       username: username,
       headline: headline ?? this.headline,
       bio: bio ?? this.bio,

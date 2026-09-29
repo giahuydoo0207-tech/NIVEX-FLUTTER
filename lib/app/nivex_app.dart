@@ -38,7 +38,9 @@ class _NivexAppState extends State<NivexApp> {
   bool _isAuthenticated = false;
   bool _isRestoringAuthentication = false;
   late final CashoutAuthService _cashoutAuthService;
+  final _navigatorKey = GlobalKey<NavigatorState>();
   NovaApiClient? _homeApi;
+  NovaAuthSessionManager? _sessionManager;
 
   @override
   void initState() {
@@ -60,45 +62,76 @@ class _NivexAppState extends State<NivexApp> {
   void _createHomeApi() {
     try {
       final config = NovaApiConfig.fromBuild();
-      final store = SecureNovaAuthSessionStore(origin: config.baseUri.origin);
+      final manager =
+          widget.authSessionManager ??
+          NovaAuthSessionManager(
+            config: config,
+            store: SecureNovaAuthSessionStore(origin: config.baseUri.origin),
+          );
+      manager.onSessionExpired = _handleSessionExpired;
+      _sessionManager = manager;
+      // Every screen shares this client so an expired access token is renewed
+      // once with the refresh token instead of forcing a new login.
       _homeApi = NovaApiClient(
         config: config,
-        readToken: () async => (await store.read()).accessToken,
+        readToken: () async => (await manager.store.read()).accessToken,
+        refreshAccessToken: manager.refreshAccessToken,
       );
     } on ArgumentError {
       // A demo build can run entirely on local fixtures.
+      _sessionManager = widget.authSessionManager;
     }
   }
 
   Future<void> _restoreAuthentication() async {
     if (!widget.showAuthentication) return;
 
-    NovaAuthSessionManager? manager = widget.authSessionManager;
+    final manager = _sessionManager;
     if (manager == null) {
-      try {
-        final config = NovaApiConfig.fromBuild();
-        manager = NovaAuthSessionManager(
-          config: config,
-          store: SecureNovaAuthSessionStore(origin: config.baseUri.origin),
-        );
-      } on ArgumentError {
-        return;
-      }
+      // Without a configured backend there is no server session to restore;
+      // keep the simulated login for this device.
+      final preferences = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(
+        () => _isAuthenticated =
+            preferences.getBool('nova_device_has_account') == true,
+      );
+      return;
     }
 
     _isRestoringAuthentication = true;
     final result = await manager.restore();
-    final preferences = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
       _isRestoringAuthentication = false;
-      // A device that already holds a secure session may continue using the
-      // social workspace while the backend is temporarily unreachable.
+      // A stored session stays usable while the backend is briefly
+      // unreachable; a rejected refresh token always returns to login.
       // Wallet access remains independently protected in AppShell.
-      _isAuthenticated =
-          result != NovaSessionRestoreResult.signedOut ||
-          preferences.getBool('nova_device_has_account') == true;
+      _isAuthenticated = result != NovaSessionRestoreResult.signedOut;
     });
+  }
+
+  Future<void> _logout() async {
+    await _sessionManager?.logout();
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove('nova_device_has_account');
+    _returnToLogin();
+  }
+
+  void _handleSessionExpired() {
+    _returnToLogin();
+    final context = _navigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Phiên đăng nhập đã hết hạn.')),
+      );
+    }
+  }
+
+  void _returnToLogin() {
+    if (!mounted || !widget.showAuthentication) return;
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    setState(() => _isAuthenticated = false);
   }
 
   @override
@@ -118,6 +151,7 @@ class _NivexAppState extends State<NivexApp> {
         return AppEnvironmentScope(
           environment: widget.environment,
           child: MaterialApp(
+            navigatorKey: _navigatorKey,
             title: 'Nova',
             debugShowCheckedModeBanner: false,
             theme: NivexTheme.forMode(_controller.mode),
@@ -140,6 +174,7 @@ class _NivexAppState extends State<NivexApp> {
       themeController: _controller,
       cashoutAuthService: _cashoutAuthService,
       homeApi: _isAuthenticated ? _homeApi : null,
+      onLogout: widget.showAuthentication ? _logout : null,
     );
     return shell;
   }

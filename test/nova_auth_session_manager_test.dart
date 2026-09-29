@@ -93,6 +93,100 @@ void main() {
     expect(result, NovaSessionRestoreResult.signedOut);
     expect(store.cleared, isTrue);
   });
+
+  test('concurrent refreshes share one rotating refresh request', () async {
+    final store = _MemorySessionStore(
+      access: _token('a'),
+      refresh: _token('r'),
+    );
+    var refreshCalls = 0;
+    final client = MockClient((request) async {
+      expect(request.url.path, '/api/v1/auth/refresh');
+      refreshCalls++;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      return http.Response(
+        jsonEncode({
+          'accessToken': _token('n'),
+          'refreshToken': _token('s'),
+          'accessExpiresAt': '2030-01-01T00:00:00Z',
+        }),
+        200,
+      );
+    });
+    final sessions = manager(store, client);
+
+    final tokens = await Future.wait([
+      sessions.refreshAccessToken(),
+      sessions.refreshAccessToken(),
+      sessions.refreshAccessToken(),
+    ]);
+
+    expect(refreshCalls, 1);
+    expect(tokens, everyElement(_token('n')));
+    expect(store.refresh, _token('s'));
+  });
+
+  test('rejected refresh clears the session and reports expiry', () async {
+    final store = _MemorySessionStore(
+      access: _token('a'),
+      refresh: _token('r'),
+    );
+    var expired = false;
+    final sessions = manager(
+      store,
+      MockClient((_) async => http.Response('', 401)),
+    )..onSessionExpired = () => expired = true;
+
+    expect(await sessions.refreshAccessToken(), isNull);
+    expect(store.cleared, isTrue);
+    expect(expired, isTrue);
+  });
+
+  test('network failure during refresh keeps the stored session', () async {
+    final store = _MemorySessionStore(
+      access: _token('a'),
+      refresh: _token('r'),
+    );
+    final sessions = manager(
+      store,
+      MockClient((_) async => throw http.ClientException('offline')),
+    );
+
+    expect(await sessions.refreshAccessToken(), isNull);
+    expect(store.cleared, isFalse);
+    expect(store.refresh, _token('r'));
+  });
+
+  test('logout revokes access and refresh tokens then clears', () async {
+    final store = _MemorySessionStore(
+      access: _token('a'),
+      refresh: _token('r'),
+    );
+    final client = MockClient((request) async {
+      expect(request.url.path, '/api/v1/auth/logout');
+      expect(request.headers['authorization'], 'Bearer ${_token('a')}');
+      expect(jsonDecode(request.body), {'refreshToken': _token('r')});
+      return http.Response('', 204);
+    });
+
+    await manager(store, client).logout();
+
+    expect(store.cleared, isTrue);
+  });
+
+  test('logout clears local credentials when the server is down', () async {
+    final store = _MemorySessionStore(
+      access: _token('a'),
+      refresh: _token('r'),
+    );
+
+    await manager(
+      store,
+      MockClient((_) async => throw http.ClientException('offline')),
+    ).logout();
+
+    expect(store.cleared, isTrue);
+  });
 }
 
 String _token(String seed) => seed.padRight(43, seed);

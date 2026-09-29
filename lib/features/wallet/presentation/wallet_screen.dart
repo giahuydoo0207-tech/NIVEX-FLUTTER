@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:flutter/services.dart';
 import 'package:nivex_flutter/features/invoices/presentation/mobile_invoices_screen.dart';
 import 'package:nivex_flutter/shared/constants/app_environment.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
+import 'package:nivex_flutter/features/wallet/data/wallet_summary_controller.dart';
 import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
@@ -15,8 +17,12 @@ class WalletScreen extends StatelessWidget {
     required this.onQuote,
     required this.onHistory,
     required this.onHelp,
+    this.api,
     super.key,
   });
+
+  /// Shared authenticated client; invoices use it so token refresh applies.
+  final NovaApiClient? api;
 
   final VoidCallback onReceive;
   final VoidCallback onCashout;
@@ -26,6 +32,8 @@ class WalletScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final liveApi = api;
+    if (liveApi != null) return _LiveWallet(api: liveApi);
     final theme = context.nivexTheme;
     return NivexPage(
       title: 'Ví của bạn',
@@ -37,14 +45,15 @@ class WalletScreen extends StatelessWidget {
             key: const PageStorageKey('wallet-scroll'),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             children: [
-              if (AppEnvironmentScope.of(context) == AppEnvironment.staging)
+              if (api != null ||
+                  AppEnvironmentScope.of(context) == AppEnvironment.staging)
                 ListTile(
                   leading: const Icon(Icons.receipt_long_outlined),
                   title: const Text('Hóa đơn Devnet'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const MobileInvoicesScreen(),
+                      builder: (_) => MobileInvoicesScreen(api: api),
                     ),
                   ),
                 ),
@@ -296,6 +305,243 @@ class WalletScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Wallet backed by `/mobile/wallet/*`. Devnet payments settle into the
+/// server's demo wallet, so they are shown as paid through it and never as
+/// the user's own balance; demo actions (receive, VND cash-out) are hidden.
+class _LiveWallet extends StatefulWidget {
+  const _LiveWallet({required this.api});
+
+  final NovaApiClient api;
+
+  @override
+  State<_LiveWallet> createState() => _LiveWalletState();
+}
+
+class _LiveWalletState extends State<_LiveWallet> {
+  late final WalletSummaryController _wallet = WalletSummaryController.of(
+    widget.api,
+  );
+  List<NovaWalletTransaction>? _transactions;
+  bool _transactionsFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _wallet.addListener(_changed);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    _wallet.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _refresh() async {
+    final summary = _wallet.refresh();
+    try {
+      final items = await widget.api.walletTransactions();
+      if (mounted) {
+        setState(() {
+          _transactions = items;
+          _transactionsFailed = false;
+        });
+      }
+    } on NovaApiException {
+      if (mounted) setState(() => _transactionsFailed = true);
+    }
+    await summary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    final summary = _wallet.summary;
+    final transactions = _transactions;
+    return NivexPage(
+      title: 'Ví của bạn',
+      subtitle: 'Solana ${summary?.network ?? 'Devnet'}',
+      child: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          key: const PageStorageKey('wallet-scroll'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: theme.isDark ? theme.surface : const Color(0xFF0F2439),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.border),
+              ),
+              child: summary == null
+                  ? SizedBox(
+                      height: 96,
+                      child: Center(
+                        child: _wallet.failed
+                            ? TextButton(
+                                onPressed: _refresh,
+                                child: const Text('Chưa tải được ví. Thử lại'),
+                              )
+                            : const CircularProgressIndicator(),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Số dư cá nhân',
+                          style: TextStyle(color: Color(0xFFCAD8E5), fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${formatUsdc2(summary.availableBalanceMinor)} USDC',
+                          key: const Key('wallet-available-balance'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _SummaryLine(
+                          label: 'Đã nhận qua ví demo',
+                          value: '${formatUsdc2(summary.paidViaDemoWalletMinor)} USDC',
+                        ),
+                        _SummaryLine(
+                          label: 'Thu nhập 7 ngày qua',
+                          value: '${formatUsdc2(summary.earnedLast7DaysMinor)} USDC',
+                        ),
+                        _SummaryLine(
+                          label: 'Đang chờ thanh toán',
+                          value: '${formatUsdc2(summary.pendingBalanceMinor)} USDC',
+                        ),
+                        if (summary.isDemoWallet) ...[
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Bạn chưa liên kết ví cá nhân. Thanh toán Devnet hiện được '
+                            'chuyển vào ví demo của máy chủ, nên chưa cộng vào số dư của bạn.',
+                            style: TextStyle(color: Color(0xFFCAD8E5), fontSize: 12),
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('Hóa đơn Devnet'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => MobileInvoicesScreen(api: widget.api),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'GIAO DỊCH DEVNET ĐÃ XÁC NHẬN',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: theme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_transactionsFailed)
+              Text(
+                'Chưa tải được giao dịch. Kéo xuống để thử lại.',
+                style: TextStyle(color: theme.textSecondary),
+              )
+            else if (transactions == null)
+              const Center(child: CircularProgressIndicator())
+            else if (transactions.isEmpty)
+              Text(
+                'Chưa có giao dịch nào.',
+                style: TextStyle(color: theme.textSecondary),
+              )
+            else
+              for (final transaction in transactions)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const SolanaMark(width: 20),
+                  title: Text('+${formatUsdc2(transaction.amountMinor)} USDC'),
+                  subtitle: Text(
+                    '${_shortAddress(transaction.signature)} · '
+                    '${transaction.recordedAt.toLocal().toString().substring(0, 16)}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Sao chép chữ ký giao dịch',
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                    onPressed: () => Clipboard.setData(
+                      ClipboardData(text: transaction.signature),
+                    ),
+                  ),
+                ),
+            if (summary?.demoRecipientAddress != null) ...[
+              const SizedBox(height: 20),
+              Text(
+                'VÍ NHẬN DEMO CỦA MÁY CHỦ',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                summary!.demoRecipientAddress!,
+                style: TextStyle(color: theme.textPrimary, fontSize: 12.5),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _shortAddress(String value) => value.length <= 12
+      ? value
+      : '${value.substring(0, 6)}…${value.substring(value.length - 6)}';
+}
+
+class _SummaryLine extends StatelessWidget {
+  const _SummaryLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFFCAD8E5), fontSize: 13),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

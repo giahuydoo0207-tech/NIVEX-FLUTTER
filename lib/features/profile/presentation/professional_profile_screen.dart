@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
+import 'package:nivex_flutter/features/profile/presentation/avatar_crop_screen.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/features/profile/domain/freelancer_profile.dart';
 import 'package:nivex_flutter/features/profile/domain/reputation_tier.dart';
 import 'package:nivex_flutter/features/profile/presentation/reputation_badges_screen.dart';
@@ -178,23 +181,18 @@ class _ProfileHeader extends StatelessWidget {
         children: [
           Positioned.fill(
             child: IgnorePointer(
-              child:
-                  profile.coverPath != null &&
-                      File(profile.coverPath!).existsSync()
-                  ? Image.file(
-                      File(profile.coverPath!),
-                      fit: BoxFit.cover,
-                      color: Colors.black.withValues(alpha: 0.65),
-                      colorBlendMode: BlendMode.darken,
-                    )
-                  : CustomPaint(
-                      painter: _ProfileHeaderBackgroundPainter(
-                        variant: profile.profileHeaderTheme,
-                        primary: theme.primary,
-                        secondary: theme.success,
-                        line: theme.border,
-                      ),
-                    ),
+              child: _CoverImage(
+                image: DemoFreelancerProfileController.instance.coverImage,
+                darken: true,
+                fallback: CustomPaint(
+                  painter: _ProfileHeaderBackgroundPainter(
+                    variant: profile.profileHeaderTheme,
+                    primary: theme.primary,
+                    secondary: theme.success,
+                    line: theme.border,
+                  ),
+                ),
+              ),
             ),
           ),
           Padding(
@@ -213,16 +211,14 @@ class _ProfileHeader extends StatelessWidget {
                           backgroundColor: theme.primary.withValues(
                             alpha: 0.12,
                           ),
-                          foregroundImage: profile.avatarPath != null
-                              ? FileImage(File(profile.avatarPath!))
-                              : null,
-                          child: profile.avatarPath == null
-                              ? Icon(
-                                  Icons.person_outline_rounded,
-                                  color: theme.primary,
-                                  size: 32,
-                                )
-                              : null,
+                          foregroundImage: DemoFreelancerProfileController
+                              .instance
+                              .avatarImage,
+                          child: Icon(
+                            Icons.person_outline_rounded,
+                            color: theme.primary,
+                            size: 32,
+                          ),
                         ),
                         if (profile.isAvailable)
                           Positioned(
@@ -249,7 +245,9 @@ class _ProfileHeader extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            profile.displayName,
+                            DemoFreelancerProfileController
+                                .instance
+                                .displayName,
                             style: TextStyle(
                               color: theme.textPrimary,
                               fontSize: 20,
@@ -833,8 +831,11 @@ class _EditProfessionalProfileScreenState
   late List<FreelancerProject> _projects;
   late List<FreelancerExperience> _experiences;
   late List<FreelancerEducation> _education;
-  late String? _avatarPath;
-  late String? _coverPath;
+  bool _uploadingAvatar = false;
+  bool _saving = false;
+  /// A newly picked, not yet saved cover; null keeps the saved one.
+  String? _pickedCoverPath;
+  bool _coverRemoved = false;
   late ProfileHeaderTheme _headerTheme;
   late ProfileVisibility _visibility;
   late bool _isAvailable;
@@ -850,8 +851,6 @@ class _EditProfessionalProfileScreenState
     _projects = [...profile.projects];
     _experiences = [...profile.experiences];
     _education = [...profile.education];
-    _avatarPath = profile.avatarPath;
-    _coverPath = profile.coverPath;
     _headerTheme = profile.profileHeaderTheme;
     _visibility = profile.visibility;
     _isAvailable = profile.isAvailable;
@@ -873,7 +872,15 @@ class _EditProfessionalProfileScreenState
       subtitle: 'Thông tin nghề nghiệp công khai',
       showBackButton: true,
       actions: [
-        TextButton(onPressed: _save, child: const Text('Lưu')),
+        TextButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Lưu'),
+        ),
         const SizedBox(width: 8),
       ],
       child: Center(
@@ -891,22 +898,46 @@ class _EditProfessionalProfileScreenState
                   title: 'Ảnh đại diện và nền hồ sơ',
                 ),
                 const SizedBox(height: 10),
-                _ProfileImageEditor(
-                  avatarPath: _avatarPath,
-                  coverPath: _coverPath,
-                  onTapAvatar: () => _showImageActionSheet(
-                    title: 'Thay đổi avatar',
-                    onPick: _pickAvatar,
-                    onRemove: _avatarPath == null
+                ListenableBuilder(
+                  listenable: widget.controller,
+                  builder: (context, _) => _ProfileImageEditor(
+                    avatarImage: widget.controller.avatarImage,
+                    avatarBusy: _uploadingAvatar,
+                    coverImage: _pickedCoverPath != null
+                        ? FileImage(File(_pickedCoverPath!))
+                        : _coverRemoved
                         ? null
-                        : () => setState(() => _avatarPath = null),
-                  ),
-                  onTapCover: () => _showImageActionSheet(
-                    title: 'Thay đổi ảnh nền',
-                    onPick: _pickCover,
-                    onRemove: _coverPath == null
-                        ? null
-                        : () => setState(() => _coverPath = null),
+                        : widget.controller.coverImage,
+                    onTapAvatar: _uploadingAvatar
+                        ? () {}
+                        : () => _showImageActionSheet(
+                            title: 'Thay đổi avatar',
+                            onPick: () => _changeAvatar(ImageSource.gallery),
+                            onCamera: () => _changeAvatar(ImageSource.camera),
+                            // The backend has no avatar delete endpoint yet.
+                            onRemove:
+                                widget.controller.hasBackend ||
+                                    widget.controller.profile.avatarPath == null
+                                ? null
+                                : () => widget.controller.update(
+                                    widget.controller.profile.copyWith(
+                                      clearAvatar: true,
+                                    ),
+                                  ),
+                          ),
+                    onTapCover: () => _showImageActionSheet(
+                      title: 'Thay đổi ảnh nền',
+                      onPick: _pickCover,
+                      onRemove:
+                          _pickedCoverPath == null &&
+                              (_coverRemoved ||
+                                  widget.controller.coverImage == null)
+                          ? null
+                          : () => setState(() {
+                              _pickedCoverPath = null;
+                              _coverRemoved = true;
+                            }),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1119,7 +1150,7 @@ class _EditProfessionalProfileScreenState
                 const SizedBox(height: 28),
                 FilledButton.icon(
                   key: const Key('save-professional-profile'),
-                  onPressed: _save,
+                  onPressed: _saving ? null : _save,
                   icon: const Icon(Icons.check_rounded),
                   label: const Text('Lưu hồ sơ'),
                 ),
@@ -1131,24 +1162,52 @@ class _EditProfessionalProfileScreenState
     );
   }
 
-  Future<void> _pickAvatar() async {
+  Future<void> _changeAvatar(ImageSource source) async {
+    if (_uploadingAvatar) return;
+    final Uint8List original;
     try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 88,
-        maxWidth: 1200,
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 92,
+        preferredCameraDevice: CameraDevice.front,
       );
-      if (image != null && mounted) setState(() => _avatarPath = image.path);
+      if (picked == null) return;
+      original = await picked.readAsBytes();
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Không thể mở thư viện ảnh. Hãy kiểm tra quyền truy cập.',
-          ),
-        ),
+      _showSnack(
+        source == ImageSource.camera
+            ? 'Không thể mở máy ảnh. Hãy kiểm tra quyền truy cập.'
+            : 'Không thể mở thư viện ảnh. Hãy kiểm tra quyền truy cập.',
       );
+      return;
     }
+    if (!mounted) return;
+    final cropped = await AvatarCropScreen.open(context, original);
+    if (cropped == null || !mounted) return;
+    setState(() => _uploadingAvatar = true);
+    try {
+      await widget.controller.uploadAvatar(cropped, 'image/png');
+      _showSnack('Đã cập nhật ảnh đại diện');
+    } on NovaApiException catch (error) {
+      _showSnack(
+        error.requiresLogin
+            ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+            : 'Tải ảnh lên thất bại (${error.statusCode ?? 'mạng'}). Ảnh cũ được giữ nguyên.',
+      );
+    } catch (_) {
+      _showSnack('Tải ảnh lên thất bại. Ảnh cũ được giữ nguyên.');
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _pickCover() async {
@@ -1158,7 +1217,12 @@ class _EditProfessionalProfileScreenState
         imageQuality: 88,
         maxWidth: 1800,
       );
-      if (image != null && mounted) setState(() => _coverPath = image.path);
+      if (image != null && mounted) {
+        setState(() {
+          _pickedCoverPath = image.path;
+          _coverRemoved = false;
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1174,6 +1238,7 @@ class _EditProfessionalProfileScreenState
   void _showImageActionSheet({
     required String title,
     required VoidCallback onPick,
+    VoidCallback? onCamera,
     VoidCallback? onRemove,
   }) {
     final theme = context.nivexTheme;
@@ -1221,6 +1286,19 @@ class _EditProfessionalProfileScreenState
                   onPick();
                 },
               ),
+              if (onCamera != null)
+                ListTile(
+                  key: const Key('image-action-camera'),
+                  leading: Icon(
+                    Icons.photo_camera_outlined,
+                    color: theme.primary,
+                  ),
+                  title: const Text('Chụp ảnh'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    onCamera();
+                  },
+                ),
               if (onRemove != null)
                 ListTile(
                   leading: Icon(
@@ -1341,32 +1419,50 @@ class _EditProfessionalProfileScreenState
   }
 
   Future<void> _save() async {
+    if (_saving || _uploadingAvatar) return;
     if (!_formKey.currentState!.validate()) return;
     if (_skills.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hãy chọn ít nhất một kỹ năng')),
-      );
+      _showSnack('Hãy chọn ít nhất một kỹ năng');
       return;
     }
-    final current = widget.controller.profile;
-    await widget.controller.update(
-      current.copyWith(
-        headline: _headlineController.text.trim(),
-        bio: _bioController.text.trim(),
-        skills: _skills.toList(growable: false),
-        projects: _projects,
-        experiences: _experiences,
-        education: _education,
-        visibility: _visibility,
-        isAvailable: _isAvailable,
-        weeklyCapacityHours: _capacity.round(),
-        avatarPath: _avatarPath,
-        clearAvatar: _avatarPath == null,
-        coverPath: _coverPath,
-        clearCover: _coverPath == null,
-        profileHeaderTheme: _headerTheme,
-      ),
-    );
+    final controller = widget.controller;
+    final headline = _headlineController.text.trim();
+    final bio = _bioController.text.trim();
+    setState(() => _saving = true);
+    try {
+      if (headline != controller.profile.headline ||
+          bio != controller.profile.bio) {
+        await controller.saveBasics(
+          displayName: controller.displayName,
+          headline: headline,
+          bio: bio,
+        );
+      }
+      if (_coverRemoved) await controller.removeCover();
+      await controller.update(
+        controller.profile.copyWith(
+          skills: _skills.toList(growable: false),
+          projects: _projects,
+          experiences: _experiences,
+          education: _education,
+          visibility: _visibility,
+          isAvailable: _isAvailable,
+          weeklyCapacityHours: _capacity.round(),
+          coverPath: _pickedCoverPath,
+          profileHeaderTheme: _headerTheme,
+        ),
+      );
+    } on NovaApiException catch (error) {
+      if (mounted) setState(() => _saving = false);
+      _showSnack(
+        'Không lưu được lên máy chủ (${error.statusCode ?? 'mạng'}). Thử lại sau.',
+      );
+      return;
+    } catch (_) {
+      if (mounted) setState(() => _saving = false);
+      _showSnack('Không lưu được ảnh nền. Hãy chọn lại ảnh và thử lại.');
+      return;
+    }
     if (!mounted) return;
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1740,14 +1836,16 @@ Widget _simpleDialog({
 
 class _ProfileImageEditor extends StatelessWidget {
   const _ProfileImageEditor({
-    required this.avatarPath,
-    required this.coverPath,
+    required this.avatarImage,
+    required this.avatarBusy,
+    required this.coverImage,
     required this.onTapAvatar,
     required this.onTapCover,
   });
 
-  final String? avatarPath;
-  final String? coverPath;
+  final ImageProvider? avatarImage;
+  final bool avatarBusy;
+  final ImageProvider? coverImage;
   final VoidCallback onTapAvatar;
   final VoidCallback onTapCover;
 
@@ -1779,10 +1877,9 @@ class _ProfileImageEditor extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (coverPath != null && File(coverPath!).existsSync())
-                        Image.file(File(coverPath!), fit: BoxFit.cover)
-                      else
-                        Container(
+                      _CoverImage(
+                        image: coverImage,
+                        fallback: Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
@@ -1800,6 +1897,7 @@ class _ProfileImageEditor extends StatelessWidget {
                             child: const SizedBox.expand(),
                           ),
                         ),
+                      ),
                       // Camera affordance for cover (bottom-right)
                       Positioned(
                         right: 12,
@@ -1852,19 +1950,33 @@ class _ProfileImageEditor extends StatelessWidget {
                       child: CircleAvatar(
                         radius: avatarRadius - 3.5,
                         backgroundColor: theme.primary.withValues(alpha: 0.12),
-                        foregroundImage:
-                            avatarPath != null && File(avatarPath!).existsSync()
-                            ? FileImage(File(avatarPath!))
-                            : null,
-                        child: avatarPath == null
-                            ? Icon(
-                                Icons.person_outline_rounded,
-                                color: theme.primary,
-                                size: 40,
-                              )
-                            : null,
+                        foregroundImage: avatarImage,
+                        child: Icon(
+                          Icons.person_outline_rounded,
+                          color: theme.primary,
+                          size: 40,
+                        ),
                       ),
                     ),
+                    if (avatarBusy)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          key: const Key('edit-profile-avatar-uploading'),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black45,
+                          ),
+                          child: const Center(
+                            child: SizedBox.square(
+                              dimension: 26,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     // Camera affordance for avatar (bottom-right)
                     Positioned(
                       right: 0,
@@ -1890,6 +2002,32 @@ class _ProfileImageEditor extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Cover from the backend or the local copy; [fallback] when absent or broken.
+class _CoverImage extends StatelessWidget {
+  const _CoverImage({
+    required this.image,
+    required this.fallback,
+    this.darken = false,
+  });
+
+  final ImageProvider? image;
+  final Widget fallback;
+  final bool darken;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = image;
+    if (provider == null) return fallback;
+    return Image(
+      image: provider,
+      fit: BoxFit.cover,
+      color: darken ? Colors.black.withValues(alpha: 0.65) : null,
+      colorBlendMode: darken ? BlendMode.darken : null,
+      errorBuilder: (_, _, _) => fallback,
     );
   }
 }

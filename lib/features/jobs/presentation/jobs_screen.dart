@@ -1,16 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
-import 'package:nivex_flutter/features/jobs/data/demo_application_controller.dart';
-import 'package:nivex_flutter/features/jobs/data/demo_job_opportunities.dart';
+import 'package:nivex_flutter/features/jobs/data/application_controller.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_opportunity.dart';
 import 'package:nivex_flutter/features/jobs/presentation/application_thread_screen.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 
 enum _JobFilter { all, matched, applied }
 
 class JobsScreen extends StatefulWidget {
-  const JobsScreen({super.key});
+  const JobsScreen({this.api, super.key});
+
+  /// Signed-in Nova client; null runs the offline demo fixtures.
+  final NovaApiClient? api;
 
   @override
   State<JobsScreen> createState() => _JobsScreenState();
@@ -19,14 +24,29 @@ class JobsScreen extends StatefulWidget {
 class _JobsScreenState extends State<JobsScreen> {
   final _searchController = TextEditingController();
   final _savedIds = <String>{};
-  final _applications = DemoApplicationController.instance;
+  late ApplicationController _applications;
   _JobFilter _filter = _JobFilter.all;
   String _query = '';
 
   @override
   void initState() {
     super.initState();
-    _applications.addListener(_refreshApplications);
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(covariant JobsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api) {
+      _applications.removeListener(_refreshApplications);
+      _bind();
+    }
+  }
+
+  void _bind() {
+    _applications = ApplicationController.resolve(widget.api)
+      ..addListener(_refreshApplications);
+    unawaited(_applications.refresh());
   }
 
   @override
@@ -40,9 +60,26 @@ class _JobsScreenState extends State<JobsScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Open jobs matching the profile skills that the user has not applied to.
+  String _signalMessage() {
+    if (widget.api == null) {
+      return '2 cơ hội mới vừa khớp với hồ sơ Flutter và Product Design.';
+    }
+    final jobs = _applications.jobs;
+    if (jobs.isEmpty) return 'Hiện chưa có cơ hội đang mở.';
+    final matching = jobs
+        .where(
+          (job) => job.matchScore > 0 && _applications.forJob(job.id) == null,
+        )
+        .length;
+    return matching == 0
+        ? 'Chưa có cơ hội mới khớp với kỹ năng trong hồ sơ của bạn.'
+        : '$matching cơ hội đang mở khớp với kỹ năng trong hồ sơ của bạn.';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final jobs = DemoJobOpportunities.items.where((job) {
+    final jobs = _applications.jobs.where((job) {
       final query = _query.trim().toLowerCase();
       final matchesQuery =
           query.isEmpty ||
@@ -70,77 +107,100 @@ class _JobsScreenState extends State<JobsScreen> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 680),
-          child: ListView(
-            key: const PageStorageKey('jobs-scroll'),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
-            children: [
-              const _JobSignalPanel(),
-              const SizedBox(height: 18),
-              SearchBar(
-                controller: _searchController,
-                hintText: 'Tìm vị trí, kỹ năng hoặc tổ chức',
-                leading: const Icon(Icons.search_rounded),
-                trailing: _query.isEmpty
-                    ? null
-                    : [
-                        IconButton(
-                          tooltip: 'Xóa tìm kiếm',
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                onChanged: (value) => setState(() => _query = value),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<_JobFilter>(
-                  segments: const [
-                    ButtonSegment(
-                      value: _JobFilter.all,
-                      icon: Icon(Icons.grid_view_rounded),
-                      label: Text('Tất cả'),
-                    ),
-                    ButtonSegment(
-                      value: _JobFilter.matched,
-                      icon: Icon(Icons.auto_awesome_outlined),
-                      label: Text('Phù hợp'),
-                    ),
-                    ButtonSegment(
-                      value: _JobFilter.applied,
-                      icon: Icon(Icons.assignment_turned_in_outlined),
-                      label: Text('Ứng tuyển'),
-                    ),
-                  ],
-                  selected: {_filter},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (selection) {
-                    setState(() => _filter = selection.first);
-                  },
+          child: RefreshIndicator(
+            onRefresh: _applications.refresh,
+            child: ListView(
+              key: const PageStorageKey('jobs-scroll'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 112),
+              children: [
+                _JobSignalPanel(
+                  message: _signalMessage(),
+                  caption: widget.api == null
+                      ? 'CẬP NHẬT 2 PHÚT TRƯỚC'
+                      : '${_applications.jobs.length} CƠ HỘI ĐANG MỞ',
                 ),
-              ),
-              const SizedBox(height: 22),
-              _SectionHeading(resultCount: jobs.length),
-              const SizedBox(height: 10),
-              if (jobs.isEmpty)
-                _EmptyJobs(filter: _filter)
-              else
-                ...jobs.map(
-                  (job) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _JobCard(
-                      job: job,
-                      isSaved: _savedIds.contains(job.id),
-                      isApplied: _applications.forJob(job.id) != null,
-                      onSave: () => _toggleSaved(job.id),
-                      onTap: () => _showJob(job),
-                    ),
+                const SizedBox(height: 18),
+                SearchBar(
+                  controller: _searchController,
+                  hintText: 'Tìm vị trí, kỹ năng hoặc tổ chức',
+                  leading: const Icon(Icons.search_rounded),
+                  trailing: _query.isEmpty
+                      ? null
+                      : [
+                          IconButton(
+                            tooltip: 'Xóa tìm kiếm',
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _query = '');
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<_JobFilter>(
+                    segments: const [
+                      ButtonSegment(
+                        value: _JobFilter.all,
+                        icon: Icon(Icons.grid_view_rounded),
+                        label: Text('Tất cả'),
+                      ),
+                      ButtonSegment(
+                        value: _JobFilter.matched,
+                        icon: Icon(Icons.auto_awesome_outlined),
+                        label: Text('Phù hợp'),
+                      ),
+                      ButtonSegment(
+                        value: _JobFilter.applied,
+                        icon: Icon(Icons.assignment_turned_in_outlined),
+                        label: Text('Ứng tuyển'),
+                      ),
+                    ],
+                    selected: {_filter},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (selection) {
+                      setState(() => _filter = selection.first);
+                    },
                   ),
                 ),
-            ],
+                const SizedBox(height: 22),
+                _SectionHeading(resultCount: jobs.length),
+                const SizedBox(height: 10),
+                if (_applications.errorMessage != null && jobs.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Text(
+                      _applications.errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: context.nivexTheme.textSecondary),
+                    ),
+                  )
+                else if (_applications.isLoading && jobs.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator.adaptive()),
+                  )
+                else if (jobs.isEmpty)
+                  _EmptyJobs(filter: _filter)
+                else
+                  ...jobs.map(
+                    (job) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _JobCard(
+                        job: job,
+                        isSaved: _savedIds.contains(job.id),
+                        isApplied: _applications.forJob(job.id) != null,
+                        onSave: () => _toggleSaved(job.id),
+                        onTap: () => _showJob(job),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -163,6 +223,7 @@ class _JobsScreenState extends State<JobsScreen> {
         job: job,
         initialApplication: _applications.forJob(job.id),
         onApply: () => _apply(job),
+        onWithdraw: widget.api == null ? null : _withdraw,
         onOpenApplication: () => Navigator.of(sheetContext).pop(job.id),
       ),
     );
@@ -171,15 +232,35 @@ class _JobsScreenState extends State<JobsScreen> {
     }
   }
 
-  Future<JobApplication> _apply(JobOpportunity job) async {
-    await Future<void>.delayed(const Duration(milliseconds: 650));
-    final application = _applications.apply(job);
+  Future<JobApplication?> _apply(JobOpportunity job) async {
+    final application = await _applications.apply(job);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đã gửi hồ sơ đến ${job.organizationName}')),
+        SnackBar(
+          content: Text(
+            application != null
+                ? 'Đã gửi hồ sơ đến ${job.organizationName}'
+                : _applications.errorMessage ?? 'Không thể gửi hồ sơ.',
+          ),
+        ),
       );
     }
     return application;
+  }
+
+  Future<JobApplication?> _withdraw(JobApplication application) async {
+    final withdrawn = await _applications.withdraw(application.id);
+    if (!mounted) return null;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          withdrawn
+              ? 'Đã rút hồ sơ ${application.jobTitle}'
+              : _applications.errorMessage ?? 'Không thể rút hồ sơ.',
+        ),
+      ),
+    );
+    return withdrawn ? _applications.byId(application.id) : null;
   }
 
   Future<void> _openApplication(String jobId) async {
@@ -188,7 +269,10 @@ class _JobsScreenState extends State<JobsScreen> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     await Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
-        builder: (_) => ApplicationThreadScreen(applicationId: application.id),
+        builder: (_) => ApplicationThreadScreen(
+          applicationId: application.id,
+          controller: _applications,
+        ),
       ),
     );
   }
@@ -211,11 +295,11 @@ class _JobsScreenState extends State<JobsScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Có 2 cơ hội mới khớp với kỹ năng trong hồ sơ của bạn.',
+              _signalMessage(),
               style: TextStyle(color: theme.textSecondary),
             ),
             const SizedBox(height: 12),
-            for (final job in DemoJobOpportunities.items)
+            for (final job in _applications.jobs.take(5))
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.work_outline_rounded, color: theme.primary),
@@ -241,7 +325,10 @@ class _JobsScreenState extends State<JobsScreen> {
 }
 
 class _JobSignalPanel extends StatelessWidget {
-  const _JobSignalPanel();
+  const _JobSignalPanel({required this.message, required this.caption});
+
+  final String message;
+  final String caption;
 
   @override
   Widget build(BuildContext context) {
@@ -311,7 +398,7 @@ class _JobSignalPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        '2 cơ hội mới vừa khớp với hồ sơ Flutter và Product Design.',
+                        message,
                         style: TextStyle(
                           color: theme.textSecondary,
                           height: 1.45,
@@ -319,7 +406,7 @@ class _JobSignalPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'CẬP NHẬT 2 PHÚT TRƯỚC',
+                        caption,
                         style: TextStyle(
                           color: theme.primary,
                           fontSize: 11,
@@ -727,12 +814,15 @@ class _JobDetailSheet extends StatefulWidget {
     required this.initialApplication,
     required this.onApply,
     required this.onOpenApplication,
+    this.onWithdraw,
   });
 
   final JobOpportunity job;
   final JobApplication? initialApplication;
-  final Future<JobApplication> Function() onApply;
+  final Future<JobApplication?> Function() onApply;
   final VoidCallback onOpenApplication;
+  final Future<JobApplication?> Function(JobApplication application)?
+  onWithdraw;
 
   @override
   State<_JobDetailSheet> createState() => _JobDetailSheetState();
@@ -915,28 +1005,40 @@ class _JobDetailSheetState extends State<_JobDetailSheet> {
               color: theme.surface,
               border: Border(top: BorderSide(color: theme.border)),
             ),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _submitting
-                    ? null
-                    : _application == null
-                    ? _submit
-                    : _openApplication,
-                icon: _submitting
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(
-                        _application != null
-                            ? Icons.forum_outlined
-                            : Icons.send_outlined,
-                      ),
-                label: Text(
-                  _application != null ? 'Đã gửi hồ sơ' : 'Ứng tuyển ngay',
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting
+                        ? null
+                        : _application == null
+                        ? _submit
+                        : _openApplication,
+                    icon: _submitting
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            _application != null
+                                ? Icons.forum_outlined
+                                : Icons.send_outlined,
+                          ),
+                    label: Text(
+                      _application != null ? 'Đã gửi hồ sơ' : 'Ứng tuyển ngay',
+                    ),
+                  ),
                 ),
-              ),
+                if (widget.onWithdraw != null &&
+                    _application != null &&
+                    _application!.canWithdraw)
+                  TextButton(
+                    onPressed: _submitting ? null : _withdraw,
+                    child: const Text('Rút hồ sơ'),
+                  ),
+              ],
             ),
           ),
         ],
@@ -950,7 +1052,20 @@ class _JobDetailSheetState extends State<_JobDetailSheet> {
     if (!mounted) return;
     setState(() {
       _submitting = false;
-      _application = application;
+      _application = application ?? _application;
+    });
+  }
+
+  Future<void> _withdraw() async {
+    final current = _application;
+    final withdraw = widget.onWithdraw;
+    if (current == null || withdraw == null) return;
+    setState(() => _submitting = true);
+    final updated = await withdraw(current);
+    if (!mounted) return;
+    setState(() {
+      _submitting = false;
+      _application = updated ?? _application;
     });
   }
 

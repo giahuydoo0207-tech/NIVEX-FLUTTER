@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:nivex_flutter/features/wallet/data/wallet_summary_controller.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
 void main() {
@@ -17,6 +18,88 @@ void main() {
     transport: MockClient(handler),
     timeout: timeout,
   );
+
+  test('notification carries its deep-link payload and read state', () async {
+    final api = client((request) async {
+      expect(request.url.path, '/api/v1/mobile/notifications');
+      return http.Response.bytes(
+        utf8.encode('''[
+          {"id":"n1","type":"APPLICATION_STATUS","title":"Bạn đã được nhận",
+           "body":"Nova · Mobile Engineer: Chúc mừng, bạn đã được nhận",
+           "data":"{\\"applicationId\\":\\"app-1\\",\\"jobId\\":\\"job-1\\",\\"status\\":\\"accepted\\",\\"organizationName\\":\\"Nova\\"}",
+           "readAt":null,"createdAt":"2026-09-29T10:00:00Z"},
+          {"id":"n2","type":"MESSAGE_RECEIVED","title":"Tin nhắn mới","body":"Chào",
+           "data":"{\\"threadId\\":\\"t-1\\"}","readAt":"2026-09-29T10:05:00Z","createdAt":"2026-09-29T10:01:00Z"}
+        ]'''),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final items = await api.notifications();
+    expect(items.first.isUnread, isTrue);
+    expect(items.first.applicationId, 'app-1');
+    expect(items.first.data['status'], 'accepted');
+    expect(items.first.data['organizationName'], 'Nova');
+    expect(items.last.isUnread, isFalse);
+    expect(items.last.threadId, 't-1');
+  });
+
+  test('wallet summary keeps demo-wallet payments out of the balance', () async {
+    final api = client((request) async {
+      expect(request.url.path, '/api/v1/mobile/wallet/summary');
+      return http.Response(
+        '{"availableBalanceMinor":"0","availableBalanceUsdc":"0.00",'
+        '"paidViaDemoWalletMinor":"400000","paidViaDemoWalletUsdc":"0.40",'
+        '"earnedLast7DaysMinor":"400000","earnedLast7DaysUsdc":"0.40",'
+        '"pendingBalanceMinor":"1250000","pendingBalanceUsdc":"1.25",'
+        '"currency":"USDC","network":"devnet","isDemoWallet":true,'
+        '"walletAddress":null,"demoRecipientAddress":"Eiz8","lastUpdatedAt":"2026-09-29T10:00:00Z"}',
+        200,
+      );
+    });
+    final summary = await api.walletSummary();
+    expect(summary.availableBalanceMinor, BigInt.zero);
+    expect(summary.paidViaDemoWalletMinor, BigInt.from(400000));
+    expect(summary.pendingBalanceMinor, BigInt.from(1250000));
+    expect(summary.isDemoWallet, isTrue);
+    expect(summary.walletAddress, isNull);
+    expect(formatUsdc2(summary.paidViaDemoWalletMinor), '0.40');
+    expect(formatUsdc2(BigInt.from(1250000)), '1.25');
+    expect(formatUsdc2(BigInt.zero), '0.00');
+  });
+
+  test('cover upload sends image bytes and returns the versioned coverUrl', () async {
+    final api = client((request) async {
+      expect(request.method, 'PUT');
+      expect(request.url.path, '/api/v1/profile/me/cover');
+      expect(request.headers['Content-Type'], startsWith('image/jpeg'));
+      return http.Response.bytes(
+        utf8.encode(
+          '{"id":"c-1","displayName":"Gia Huy Đỗ","headline":"","bio":"",'
+          '"avatarUrl":null,"postCount":0,"coverUrl":"/api/v1/profile/c-1/cover?v=2"}',
+        ),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final profile = await api.uploadProfileCover([0xff, 0xd8, 0xff], 'image/jpeg');
+    expect(profile.coverUrl, '/api/v1/profile/c-1/cover?v=2');
+  });
+
+  test('typing endpoints report and read the business typing state', () async {
+    final calls = <String>[];
+    final api = client((request) async {
+      calls.add('${request.method} ${request.url.path}');
+      if (request.method == 'POST') return http.Response('', 204);
+      return http.Response('{"typing":true}', 200);
+    });
+    await api.reportTyping('t-1');
+    expect(await api.businessTyping('t-1'), isTrue);
+    expect(calls, [
+      'POST /api/v1/mobile/messages/t-1/typing',
+      'GET /api/v1/mobile/messages/t-1/typing',
+    ]);
+  });
 
   test('requires HTTPS and rejects credentials or path in origin', () {
     for (final url in [
@@ -54,6 +137,110 @@ void main() {
       expect(formatUsdc(BigInt.from(10000)), '0.01');
       expect(formatUsdc(BigInt.from(200000)), '0.2');
       expect(formatUsdc(BigInt.from(1000000)), '1');
+    },
+  );
+
+  test('renews an expired access token once and retries the request', () async {
+    var token = 'a' * 43;
+    final seen = <String>[];
+    var refreshes = 0;
+    final api = NovaApiClient(
+      config: NovaApiConfig('https://example.test'),
+      readToken: () async => token,
+      refreshAccessToken: () async {
+        refreshes++;
+        token = 'b' * 43;
+        return token;
+      },
+      transport: MockClient((request) async {
+        seen.add(request.headers['Authorization']!);
+        return request.headers['Authorization'] == 'Bearer ${'a' * 43}'
+            ? http.Response('', 401)
+            : http.Response('[]', 200);
+      }),
+    );
+    addTearDown(api.close);
+
+    expect(await api.invoices(), isEmpty);
+    expect(refreshes, 1);
+    expect(seen, ['Bearer ${'a' * 43}', 'Bearer ${'b' * 43}']);
+  });
+
+  test('reports 401 when the session cannot be renewed', () async {
+    final api = NovaApiClient(
+      config: NovaApiConfig('https://example.test'),
+      readToken: () async => 'a' * 43,
+      refreshAccessToken: () async => null,
+      transport: MockClient((_) async => http.Response('', 401)),
+    );
+    addTearDown(api.close);
+
+    await expectLater(
+      api.myProfile(),
+      throwsA(
+        isA<NovaApiException>().having((e) => e.requiresLogin, 'login', true),
+      ),
+    );
+  });
+
+  test(
+    'parses jobs, applications and message threads from the backend',
+    () async {
+      final api = client((request) async {
+        switch (request.url.path) {
+          case '/api/v1/jobs':
+            return http.Response.bytes(
+              utf8.encode('''[{"id":"job-1","organizationId":"org-1","organizationName":"Nova Labs",
+              "title":"Flutter Engineer","category":"Mobile","summary":"Build",
+              "skills":["Flutter"],"engagement":"CONTRACT","paymentType":"MILESTONE",
+              "duration":"6 tuần","budgetMinMinor":1200000000,"budgetMaxMinor":1800000000,
+              "currency":"USDC","locationScope":"Remote","applicationDeadline":"2099-01-01",
+              "status":"PUBLISHED","applicantCount":2,"createdAt":"2026-09-27T00:00:00Z",
+              "publishedAt":"2026-09-27T01:00:00Z"}]'''),
+              200,
+            );
+          case '/api/v1/mobile/applications':
+            expect(request.url.queryParameters['limit'], '25');
+            return http.Response.bytes(
+              utf8.encode(
+                '''[{"id":"app-1","jobId":"job-1","jobTitle":"Flutter Engineer",
+              "contractorId":"c-1","candidateName":"Gia Huy","headline":"Dev","email":null,
+              "location":"","skillsJson":"[]","coverNote":"Hello","status":"shortlisted",
+              "submittedAt":"2026-09-27T00:00:00Z","updatedAt":"2026-09-27T02:00:00Z",
+              "withdrawnAt":null,"organizationId":"org-1","organizationName":"Nova Labs",
+              "candidateAvatarUrl":null}]''',
+              ),
+              200,
+            );
+          case '/api/v1/mobile/messages':
+            return http.Response.bytes(
+              utf8.encode(
+                '''[{"id":"t-1","contractorId":"c-1","candidateName":"Gia Huy",
+              "headline":"Dev","requestStatus":"ACCEPTED","createdAt":"2026-09-27T00:00:00Z",
+              "acceptedAt":"2026-09-27T00:00:00Z","updatedAt":"2026-09-27T03:00:00Z",
+              "organizationId":"org-1","organizationName":"Nova Labs","candidateAvatarUrl":null,
+              "organizationAvatarUrl":null,"unreadForTalent":1,"unreadForBusiness":0,
+              "messages":[{"id":"m-1","senderType":"BUSINESS","body":"Chào bạn",
+              "sentAt":"2026-09-27T03:00:00Z","deliveredAt":"2026-09-27T03:00:01Z","seenAt":null}]}]''',
+              ),
+              200,
+            );
+        }
+        fail('unexpected ${request.url}');
+      });
+      addTearDown(api.close);
+
+      final job = (await api.jobs()).single;
+      expect(job.organizationName, 'Nova Labs');
+      expect(job.budgetMinMinor, 1200000000);
+      expect(job.engagement, 'CONTRACT');
+      final application = (await api.myApplications()).single;
+      expect(application.status, 'shortlisted');
+      expect(application.email, '');
+      final thread = (await api.messageThreads()).single;
+      expect(thread.unreadForTalent, 1);
+      expect(thread.messages.single.seenAt, isNull);
+      expect(thread.messages.single.deliveredAt, isNotNull);
     },
   );
 
