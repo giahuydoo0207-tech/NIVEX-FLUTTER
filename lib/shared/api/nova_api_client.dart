@@ -230,6 +230,12 @@ class NovaCommunityPost {
     : id = _requiredString(json['id']),
       author = NovaCommunityAuthor.fromJson(_requiredObject(json['author'])),
       content = _requiredString(json['content']),
+      imageUrls = json['images'] is List
+          ? [
+              for (final value in json['images'] as List)
+                if (value is String && value.isNotEmpty) value,
+            ]
+          : const [],
       createdAt = DateTime.parse(_requiredString(json['createdAt'])),
       reactionCount = _count(json['reactionCount']),
       reactionCounts = _reactionCounts(json['reactionCounts']),
@@ -244,6 +250,9 @@ class NovaCommunityPost {
   final String id;
   final NovaCommunityAuthor author;
   final String content;
+
+  /// Relative (`/media/community/…`) or absolute image URLs, in display order.
+  final List<String> imageUrls;
   final DateTime createdAt;
   final int reactionCount;
   final Map<String, int> reactionCounts;
@@ -676,9 +685,12 @@ class NovaApiClient {
     return _decodeList(response, NovaWalletTransaction.fromJson);
   }
 
+  /// [images] are URLs returned by [uploadCommunityImage].
   Future<NovaCommunityPost> createCommunityPost(
     String content, {
     String privacy = 'PUBLIC',
+    List<String> images = const [],
+    List<String> topics = const [],
   }) {
     final normalized = content.trim();
     if (normalized.isEmpty || normalized.length > 2000) {
@@ -687,10 +699,40 @@ class NovaApiClient {
     return _writeObject(
       'POST',
       config.baseUri.resolve('/api/v1/posts'),
-      {'content': normalized, if (privacy != 'PUBLIC') 'privacy': privacy},
+      {
+        'content': normalized,
+        if (privacy != 'PUBLIC') 'privacy': privacy,
+        if (images.isNotEmpty) 'images': images,
+        if (topics.isNotEmpty) 'topics': topics,
+      },
       NovaCommunityPost.fromJson,
       expectedStatus: 201,
     );
+  }
+
+  /// Uploads one post image as the signed-in member; returns its media URL.
+  Future<String> uploadCommunityImage(List<int> bytes, String contentType) async {
+    if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
+      throw ArgumentError.value(bytes.length, 'bytes');
+    }
+    final response = await _send(
+      'POST',
+      config.baseUri.resolve('/api/v1/mobile/media'),
+      bytes: bytes,
+      contentType: contentType,
+    );
+    _expect(response, 201);
+    return _decodeObject(response, (json) => _requiredString(json['url']));
+  }
+
+  /// Removes an upload that was not attached to a post; attached media is kept.
+  Future<void> deleteCommunityImage(String url) async {
+    final id = url.split('/').last;
+    final response = await _send(
+      'DELETE',
+      config.baseUri.resolve('/api/v1/mobile/media/$id'),
+    );
+    _expect(response, 204);
   }
 
   Future<NovaCommunityPost> updateCommunityPost(

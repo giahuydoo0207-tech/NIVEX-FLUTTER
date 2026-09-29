@@ -427,17 +427,30 @@ class _PostsScreenState extends State<PostsScreen> {
       _showMessage('Hãy viết nội dung hoặc chọn ít nhất một ảnh.');
       return;
     }
-    if (widget.postsApi != null && _selectedImages.isNotEmpty) {
-      _showMessage('Đăng ảnh sẽ được đồng bộ ở bước Media tiếp theo.');
-      return;
-    }
+    if (_isPublishing) return;
     setState(() => _isPublishing = true);
     final api = widget.postsApi;
     if (api != null) {
+      // Images are uploaded first; the post is created only if every upload
+      // succeeded, and uploads are removed again if the post is not created.
+      final uploaded = <String>[];
       try {
-        final created = await api.createCommunityPost(content);
+        for (final image in _selectedImages) {
+          uploaded.add(
+            await api.uploadCommunityImage(
+              await image.readAsBytes(),
+              _imageContentType(image.path),
+            ),
+          );
+        }
+        final created = await api.createCommunityPost(
+          content.isEmpty ? 'Ảnh mới' : content,
+          images: uploaded,
+          topics: _hashtags(content),
+        );
         if (!mounted) return;
         setState(() {
+          _posts.removeWhere((post) => post.id == created.id);
           _posts.insert(0, _toDisplayPost(created));
           _usingRemoteFeed = true;
           _composerController.clear();
@@ -446,11 +459,16 @@ class _PostsScreenState extends State<PostsScreen> {
         });
         _showMessage('Đã đăng bài.');
         return;
-      } on NovaApiException {
+      } catch (error) {
+        for (final url in uploaded) {
+          unawaited(api.deleteCommunityImage(url).catchError((Object _) {}));
+        }
         if (mounted) {
           setState(() => _isPublishing = false);
           _showMessage(
-            'Không thể đăng bài. Hãy kiểm tra kết nối và đăng nhập.',
+            error is ArgumentError
+                ? 'Ảnh quá lớn (tối đa 5 MB) hoặc nội dung quá dài.'
+                : 'Không thể đăng bài. Bài chưa được đăng, hãy thử lại.',
           );
         }
         return;
@@ -477,6 +495,21 @@ class _PostsScreenState extends State<PostsScreen> {
     });
     _showMessage('Đã đăng bài trong bản thử nghiệm.');
   }
+
+  static String _imageContentType(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  /// Hashtags in the text become post topics (max 5), shown as chips on Web.
+  static List<String> _hashtags(String content) => RegExp(r'#([\p{L}\p{N}_]{1,40})', unicode: true)
+      .allMatches(content)
+      .map((match) => match.group(1)!.toLowerCase())
+      .toSet()
+      .take(5)
+      .toList();
 
   void _sortPosts() {
     _posts.sort((a, b) {
@@ -525,9 +558,13 @@ class _PostsScreenState extends State<PostsScreen> {
       final feed = await api.communityFeed(cursor: cursor);
       if (!mounted) return;
       setState(() {
-        _posts = reset
-            ? feed.items.map(_toDisplayPost).toList()
-            : [..._posts, ...feed.items.map(_toDisplayPost)];
+        // The cursor is an offset, so a post published meanwhile shifts the
+        // next page by one; skip posts that are already listed.
+        final known = reset ? <String?>{} : {for (final post in _posts) post.id};
+        final incoming = feed.items
+            .where((item) => !known.contains(item.id))
+            .map(_toDisplayPost);
+        _posts = reset ? incoming.toList() : [..._posts, ...incoming];
         _nextCursor = feed.nextCursor;
         _usingRemoteFeed = true;
         _isLoadingFeed = false;
@@ -763,6 +800,10 @@ class _PostsScreenState extends State<PostsScreen> {
       id: post.id,
       content: post.content,
       images: const [],
+      imageUrls: [
+        for (final url in post.imageUrls)
+          widget.postsApi?.mediaUri(url).toString() ?? url,
+      ],
       timeLabel: _relativeTime(post.createdAt),
       createdAt: post.createdAt,
       isMine:
@@ -1911,7 +1952,7 @@ class _HiddenPostCard extends StatelessWidget {
               ),
             ),
           ],
-          if (post.images.isNotEmpty) ...[
+          if (post.galleryImages.isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -1922,7 +1963,7 @@ class _HiddenPostCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  '${post.images.length} hình ảnh đính kèm',
+                  '${post.galleryImages.length} hình ảnh đính kèm',
                   style: TextStyle(color: theme.textSecondary, fontSize: 11.5),
                 ),
               ],
@@ -2584,9 +2625,9 @@ class _PostCardState extends State<_PostCard> {
               child: _ExpandablePostContent(text: post.content),
             ),
           ],
-          if (post.images.isNotEmpty) ...[
+          if (post.galleryImages.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _PostGallery(images: post.images),
+            _PostGallery(images: post.galleryImages),
           ],
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -4641,9 +4682,48 @@ class _ExpandablePostContentState extends State<_ExpandablePostContent> {
   }
 }
 
+/// A post image from a local file or the backend, with loading and broken
+/// states so a slow or missing image never breaks the feed layout.
+class _PostImage extends StatelessWidget {
+  const _PostImage({
+    required this.image,
+    this.alignment = Alignment.center,
+    this.placeholderHeight,
+  });
+
+  final ImageProvider image;
+  final Alignment alignment;
+  final double? placeholderHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.nivexTheme;
+    Widget placeholder(Widget? child) => ColoredBox(
+      color: theme.surfaceSubtle,
+      child: SizedBox(
+        height: placeholderHeight,
+        width: double.infinity,
+        child: Center(child: child),
+      ),
+    );
+    return Image(
+      image: image,
+      fit: BoxFit.cover,
+      alignment: alignment,
+      width: double.infinity,
+      gaplessPlayback: true,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : placeholder(null),
+      errorBuilder: (_, _, _) => placeholder(
+        Icon(Icons.broken_image_outlined, color: theme.textSecondary),
+      ),
+    );
+  }
+}
+
 class _PostGallery extends StatelessWidget {
   const _PostGallery({required this.images});
-  final List<XFile> images;
+  final List<ImageProvider> images;
 
   void _openViewer(BuildContext context, int initialIndex) {
     Navigator.of(context).push<void>(
@@ -4665,17 +4745,7 @@ class _PostGallery extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.file(
-            File(images[index].path),
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => ColoredBox(
-              color: context.nivexTheme.surfaceSubtle,
-              child: Icon(
-                Icons.broken_image_outlined,
-                color: context.nivexTheme.textSecondary,
-              ),
-            ),
-          ),
+          _PostImage(image: images[index]),
           if (showOverlay && extraCount > 0)
             ColoredBox(
               color: Colors.black.withValues(alpha: 0.55),
@@ -4709,23 +4779,10 @@ class _PostGallery extends StatelessWidget {
           onTap: () => _openViewer(context, 0),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 460),
-            child: Image.file(
-              File(images.first.path),
-              width: double.infinity,
-              fit: BoxFit.cover,
+            child: _PostImage(
+              image: images.first,
               alignment: Alignment.topCenter,
-              errorBuilder: (_, _, _) => ColoredBox(
-                color: context.nivexTheme.surfaceSubtle,
-                child: SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: context.nivexTheme.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
+              placeholderHeight: 240,
             ),
           ),
         ),
@@ -4823,7 +4880,7 @@ class _FullScreenImageViewer extends StatefulWidget {
     required this.initialIndex,
   });
 
-  final List<XFile> images;
+  final List<ImageProvider> images;
   final int initialIndex;
 
   @override
@@ -4882,8 +4939,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
               minScale: 1.0,
               maxScale: 3.5,
               clipBehavior: Clip.none,
-              child: Image.file(
-                File(widget.images[index].path),
+              child: Image(
+                image: widget.images[index],
                 fit: BoxFit.contain,
                 width: double.infinity,
                 height: double.infinity,
@@ -5043,6 +5100,7 @@ class _DemoPost {
     required this.content,
     required this.images,
     required this.timeLabel,
+    this.imageUrls = const [],
     this.id,
     this.isMine = true,
     this.isPinned = false,
@@ -5069,9 +5127,18 @@ class _DemoPost {
   final String? id;
   final String content;
   final List<XFile> images;
+
+  /// Backend images as absolute URLs.
+  final List<String> imageUrls;
   final String timeLabel;
   final bool isMine;
   final bool isPinned;
+
+  /// Local picks first, then backend images.
+  List<ImageProvider> get galleryImages => [
+    for (final file in images) FileImage(File(file.path)),
+    for (final url in imageUrls) NetworkImage(url),
+  ];
   final bool isSaved;
   final bool isHidden;
   final DateTime? createdAt;
@@ -5112,6 +5179,7 @@ class _DemoPost {
       id: id ?? this.id,
       content: content ?? this.content,
       images: images ?? this.images,
+      imageUrls: imageUrls,
       timeLabel: timeLabel ?? this.timeLabel,
       isMine: isMine ?? this.isMine,
       isPinned: isPinned ?? this.isPinned,

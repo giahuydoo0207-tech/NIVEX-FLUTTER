@@ -44,6 +44,85 @@ void main() {
     expect(items.last.threadId, 't-1');
   });
 
+  test('publishing uploads the image, then creates the post with it', () async {
+    final calls = <String>[];
+    Map<String, dynamic>? createdBody;
+    final api = client((request) async {
+      calls.add('${request.method} ${request.url.path}');
+      if (request.url.path == '/api/v1/mobile/media') {
+        expect(request.headers['Content-Type'], startsWith('image/jpeg'));
+        expect(request.bodyBytes, [0xff, 0xd8, 0xff]);
+        return http.Response('{"url":"/media/community/5eed0d00-0000-4000-8000-00000000abcd"}', 201);
+      }
+      if (request.method == 'DELETE') return http.Response('', 204);
+      createdBody = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response.bytes(
+        utf8.encode(
+          '{"id":"p-new","author":{"id":"c-1","displayName":"Gia Huy Đỗ"},'
+          '"content":"Bài từ Flutter #flutter","images":["/media/community/5eed0d00-0000-4000-8000-00000000abcd"],'
+          '"createdAt":"2026-09-29T12:00:00Z","reactionCount":0,"reactionCounts":{},"commentCount":0}',
+        ),
+        201,
+      );
+    });
+    final url = await api.uploadCommunityImage([0xff, 0xd8, 0xff], 'image/jpeg');
+    final post = await api.createCommunityPost(
+      'Bài từ Flutter #flutter',
+      images: [url],
+      topics: ['flutter'],
+    );
+    expect(createdBody, {
+      'content': 'Bài từ Flutter #flutter',
+      'images': ['/media/community/5eed0d00-0000-4000-8000-00000000abcd'],
+      'topics': ['flutter'],
+    });
+    expect(post.imageUrls.single, url);
+    await api.deleteCommunityImage(url);
+    expect(calls, [
+      'POST /api/v1/mobile/media',
+      'POST /api/v1/posts',
+      'DELETE /api/v1/mobile/media/5eed0d00-0000-4000-8000-00000000abcd',
+    ]);
+  });
+
+  test('a rejected post surfaces an error instead of a post', () async {
+    final api = client((request) async => http.Response('{}', 400));
+    expect(
+      api.createCommunityPost('x', images: ['https://example.com/a.png']),
+      throwsA(isA<NovaApiException>()),
+    );
+    expect(() => api.createCommunityPost('   '), throwsArgumentError);
+    expect(api.uploadCommunityImage(const [], 'image/png'), throwsArgumentError);
+  });
+
+  test('feed posts keep their image URLs; posts without images parse too', () {
+    final withImage = NovaCommunityPost.fromJson({
+      'id': 'p1',
+      'author': {'id': 'nova-demo-thu-ha', 'displayName': 'Phạm Thu Hà', 'avatarUrl': '/api/v1/profile/nova-demo-thu-ha/avatar?v=1'},
+      'content': 'MVP Flutter',
+      'images': ['/media/community/5eed0d00-0000-4000-8000-000000000001', '', 3],
+      'createdAt': '2026-09-29T10:00:00Z',
+      'reactionCount': 7,
+      'reactionCounts': {'LOVE': 1, 'LIKE': 3, 'BUILD': 2, 'LAUNCH': 1},
+      'commentCount': 3,
+    });
+    expect(withImage.imageUrls, ['/media/community/5eed0d00-0000-4000-8000-000000000001']);
+    expect(withImage.author.avatarUrl, '/api/v1/profile/nova-demo-thu-ha/avatar?v=1');
+    expect(withImage.reactionCounts['BUILD'], 2);
+
+    final textOnly = NovaCommunityPost.fromJson({
+      'id': 'p5',
+      'author': {'id': 'nova-demo-ngoc-mai', 'displayName': 'Trần Ngọc Mai'},
+      'content': 'Câu hỏi cho các bạn freelancer',
+      'createdAt': '2026-09-29T10:00:00Z',
+      'reactionCount': 0,
+      'reactionCounts': <String, int>{},
+      'commentCount': 0,
+    });
+    expect(textOnly.imageUrls, isEmpty);
+    expect(textOnly.author.avatarUrl, isNull);
+  });
+
   test('wallet summary keeps demo-wallet payments out of the balance', () async {
     final api = client((request) async {
       expect(request.url.path, '/api/v1/mobile/wallet/summary');
