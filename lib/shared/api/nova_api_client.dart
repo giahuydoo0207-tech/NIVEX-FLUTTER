@@ -4,12 +4,23 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class NovaApiException implements Exception {
-  const NovaApiException(this.code, {this.statusCode});
+  const NovaApiException(
+    this.code, {
+    this.statusCode,
+    this.serverCode,
+    this.serverMessage,
+  });
   final String code;
   final int? statusCode;
+
+  /// Stable error code from the backend body, e.g. `INVALID_WALLET_ADDRESS`.
+  final String? serverCode;
+
+  /// A message the backend marked safe to show, when it sent one.
+  final String? serverMessage;
   bool get requiresLogin => statusCode == 401;
   @override
-  String toString() => 'NovaApiException($code)';
+  String toString() => 'NovaApiException($code, ${serverCode ?? statusCode})';
 }
 
 class NovaApiConfig {
@@ -167,36 +178,102 @@ class NovaWalletTransaction {
     : signature = _requiredString(json['signature']),
       amountMinor = BigInt.parse(_requiredString(json['amountMinor'])),
       recipient = _requiredString(json['recipient']),
-      recordedAt = DateTime.parse(_requiredString(json['recordedAt']));
+      recordedAt = DateTime.parse(_requiredString(json['recordedAt'])),
+      invoiceId = json['invoiceId'] as String?,
+      invoiceNumber = json['invoiceNumber'] as String?,
+      token = json['token'] is String ? json['token'] as String : 'USDC',
+      network = json['network'] is String
+          ? json['network'] as String
+          : 'solana:devnet',
+      status = json['status'] as String?,
+      // Older backends only paid into the server demo wallet.
+      recipientKind = json['recipientKind'] is String
+          ? json['recipientKind'] as String
+          : 'LEGACY_DEMO';
 
   final String signature;
   final BigInt amountMinor;
   final String recipient;
   final DateTime recordedAt;
+  final String? invoiceId;
+  final String? invoiceNumber;
+  final String token;
+  final String network;
+  final String? status;
+  final String recipientKind;
+
+  /// Paid into the old server demo wallet, not the contractor's own wallet.
+  bool get isLegacyDemo => recipientKind != 'CONTRACTOR_WALLET';
 }
 
-/// `GET /api/v1/mobile/wallet/summary`. Devnet payments settle into the
-/// server's demo wallet, so they are reported as paid through it and are
-/// never the contractor's own balance ([availableBalanceMinor] stays 0).
+/// `GET /api/v1/mobile/wallet/summary`, computed from the payment ledger.
+/// [paidToPersonalWalletMinor] is what Nova paid into the contractor's own
+/// wallet; [paidViaDemoWalletMinor] is legacy payments into the server demo
+/// wallet, never the contractor's money. Neither is an on-chain balance.
 class NovaWalletSummary {
   NovaWalletSummary.fromJson(Map<String, dynamic> json)
     : availableBalanceMinor = BigInt.parse(_requiredString(json['availableBalanceMinor'])),
+      paidToPersonalWalletMinor = json['paidToPersonalWalletMinor'] == null
+          ? BigInt.parse(_requiredString(json['availableBalanceMinor']))
+          : _amount(json['paidToPersonalWalletMinor']),
       paidViaDemoWalletMinor = BigInt.parse(_requiredString(json['paidViaDemoWalletMinor'])),
       earnedLast7DaysMinor = BigInt.parse(_requiredString(json['earnedLast7DaysMinor'])),
       pendingBalanceMinor = BigInt.parse(_requiredString(json['pendingBalanceMinor'])),
       network = _requiredString(json['network']),
       isDemoWallet = json['isDemoWallet'] == true,
       walletAddress = json['walletAddress'] as String?,
+      payoutWalletStatus = json['payoutWalletStatus'] is String
+          ? json['payoutWalletStatus'] as String
+          : (json['walletAddress'] is String ? 'CONFIGURED' : 'NOT_CONFIGURED'),
       demoRecipientAddress = json['demoRecipientAddress'] as String?;
 
   final BigInt availableBalanceMinor;
+  final BigInt paidToPersonalWalletMinor;
   final BigInt paidViaDemoWalletMinor;
   final BigInt earnedLast7DaysMinor;
   final BigInt pendingBalanceMinor;
   final String network;
   final bool isDemoWallet;
   final String? walletAddress;
+
+  /// CONFIGURED, NOT_CONFIGURED or INVALID.
+  final String payoutWalletStatus;
   final String? demoRecipientAddress;
+
+  bool get hasPayoutWallet => payoutWalletStatus == 'CONFIGURED';
+}
+
+/// The signed-in contractor's public payout wallet
+/// (`/api/v1/mobile/wallet/receive`). Never carries a secret.
+class NovaReceiveWallet {
+  NovaReceiveWallet.fromJson(Map<String, dynamic> json)
+    : status = _requiredString(json['status']),
+      walletAddress = json['walletAddress'] as String?,
+      network = _requiredString(json['network']),
+      tokenSymbol = _requiredString(json['tokenSymbol']),
+      tokenMint = _requiredString(json['tokenMint']),
+      ownershipVerified = json['ownershipVerified'] == true,
+      updatedAt = json['updatedAt'] is String
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null {
+    if (!const {'CONFIGURED', 'NOT_CONFIGURED', 'INVALID'}.contains(status) ||
+        (status == 'CONFIGURED' && walletAddress == null)) {
+      throw const FormatException('Invalid receive wallet');
+    }
+  }
+
+  /// CONFIGURED, NOT_CONFIGURED or INVALID.
+  final String status;
+  final String? walletAddress;
+
+  /// `solana:devnet`.
+  final String network;
+  final String tokenSymbol;
+  final String tokenMint;
+  final bool ownershipVerified;
+  final DateTime? updatedAt;
+
+  bool get isConfigured => status == 'CONFIGURED';
 }
 
 /// The signed-in login account (`GET /api/v1/auth/me`). Email is null for
@@ -675,6 +752,32 @@ class NovaApiClient {
     NovaWalletSummary.fromJson,
   );
 
+  Future<NovaReceiveWallet> receiveWallet() => _getObject(
+    config.baseUri.resolve('/api/v1/mobile/wallet/receive'),
+    NovaReceiveWallet.fromJson,
+  );
+
+  /// Saves the contractor's public Solana Devnet address. The backend is the
+  /// final judge of validity; only the address ever leaves the device.
+  Future<NovaReceiveWallet> saveReceiveWallet(String walletAddress) =>
+      _writeObject(
+        'PUT',
+        config.baseUri.resolve('/api/v1/mobile/wallet/receive'),
+        {
+          'walletAddress': walletAddress.trim(),
+          'network': 'solana:devnet',
+          'confirmPublicAddress': true,
+        },
+        NovaReceiveWallet.fromJson,
+      );
+
+  Future<NovaReceiveWallet> deleteReceiveWallet() => _writeObject(
+    'DELETE',
+    config.baseUri.resolve('/api/v1/mobile/wallet/receive'),
+    null,
+    NovaReceiveWallet.fromJson,
+  );
+
   /// Finalized Devnet payments for the signed-in contractor's invoices.
   Future<List<NovaWalletTransaction>> walletTransactions() async {
     final response = await _send(
@@ -1011,7 +1114,27 @@ class NovaApiClient {
 
   void _expect(http.Response response, int status) {
     if (response.statusCode != status) {
-      throw NovaApiException('http', statusCode: response.statusCode);
+      String? code;
+      String? message;
+      try {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        if (body is Map<String, dynamic>) {
+          if (body['code'] is String) code = body['code'] as String;
+          if (body['message'] is String &&
+              (body['message'] as String).isNotEmpty &&
+              (body['message'] as String).length <= 300) {
+            message = body['message'] as String;
+          }
+        }
+      } on FormatException {
+        // Not JSON: the status code alone describes the failure.
+      }
+      throw NovaApiException(
+        'http',
+        statusCode: response.statusCode,
+        serverCode: code,
+        serverMessage: code == null ? null : message,
+      );
     }
   }
 

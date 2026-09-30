@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:flutter/services.dart';
@@ -5,7 +7,9 @@ import 'package:nivex_flutter/features/invoices/presentation/mobile_invoices_scr
 import 'package:nivex_flutter/shared/constants/app_environment.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/receive/presentation/receive_usdc_screen.dart';
+import 'package:nivex_flutter/features/wallet/data/receive_wallet_controller.dart';
 import 'package:nivex_flutter/features/wallet/data/wallet_summary_controller.dart';
+import 'package:nivex_flutter/features/wallet/presentation/receive_wallet_section.dart';
 import 'package:nivex_flutter/shared/constants/demo_data.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
@@ -310,9 +314,10 @@ class WalletScreen extends StatelessWidget {
   }
 }
 
-/// Wallet backed by `/mobile/wallet/*`. Devnet payments settle into the
-/// server's demo wallet, so they are shown as paid through it and never as
-/// the user's own balance; demo actions (receive, VND cash-out) are hidden.
+/// Wallet backed by `/mobile/wallet/*`. Businesses pay into the payout wallet
+/// the user registers here; amounts come from the payment ledger only, and
+/// old payments into the server demo wallet are labelled as such. Demo
+/// actions (receive, VND cash-out) are hidden.
 class _LiveWallet extends StatefulWidget {
   const _LiveWallet({required this.api});
 
@@ -324,6 +329,9 @@ class _LiveWallet extends StatefulWidget {
 
 class _LiveWalletState extends State<_LiveWallet> {
   late final WalletSummaryController _wallet = WalletSummaryController.of(
+    widget.api,
+  );
+  late final ReceiveWalletController _receive = ReceiveWalletController(
     widget.api,
   );
   List<NovaWalletTransaction>? _transactions;
@@ -339,6 +347,7 @@ class _LiveWalletState extends State<_LiveWallet> {
   @override
   void dispose() {
     _wallet.removeListener(_changed);
+    _receive.dispose();
     super.dispose();
   }
 
@@ -348,6 +357,7 @@ class _LiveWalletState extends State<_LiveWallet> {
 
   Future<void> _refresh() async {
     final summary = _wallet.refresh();
+    final receive = _receive.load();
     try {
       final items = await widget.api.walletTransactions();
       if (mounted) {
@@ -360,6 +370,7 @@ class _LiveWalletState extends State<_LiveWallet> {
       if (mounted) setState(() => _transactionsFailed = true);
     }
     await summary;
+    await receive;
   }
 
   @override
@@ -399,43 +410,68 @@ class _LiveWalletState extends State<_LiveWallet> {
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Số dư cá nhân',
-                          style: TextStyle(color: Color(0xFFCAD8E5), fontSize: 13),
+                        Text(
+                          summary.hasPayoutWallet
+                              ? 'Đã nhận vào ví cá nhân'
+                              : 'Ví nhận tiền',
+                          style: const TextStyle(
+                            color: Color(0xFFCAD8E5),
+                            fontSize: 13,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '${formatUsdc2(summary.availableBalanceMinor)} USDC',
+                          summary.hasPayoutWallet
+                              ? '${formatUsdc2(summary.paidToPersonalWalletMinor)} USDC'
+                              : 'Chưa cấu hình ví nhận tiền',
                           key: const Key('wallet-available-balance'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 28,
+                            fontSize: summary.hasPayoutWallet ? 28 : 20,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         const SizedBox(height: 12),
+                        if (!summary.hasPayoutWallet &&
+                            summary.paidToPersonalWalletMinor > BigInt.zero)
+                          _SummaryLine(
+                            label: 'Đã nhận vào ví cá nhân',
+                            value:
+                                '${formatUsdc2(summary.paidToPersonalWalletMinor)} USDC',
+                          ),
                         _SummaryLine(
-                          label: 'Đã nhận qua ví demo',
-                          value: '${formatUsdc2(summary.paidViaDemoWalletMinor)} USDC',
+                          label: 'Đang chờ thanh toán',
+                          value: '${formatUsdc2(summary.pendingBalanceMinor)} USDC',
                         ),
                         _SummaryLine(
                           label: 'Thu nhập 7 ngày qua',
                           value: '${formatUsdc2(summary.earnedLast7DaysMinor)} USDC',
                         ),
-                        _SummaryLine(
-                          label: 'Đang chờ thanh toán',
-                          value: '${formatUsdc2(summary.pendingBalanceMinor)} USDC',
-                        ),
-                        if (summary.isDemoWallet) ...[
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Bạn chưa liên kết ví cá nhân. Thanh toán Devnet hiện được '
-                            'chuyển vào ví demo của máy chủ, nên chưa cộng vào số dư của bạn.',
-                            style: TextStyle(color: Color(0xFFCAD8E5), fontSize: 12),
+                        if (summary.paidViaDemoWalletMinor > BigInt.zero)
+                          _SummaryLine(
+                            label: 'Giao dịch demo cũ (ví máy chủ)',
+                            value:
+                                '${formatUsdc2(summary.paidViaDemoWalletMinor)} USDC',
                           ),
-                        ],
+                        const SizedBox(height: 10),
+                        Text(
+                          summary.hasPayoutWallet
+                              ? 'Số liệu lấy từ các thanh toán Nova đã hoàn tất trên '
+                                    'Solana Devnet, không phải số dư đọc từ ví.'
+                              : 'Thêm địa chỉ ví bên dưới để doanh nghiệp có thể '
+                                    'thanh toán USDC cho bạn.',
+                          style: const TextStyle(
+                            color: Color(0xFFCAD8E5),
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
+            ),
+            const SizedBox(height: 16),
+            ReceiveWalletSection(
+              controller: _receive,
+              onChanged: () => unawaited(_wallet.refresh()),
             ),
             const SizedBox(height: 12),
             ListTile(
@@ -475,11 +511,17 @@ class _LiveWalletState extends State<_LiveWallet> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const SolanaMark(width: 20),
-                  title: Text('+${formatUsdc2(transaction.amountMinor)} USDC'),
+                  title: Text(
+                    '+${formatUsdc2(transaction.amountMinor)} ${transaction.token}'
+                    '${transaction.isLegacyDemo ? ' · Giao dịch demo cũ' : ''}',
+                  ),
                   subtitle: Text(
-                    '${_shortAddress(transaction.signature)} · '
+                    '${transaction.invoiceNumber ?? 'Hóa đơn'} · '
+                    '${transaction.isLegacyDemo ? 'Vào ví demo máy chủ' : 'Vào ví ${_shortAddress(transaction.recipient)}'}\n'
+                    'Chữ ký ${_shortAddress(transaction.signature)} · '
                     '${transaction.recordedAt.toLocal().toString().substring(0, 16)}',
                   ),
+                  isThreeLine: true,
                   trailing: IconButton(
                     tooltip: 'Sao chép chữ ký giao dịch',
                     icon: const Icon(Icons.copy_rounded, size: 18),
@@ -491,7 +533,7 @@ class _LiveWalletState extends State<_LiveWallet> {
             if (summary?.demoRecipientAddress != null) ...[
               const SizedBox(height: 20),
               Text(
-                'VÍ NHẬN DEMO CỦA MÁY CHỦ',
+                'VÍ DEMO CŨ CỦA MÁY CHỦ (GIAO DỊCH TRƯỚC ĐÂY)',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,

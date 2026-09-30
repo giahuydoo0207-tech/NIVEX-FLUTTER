@@ -698,8 +698,8 @@ class _HomeHero extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Text(
-                        'Số dư khả dụng',
+                      Text(
+                        isLive ? 'Đã nhận vào ví cá nhân' : 'Số dư khả dụng',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 13,
@@ -732,10 +732,15 @@ class _HomeHero extends StatelessWidget {
                         ? '500.00 USDC'
                         : wallet == null
                         ? '—'
-                        : '${formatUsdc2(wallet!.availableBalanceMinor)} USDC',
-                    style: const TextStyle(
+                        : !wallet!.hasPayoutWallet
+                        ? 'Chưa cấu hình ví nhận tiền'
+                        : '${formatUsdc2(wallet!.paidToPersonalWalletMinor)} USDC',
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 32,
+                      fontSize:
+                          isLive && wallet != null && !wallet!.hasPayoutWallet
+                          ? 22
+                          : 32,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0,
                       height: 1.15,
@@ -749,7 +754,9 @@ class _HomeHero extends StatelessWidget {
                         ? '≈ 12.500.000 VND'
                         : wallet == null
                         ? ''
-                        : 'Đã nhận qua ví demo: ${formatUsdc2(wallet!.paidViaDemoWalletMinor)} USDC',
+                        : wallet!.paidViaDemoWalletMinor > BigInt.zero
+                        ? 'Giao dịch demo cũ (ví máy chủ): ${formatUsdc2(wallet!.paidViaDemoWalletMinor)} USDC'
+                        : 'Đang chờ thanh toán: ${formatUsdc2(wallet!.pendingBalanceMinor)} USDC',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -763,8 +770,8 @@ class _HomeHero extends StatelessWidget {
                         ? 'Chưa đồng bộ được Devnet.'
                         : wallet == null
                         ? (walletFailed ? 'Chưa tải được ví.' : 'Đang tải ví…')
-                        : wallet!.isDemoWallet
-                        ? 'Chưa liên kết ví cá nhân · Devnet trả vào ví demo máy chủ.'
+                        : !wallet!.hasPayoutWallet
+                        ? 'Thêm ví nhận tiền trong mục Ví để được thanh toán.'
                         : 'Ví cá nhân · Solana ${wallet!.network}',
                     style: const TextStyle(
                       color: Colors.white60,
