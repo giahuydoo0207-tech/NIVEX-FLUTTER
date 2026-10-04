@@ -9,6 +9,7 @@ import 'package:nivex_flutter/features/wallet/data/wallet_summary_controller.dar
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
+import 'package:nivex_flutter/features/replyn_pairing/presentation/replyn_scan_button.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
@@ -20,6 +21,7 @@ class HomeScreen extends StatefulWidget {
     required this.onProfile,
     required this.onCreatePost,
     this.homeApi,
+    this.replynScannerBuilder,
     super.key,
   });
 
@@ -27,6 +29,9 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onProfile;
   final VoidCallback onCreatePost;
   final NovaApiClient? homeApi;
+
+  /// Replaces the Replyn scanner route; tests use it to avoid the camera.
+  final WidgetBuilder? replynScannerBuilder;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -104,6 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _HomeHero(
                 onNotifications: () => _showNotifications(context),
+                replynScannerBuilder: widget.replynScannerBuilder,
                 onProfile: widget.onProfile,
                 balanceVisible: _balanceVisible,
                 onToggleBalance: () {
@@ -597,9 +603,11 @@ class _HomeHero extends StatelessWidget {
     required this.isLive,
     required this.wallet,
     required this.walletFailed,
+    this.replynScannerBuilder,
   });
 
   final VoidCallback onNotifications;
+  final WidgetBuilder? replynScannerBuilder;
   final VoidCallback onProfile;
   final bool balanceVisible;
   final VoidCallback onToggleBalance;
@@ -642,14 +650,21 @@ class _HomeHero extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Header: Logo + Bell with indicator dot
+                  // Top Header: Logo + Replyn scan + Bell with indicator dot
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const NivexLogo(isLight: true, height: 26),
-                      _NotificationBell(
-                        onTap: onNotifications,
-                        unreadCount: unreadNotifications,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ReplynScanButton(scannerBuilder: replynScannerBuilder),
+                          const SizedBox(width: 4),
+                          _NotificationBell(
+                            onTap: onNotifications,
+                            unreadCount: unreadNotifications,
+                          ),
+                        ],
                       ),
                     ],
                   ),
