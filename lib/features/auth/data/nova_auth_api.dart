@@ -34,42 +34,6 @@ class NovaAuthSession {
   final DateTime accessExpiresAt;
 }
 
-class NovaPhoneOtpChallenge {
-  const NovaPhoneOtpChallenge({
-    required this.id,
-    required this.expiresInSeconds,
-    this.debugOtp,
-  });
-
-  factory NovaPhoneOtpChallenge.fromJson(Map<String, dynamic> json) {
-    final id = json['challengeId'];
-    final expiresInSeconds = json['expiresInSeconds'];
-    final debugOtp = json['debugOtp'];
-    if (id is! String ||
-        !RegExp(
-          r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-          caseSensitive: false,
-        ).hasMatch(id) ||
-        expiresInSeconds is! int ||
-        expiresInSeconds < 1 ||
-        expiresInSeconds > 600 ||
-        (debugOtp != null &&
-            (debugOtp is! String ||
-                !RegExp(r'^[0-9]{6}$').hasMatch(debugOtp)))) {
-      throw const FormatException('Invalid OTP challenge response');
-    }
-    return NovaPhoneOtpChallenge(
-      id: id,
-      expiresInSeconds: expiresInSeconds,
-      debugOtp: debugOtp as String?,
-    );
-  }
-
-  final String id;
-  final int expiresInSeconds;
-  final String? debugOtp;
-}
-
 class NovaAuthApi {
   NovaAuthApi({
     required this.config,
@@ -132,52 +96,6 @@ class NovaAuthApi {
       throw const NovaApiException('connection');
     }
   }
-
-  Future<NovaPhoneOtpChallenge> requestPhoneOtp({
-    required String phoneE164,
-  }) async {
-    try {
-      final response = await _client
-          .post(
-            config.baseUri.resolve('/api/v1/auth/phone/request-otp'),
-            headers: const {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({'phoneE164': phoneE164}),
-          )
-          .timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw NovaApiException(
-          'otp_request_failed',
-          statusCode: response.statusCode,
-        );
-      }
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('Expected OTP challenge');
-      }
-      return NovaPhoneOtpChallenge.fromJson(decoded);
-    } on TimeoutException {
-      throw const NovaApiException('timeout');
-    } on http.ClientException {
-      throw const NovaApiException('connection');
-    } on FormatException {
-      throw const NovaApiException('invalid_response');
-    } on TypeError {
-      throw const NovaApiException('invalid_response');
-    }
-  }
-
-  Future<NovaAuthSession> verifyPhoneOtp({
-    required String challengeId,
-    required String code,
-    required String displayName,
-  }) => _postSession('/api/v1/auth/phone/verify-otp', {
-    'challengeId': challengeId,
-    'code': code,
-    'displayName': displayName,
-  });
 
   Future<void> validateAccessToken({required String accessToken}) async {
     try {

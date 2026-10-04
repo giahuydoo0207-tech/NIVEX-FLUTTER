@@ -5,7 +5,6 @@ import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/auth/presentation/login_screen.dart';
-import 'package:nivex_flutter/features/auth/presentation/phone_otp_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/register_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
 import 'package:nivex_flutter/features/shell/presentation/app_shell.dart';
@@ -28,7 +27,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('login-submit-button')));
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pump();
-    expect(find.text('Vui lòng nhập email hoặc số điện thoại'), findsOneWidget);
+    expect(find.text('Vui lòng nhập email'), findsOneWidget);
     expect(find.text('Vui lòng nhập mật khẩu'), findsOneWidget);
 
     await tester.enterText(
@@ -42,8 +41,8 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('login-submit-button')));
     await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pump();
-    expect(find.text('Số điện thoại chưa hợp lệ'), findsOneWidget);
-    expect(find.text('Mật khẩu cần ít nhất 6 ký tự'), findsOneWidget);
+    expect(find.text('Email chưa đúng định dạng'), findsOneWidget);
+    expect(find.text('Mật khẩu cần ít nhất 8 ký tự'), findsOneWidget);
   });
 
   testWidgets('Login có loading và chuyển vào AppShell', (tester) async {
@@ -54,7 +53,7 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const Key('login-password-field')),
-      '123456',
+      '12345678',
     );
     await tester.ensureVisible(find.byKey(const Key('login-submit-button')));
     await tester.tap(find.byKey(const Key('login-submit-button')));
@@ -90,18 +89,6 @@ void main() {
     await tester.tap(find.text('Đăng nhập').last);
     await tester.pumpAndSettle();
     expect(find.byType(LoginScreen), findsOneWidget);
-  });
-
-  testWidgets('Login mở luồng OTP số điện thoại', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(theme: NivexTheme.light, home: const LoginScreen()),
-    );
-
-    await tester.tap(find.text('Đăng nhập bằng mã điện thoại'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(PhoneOtpScreen), findsOneWidget);
-    expect(find.byKey(const Key('phone-otp-submit-button')), findsOneWidget);
   });
 
   testWidgets('Register báo mật khẩu không khớp và yêu cầu điều khoản', (

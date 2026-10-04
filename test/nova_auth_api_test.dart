@@ -9,36 +9,12 @@ import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 void main() {
   final config = NovaApiConfig('https://api.nova.test');
 
-  test('requests and decodes a phone OTP challenge', () async {
+  test('logs in with email and reads the issued session', () async {
     final client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/auth/phone/request-otp');
-      expect(jsonDecode(request.body), {'phoneE164': '+84912345678'});
-      return http.Response(
-        jsonEncode({
-          'challengeId': 'a0ca7efa-8bb4-4a42-a6ba-b6d2b35e2636',
-          'expiresInSeconds': 300,
-          'debugOtp': '123456',
-        }),
-        202,
-      );
-    });
-    final api = NovaAuthApi(config: config, client: client);
-
-    final challenge = await api.requestPhoneOtp(phoneE164: '+84912345678');
-
-    expect(challenge.id, 'a0ca7efa-8bb4-4a42-a6ba-b6d2b35e2636');
-    expect(challenge.expiresInSeconds, 300);
-    expect(challenge.debugOtp, '123456');
-    api.close();
-  });
-
-  test('verifies an OTP and reads the issued session', () async {
-    final client = MockClient((request) async {
-      expect(request.url.path, '/api/v1/auth/phone/verify-otp');
+      expect(request.url.path, '/api/v1/auth/login/email');
       expect(jsonDecode(request.body), {
-        'challengeId': 'a0ca7efa-8bb4-4a42-a6ba-b6d2b35e2636',
-        'code': '123456',
-        'displayName': 'Gia Huy',
+        'email': 'huy@nova.vn',
+        'password': 'nova-demo-password',
       });
       return http.Response(
         jsonEncode({
@@ -51,10 +27,9 @@ void main() {
     });
     final api = NovaAuthApi(config: config, client: client);
 
-    final session = await api.verifyPhoneOtp(
-      challengeId: 'a0ca7efa-8bb4-4a42-a6ba-b6d2b35e2636',
-      code: '123456',
-      displayName: 'Gia Huy',
+    final session = await api.loginEmail(
+      email: 'huy@nova.vn',
+      password: 'nova-demo-password',
     );
 
     expect(session.accessToken, _token('a'));

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/auth/data/nova_auth_api.dart';
 import 'package:nivex_flutter/features/auth/data/nova_auth_session_manager.dart';
-import 'package:nivex_flutter/features/auth/presentation/phone_otp_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/register_screen.dart';
 import 'package:nivex_flutter/features/auth/presentation/widgets/auth_visual_header.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
@@ -32,24 +31,17 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  String? _validateAccount(String? value) {
+  String? _validateEmail(String? value) {
     final input = value?.trim() ?? '';
-    if (input.isEmpty) return 'Vui lòng nhập email hoặc số điện thoại';
-    if (input.contains('@')) {
-      final emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-      if (!emailPattern.hasMatch(input)) return 'Email chưa đúng định dạng';
-      return null;
-    }
-    final phone = input.replaceAll(RegExp(r'[\s.-]'), '');
-    if (!RegExp(r'^\+?\d{9,11}$').hasMatch(phone)) {
-      return 'Số điện thoại chưa hợp lệ';
-    }
+    if (input.isEmpty) return 'Vui lòng nhập email';
+    final emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailPattern.hasMatch(input)) return 'Email chưa đúng định dạng';
     return null;
   }
 
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'Vui lòng nhập mật khẩu';
-    if (value.length < 6) return 'Mật khẩu cần ít nhất 6 ký tự';
+    if (value.length < 8) return 'Mật khẩu cần ít nhất 8 ký tự';
     return null;
   }
 
@@ -60,10 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final account = _accountController.text.trim();
     try {
       final config = NovaApiConfig.fromBuild();
-      if (!account.contains('@')) {
-        _showLoginError('Đăng nhập số điện thoại cần xác minh OTP.');
-        return;
-      }
       final api = NovaAuthApi(config: config);
       try {
         final session = await api.loginEmail(
@@ -143,19 +131,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _openPhoneOtp() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => PhoneOtpScreen(
-          onAuthenticated: () {
-            Navigator.of(context).pop();
-            _completeLogin();
-          },
-        ),
-      ),
-    );
-  }
-
   void _showForgotPassword() {
     FocusManager.instance.primaryFocus?.unfocus();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -222,17 +197,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                     _LoginField(
                                       key: const Key('login-account-field'),
                                       controller: _accountController,
-                                      label: 'Email hoặc số điện thoại',
+                                      label: 'Email',
                                       hint: 'name@example.com',
-                                      icon: Icons.person_outline_rounded,
+                                      icon: Icons.email_outlined,
                                       keyboardType: TextInputType.emailAddress,
                                       textInputAction: TextInputAction.next,
                                       autofillHints: const [
                                         AutofillHints.username,
                                         AutofillHints.email,
-                                        AutofillHints.telephoneNumber,
                                       ],
-                                      validator: _validateAccount,
+                                      validator: _validateEmail,
                                     ),
                                     const SizedBox(height: 16),
                                     _LoginField(
@@ -268,16 +242,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                       child: TextButton(
                                         onPressed: _showForgotPassword,
                                         child: const Text('Quên mật khẩu?'),
-                                      ),
-                                    ),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: TextButton.icon(
-                                        onPressed: _openPhoneOtp,
-                                        icon: const Icon(Icons.sms_outlined),
-                                        label: const Text(
-                                          'Đăng nhập bằng mã điện thoại',
-                                        ),
                                       ),
                                     ),
                                     const SizedBox(height: 8),
