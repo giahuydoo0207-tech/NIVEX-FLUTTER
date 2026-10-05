@@ -1,3 +1,5 @@
+import 'package:nivex_flutter/features/replyn_proposals/domain/replyn_proposal.dart';
+
 /// Mirrors the backend `job_applications.status` values shared with Business Web.
 enum JobApplicationStatus {
   submitted,
@@ -69,6 +71,7 @@ class JobApplication {
     required this.messages,
     this.threadId,
     this.threadStatus,
+    this.replynProposals = const [],
   });
 
   final String id;
@@ -89,8 +92,11 @@ class JobApplication {
   /// Backend message thread with the organization, when one exists.
   final String? threadId;
 
-  /// `PENDING` or `ACCEPTED` for backend threads; null in the offline demo.
+  /// `PENDING`, `ACCEPTED` or `BLOCKED` for backend threads; null in the offline demo.
   final String? threadStatus;
+
+  /// Replyn proposals the business sent in this conversation, oldest first.
+  final List<ReplynProposal> replynProposals;
 
   bool get canWithdraw => const {
     JobApplicationStatus.submitted,
@@ -139,6 +145,7 @@ class JobApplication {
       messages: messages ?? this.messages,
       threadId: threadId,
       threadStatus: threadStatus,
+      replynProposals: replynProposals,
     );
   }
 }

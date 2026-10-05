@@ -7,6 +7,9 @@ import 'package:nivex_flutter/features/jobs/data/application_controller.dart';
 import 'package:nivex_flutter/features/jobs/data/demo_application_controller.dart';
 import 'package:nivex_flutter/features/jobs/data/remote_application_controller.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
+import 'package:nivex_flutter/features/replyn_proposals/domain/replyn_proposal.dart';
+import 'package:nivex_flutter/features/replyn_proposals/presentation/replyn_proposal_card.dart';
+import 'package:nivex_flutter/features/replyn_proposals/presentation/replyn_proposal_screen.dart';
 
 class ApplicationThreadScreen extends StatefulWidget {
   const ApplicationThreadScreen({
@@ -148,6 +151,7 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
     final messagesById = {
       for (final message in application.messages) message.id: message,
     };
+    final items = _threadItems(application);
 
     return Scaffold(
       backgroundColor: theme.background,
@@ -182,6 +186,8 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
                           ? 'đang nhập...'
                           : application.threadStatus == 'PENDING'
                           ? 'đang chờ chấp nhận tin nhắn'
+                          : application.threadStatus == 'BLOCKED'
+                          ? 'không thể gửi tin nhắn mới'
                           : _applications is RemoteApplicationController
                           ? application.jobTitle
                           : 'đang hoạt động',
@@ -238,13 +244,22 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
                     scrollCacheExtent: const ScrollCacheExtent.pixels(420),
                     addAutomaticKeepAlives: false,
                     padding: const EdgeInsets.fromLTRB(12, 14, 12, 20),
-                    itemCount: application.messages.length + (isTyping ? 2 : 1),
+                    itemCount: items.length + (isTyping ? 2 : 1),
                     itemBuilder: (context, index) {
                       if (index == 0) return const _DateDivider();
-                      if (index > application.messages.length) {
+                      if (index > items.length) {
                         return const _TypingBubble();
                       }
-                      final message = application.messages[index - 1];
+                      final item = items[index - 1];
+                      if (item is ReplynProposal) {
+                        return ReplynProposalCard(
+                          key: ValueKey('proposal-${item.id}'),
+                          proposal: item,
+                          organizationName: application.organizationName,
+                          onOpen: () => _openProposal(application, item),
+                        );
+                      }
+                      final message = item as JobApplicationMessage;
                       final repliedMessage = message.replyToId == null
                           ? null
                           : messagesById[message.replyToId];
@@ -268,6 +283,35 @@ class _ApplicationThreadScreenState extends State<ApplicationThreadScreen> {
               onSend: () => _send(application),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Messages with each Replyn proposal card placed at the time it was sent.
+  static List<Object> _threadItems(JobApplication application) {
+    final proposals = [...application.replynProposals]
+      ..sort((a, b) => a.sentAt.compareTo(b.sentAt));
+    final items = <Object>[];
+    var next = 0;
+    for (final message in application.messages) {
+      while (next < proposals.length &&
+          proposals[next].sentAt.isBefore(message.sentAt)) {
+        items.add(proposals[next++]);
+      }
+      items.add(message);
+    }
+    items.addAll(proposals.skip(next));
+    return items;
+  }
+
+  void _openProposal(JobApplication application, ReplynProposal proposal) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReplynProposalScreen(
+          controller: _applications,
+          applicationId: application.id,
+          proposalId: proposal.id,
         ),
       ),
     );

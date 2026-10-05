@@ -50,5 +50,14 @@ abstract class ApplicationController extends ChangeNotifier {
   /// Records that the talent opened the conversation.
   Future<void> markConversationRead(String applicationId) async {}
 
+  /// Accepts or rejects a Replyn proposal in the conversation. Returns null on
+  /// success, otherwise a message to show. The offline demo has no proposals.
+  Future<String?> respondToProposal(
+    String applicationId,
+    String proposalId, {
+    required bool accept,
+    String? reason,
+  }) async => 'Cần đăng nhập Nova để phản hồi đề xuất.';
+
   void cancelPendingActivity(String applicationId) {}
 }
