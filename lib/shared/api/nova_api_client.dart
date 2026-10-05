@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:nivex_flutter/features/replyn_proposals/domain/replyn_proposal.dart';
 
 class NovaApiException implements Exception {
   const NovaApiException(
@@ -212,13 +213,21 @@ class NovaWalletTransaction {
 /// wallet, never the contractor's money. Neither is an on-chain balance.
 class NovaWalletSummary {
   NovaWalletSummary.fromJson(Map<String, dynamic> json)
-    : availableBalanceMinor = BigInt.parse(_requiredString(json['availableBalanceMinor'])),
+    : availableBalanceMinor = BigInt.parse(
+        _requiredString(json['availableBalanceMinor']),
+      ),
       paidToPersonalWalletMinor = json['paidToPersonalWalletMinor'] == null
           ? BigInt.parse(_requiredString(json['availableBalanceMinor']))
           : _amount(json['paidToPersonalWalletMinor']),
-      paidViaDemoWalletMinor = BigInt.parse(_requiredString(json['paidViaDemoWalletMinor'])),
-      earnedLast7DaysMinor = BigInt.parse(_requiredString(json['earnedLast7DaysMinor'])),
-      pendingBalanceMinor = BigInt.parse(_requiredString(json['pendingBalanceMinor'])),
+      paidViaDemoWalletMinor = BigInt.parse(
+        _requiredString(json['paidViaDemoWalletMinor']),
+      ),
+      earnedLast7DaysMinor = BigInt.parse(
+        _requiredString(json['earnedLast7DaysMinor']),
+      ),
+      pendingBalanceMinor = BigInt.parse(
+        _requiredString(json['pendingBalanceMinor']),
+      ),
       network = _requiredString(json['network']),
       isDemoWallet = json['isDemoWallet'] == true,
       walletAddress = json['walletAddress'] as String?,
@@ -556,7 +565,15 @@ class NovaMessageThread {
       updatedAt = DateTime.parse(_requiredString(json['updatedAt'])),
       messages = _requiredList(json['messages'])
           .map((row) => NovaThreadMessage.fromJson(_requiredObject(row)))
-          .toList(growable: false);
+          .toList(growable: false),
+      // Optional so an older backend without proposals still parses.
+      replynProposals = [
+        for (final row
+            in json['replynProposals'] is List
+                ? json['replynProposals'] as List
+                : const [])
+          ?ReplynProposal.tryParse(row),
+      ];
 
   final String id;
   final String? organizationId;
@@ -567,6 +584,9 @@ class NovaMessageThread {
   final int unreadForTalent;
   final DateTime updatedAt;
   final List<NovaThreadMessage> messages;
+
+  /// Replyn proposals the business sent in this conversation, oldest first.
+  final List<ReplynProposal> replynProposals;
 }
 
 class NovaNotification {
@@ -814,7 +834,10 @@ class NovaApiClient {
   }
 
   /// Uploads one post image as the signed-in member; returns its media URL.
-  Future<String> uploadCommunityImage(List<int> bytes, String contentType) async {
+  Future<String> uploadCommunityImage(
+    List<int> bytes,
+    String contentType,
+  ) async {
     if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
       throw ArgumentError.value(bytes.length, 'bytes');
     }
@@ -1092,6 +1115,44 @@ class NovaApiClient {
       json: {'qrSecret': qrSecret},
     );
     _expect(response, 200);
+  }
+
+  /// The signed-in talent accepts a pending Replyn proposal; the backend takes
+  /// the identity from the session and allocates the workspace.
+  Future<ReplynProposal> acceptReplynProposal(
+    String threadId,
+    String proposalId,
+  ) => _respondToProposal(threadId, proposalId, 'accept', null);
+
+  Future<ReplynProposal> rejectReplynProposal(
+    String threadId,
+    String proposalId, {
+    String? reason,
+  }) => _respondToProposal(threadId, proposalId, 'reject', {
+    if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+  });
+
+  Future<ReplynProposal> _respondToProposal(
+    String threadId,
+    String proposalId,
+    String action,
+    Map<String, Object?>? body,
+  ) async {
+    final thread = Uri.encodeComponent(threadId);
+    final proposal = Uri.encodeComponent(proposalId);
+    final response = await _send(
+      'POST',
+      config.baseUri.resolve(
+        '/api/v1/mobile/messages/$thread/replyn-proposals/$proposal/$action',
+      ),
+      json: body,
+    );
+    _expect(response, 200);
+    return _decodeObject(response, (json) {
+      final parsed = ReplynProposal.tryParse(json);
+      if (parsed == null) throw const FormatException('Invalid proposal');
+      return parsed;
+    });
   }
 
   static const _reactionTypes = {

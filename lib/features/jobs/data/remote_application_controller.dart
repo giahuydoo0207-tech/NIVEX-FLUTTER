@@ -214,6 +214,36 @@ class RemoteApplicationController extends ApplicationController {
     }
   }
 
+  @override
+  Future<String?> respondToProposal(
+    String applicationId,
+    String proposalId, {
+    required bool accept,
+    String? reason,
+  }) async {
+    final threadId = byId(applicationId)?.threadId;
+    if (threadId == null) return 'Không tìm thấy cuộc trò chuyện.';
+    try {
+      if (accept) {
+        await _api.acceptReplynProposal(threadId, proposalId);
+      } else {
+        await _api.rejectReplynProposal(threadId, proposalId, reason: reason);
+      }
+      return null;
+    } on NovaApiException catch (error) {
+      return switch (error.statusCode) {
+        409 => 'Đề xuất đã được phản hồi hoặc đã bị hủy.',
+        410 => 'Đề xuất đã hết hạn.',
+        403 => 'Bạn không thể phản hồi đề xuất này.',
+        404 => 'Không tìm thấy đề xuất.',
+        _ => _message(error),
+      };
+    } finally {
+      // Both parties' cards follow the backend state, also after a refusal.
+      await refresh();
+    }
+  }
+
   final Set<String> _typingThreads = {};
   final Map<String, DateTime> _lastTypingReport = {};
 
@@ -252,9 +282,7 @@ class RemoteApplicationController extends ApplicationController {
       return;
     }
     _lastTypingReport[threadId] = now;
-    unawaited(
-      _api.reportTyping(threadId).catchError((Object _) {}),
-    );
+    unawaited(_api.reportTyping(threadId).catchError((Object _) {}));
   }
 
   @override
@@ -318,6 +346,7 @@ class RemoteApplicationController extends ApplicationController {
       ),
       threadId: thread?.id,
       threadStatus: thread?.requestStatus,
+      replynProposals: thread?.replynProposals ?? const [],
     );
   }
 
@@ -346,6 +375,7 @@ class RemoteApplicationController extends ApplicationController {
       ),
       threadId: thread.id,
       threadStatus: thread.requestStatus,
+      replynProposals: thread.replynProposals,
     );
   }
 
