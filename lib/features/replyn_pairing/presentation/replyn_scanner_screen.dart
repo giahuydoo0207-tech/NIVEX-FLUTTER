@@ -26,7 +26,8 @@ class ReplynScannerScreen extends StatefulWidget {
   });
 
   /// Defaults are the device camera, the system permission dialog, the
-  /// configured Replyn hosts and the signed-in Nova profile.
+  /// configured Replyn hosts and the signed-in Nova profile. Without a
+  /// [pairingService] there is no Nova session to approve with.
   final QrCamera Function()? cameraFactory;
   final CameraPermissionGateway? permissions;
   final ReplynQrParser? parser;
@@ -86,7 +87,7 @@ class _ReplynScannerScreenState extends State<ReplynScannerScreen>
           request: request,
           accountSource: widget.accountSource ?? ProfileAccountSource(),
           pairingService:
-              widget.pairingService ?? const PrototypeReplynPairingService(),
+              widget.pairingService ?? const ApiReplynPairingService(null),
           now: widget.now,
         ),
       ),

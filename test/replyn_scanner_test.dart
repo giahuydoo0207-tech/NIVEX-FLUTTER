@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/features/home/presentation/home_screen.dart';
@@ -14,17 +18,34 @@ import 'package:nivex_flutter/features/replyn_pairing/domain/replyn_pairing_serv
 import 'package:nivex_flutter/features/replyn_pairing/domain/replyn_qr_parser.dart';
 import 'package:nivex_flutter/features/replyn_pairing/presentation/replyn_pairing_confirm_screen.dart';
 import 'package:nivex_flutter/features/replyn_pairing/presentation/replyn_scanner_screen.dart';
+import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
 
-// Made-up prototype session IDs, not real Replyn codes.
+// Made-up pairing IDs; secrets are random per run, never real Replyn codes.
 const _host = 'replyn-web.vercel.app';
-const _idA = '0a1b2c3d4e5f';
-const _idB = 'f5e4d3c2b1a0';
-const _codeA = 'https://$_host/auth/nova?demo-qr=$_idA';
-const _codeB = 'https://$_host/auth/nova?demo-qr=$_idB';
+const _idA = '6f1c2a9e-4b7d-4c3e-9a5f-0d8b7e6c5a41';
+const _idB = 'a3d2c1b0-9e8f-4a7b-8c6d-5e4f3a2b1c0d';
+final _secretA = _randomSecret();
+final _secretB = _randomSecret();
+final _start = DateTime.utc(2026, 10, 4, 10);
+
+String _randomSecret() => base64Url
+    .encode(List.generate(32, (_) => Random.secure().nextInt(256)))
+    .replaceAll('=', '');
+
+String _code(String id, String secret, {DateTime? expiresAt}) {
+  final exp =
+      (expiresAt ?? _start.add(const Duration(seconds: 60)))
+          .millisecondsSinceEpoch ~/
+      1000;
+  return 'https://$_host/auth/nova?pairing=$id&secret=$secret&exp=$exp&action=login';
+}
+
+final _codeA = _code(_idA, _secretA);
+final _codeB = _code(_idB, _secretB);
 
 class _FakeCamera implements QrCamera {
   final _codes = StreamController<String?>.broadcast();
@@ -123,16 +144,17 @@ class _FakeAccount extends ChangeNotifier implements ReplynAccountSource {
 
 class _CountingPairing implements ReplynPairingService {
   int confirmations = 0;
-  NovaTalentIdentity? lastTalent;
+  ReplynPairingRequest? lastRequest;
+  ReplynPairingOutcome outcome = ReplynPairingOutcome.approved;
+
+  /// When set, confirmations wait for it instead of answering at once.
+  Completer<ReplynPairingOutcome>? pending;
 
   @override
-  Future<ReplynPairingOutcome> confirm(
-    ReplynPairingRequest request,
-    NovaTalentIdentity talent,
-  ) async {
+  Future<ReplynPairingOutcome> confirm(ReplynPairingRequest request) {
     confirmations++;
-    lastTalent = talent;
-    return ReplynPairingOutcome.prototypeOnly;
+    lastRequest = request;
+    return pending?.future ?? Future.value(outcome);
   }
 }
 
@@ -158,7 +180,7 @@ class _Harness {
   final _FakePermissions permissions;
   final _FakeAccount account;
   final pairing = _CountingPairing();
-  DateTime now = DateTime.utc(2026, 10, 4, 10);
+  DateTime now = _start;
 
   Widget scanner() => ReplynScannerScreen(
     cameraFactory: () => camera,
@@ -424,7 +446,7 @@ void main() {
       (tester) async {
         final h = _Harness();
         await h.open(tester);
-        await h.scan(tester, 'https://evil.example/auth/nova?demo-qr=$_idA');
+        await h.scan(tester, _codeA.replaceFirst(_host, 'evil.example'));
         expect(
           find.text('Đây không phải mã đăng nhập Replyn.'),
           findsOneWidget,
@@ -450,19 +472,19 @@ void main() {
     ) async {
       final h = _Harness();
       await h.open(tester);
-      await h.scan(
-        tester,
-        'https://$_host/auth/nova?demo-qr=$_idA&returnTo=/x',
-      );
+      await h.scan(tester, '$_codeA&returnTo=/x');
+      expect(find.textContaining('Mã Replyn không hợp lệ'), findsOneWidget);
+      await tester.tap(find.text('Quét lại'));
+      await tester.pumpAndSettle();
+
+      // The old prototype format is no longer accepted.
+      await h.scan(tester, 'https://$_host/auth/nova?demo-qr=0a1b2c3d4e5f');
       expect(find.textContaining('Mã Replyn không hợp lệ'), findsOneWidget);
       await tester.tap(find.text('Quét lại'));
       await tester.pumpAndSettle();
 
       final past = h.now.subtract(const Duration(minutes: 5));
-      await h.scan(
-        tester,
-        '$_codeB&exp=${past.millisecondsSinceEpoch ~/ 1000}',
-      );
+      await h.scan(tester, _code(_idB, _secretB, expiresAt: past));
       expect(
         find.text('Mã đã hết hạn. Hãy tạo mã mới trên Replyn.'),
         findsOneWidget,
@@ -561,30 +583,35 @@ void main() {
       await h.scan(tester, _codeA);
       expect(find.text('Trần Thu Hà'), findsOneWidget);
       expect(find.text('TH'), findsOneWidget);
-      expect(find.text('Mã hồ sơ Nova contractor-42'), findsOneWidget);
       expect(find.text('ha@example.com'), findsOneWidget);
       expect(find.text('Talent · Freelancer'), findsOneWidget);
       expect(find.text(_host), findsOneWidget);
       expect(find.textContaining(_idA), findsNothing);
-      expect(find.textContaining('demo-qr'), findsNothing);
+      expect(find.textContaining(_secretA), findsNothing);
+      expect(find.textContaining('thử nghiệm'), findsNothing);
     });
 
-    testWidgets('does not present the Talent profile ID as a Nova ID', (
-      tester,
-    ) async {
+    testWidgets('never shows the internal profile ID', (tester) async {
       final h = _Harness();
       await h.open(tester);
       await h.scan(tester, _codeA);
-      // Only Business has a public Nova ID (NVB-…); Talent has a profile ID.
+      // Only Business has a public Nova ID (NVB-…); the Talent profile ID is
+      // internal and stays off screen.
+      expect(find.textContaining('contractor-42'), findsNothing);
+      expect(find.textContaining('Mã hồ sơ'), findsNothing);
       expect(find.textContaining('Nova ID'), findsNothing);
-      expect(find.textContaining('Mã hồ sơ Nova'), findsOneWidget);
+      // Only name, role and email describe the account.
+      expect(find.text('Trần Thu Hà'), findsOneWidget);
+      expect(find.text('Talent · Freelancer'), findsOneWidget);
+      expect(find.text('ha@example.com'), findsOneWidget);
 
       await tester.tap(find.text('Xác nhận trên Nova'));
       await tester.pumpAndSettle();
+      expect(find.textContaining('contractor-42'), findsNothing);
       expect(find.textContaining('Nova ID'), findsNothing);
     });
 
-    testWidgets('confirming only reports the prototype state', (tester) async {
+    testWidgets('confirming approves the login and says so', (tester) async {
       final h = _Harness();
       await h.open(tester);
       await h.scan(tester, _codeA);
@@ -592,9 +619,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(h.pairing.confirmations, 1);
-      expect(h.pairing.lastTalent?.displayName, 'Trần Thu Hà');
-      expect(find.text(replynPrototypeMessage), findsOneWidget);
-      expect(find.textContaining('thành công'), findsNothing);
+      expect(h.pairing.lastRequest?.pairingId, _idA);
+      expect(h.pairing.lastRequest?.qrSecret, _secretA);
+      expect(find.text(replynApprovedMessage), findsOneWidget);
+      expect(find.textContaining('thử nghiệm'), findsNothing);
+      expect(find.textContaining(_secretA), findsNothing);
       // Nothing from the scan is persisted on the phone.
       expect(
         await preferences.getKeys(
@@ -610,21 +639,113 @@ void main() {
       expect(h.camera.calls.last, 'start');
     });
 
-    testWidgets(
-      'Đóng after the prototype step returns to the previous screen',
-      (tester) async {
+    testWidgets('Đóng after approval returns to the previous screen', (
+      tester,
+    ) async {
+      final h = _Harness();
+      await h.open(tester);
+      await h.scan(tester, _codeA);
+      await tester.tap(find.text('Xác nhận trên Nova'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Đóng'));
+      await tester.pumpAndSettle();
+      expect(find.text('HOST'), findsOneWidget);
+      expect(h.camera.disposed, isTrue);
+    });
+
+    testWidgets('a double tap sends one approval', (tester) async {
+      final h = _Harness();
+      h.pairing.pending = Completer();
+      await h.open(tester);
+      await h.scan(tester, _codeA);
+      final confirm = find.text('Xác nhận trên Nova');
+      await tester.tap(confirm);
+      await tester.tap(confirm, warnIfMissed: false);
+      await tester.pump();
+      await tester.tap(find.byType(FilledButton), warnIfMissed: false);
+      await tester.pump();
+      expect(h.pairing.confirmations, 1);
+      // Cancel is locked while Nova answers.
+      final cancel = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'Hủy'),
+      );
+      expect(cancel.onPressed, isNull);
+
+      h.pairing.pending!.complete(ReplynPairingOutcome.approved);
+      await tester.pumpAndSettle();
+      expect(find.text(replynApprovedMessage), findsOneWidget);
+      expect(h.pairing.confirmations, 1);
+    });
+
+    for (final (outcome, title) in const [
+      (ReplynPairingOutcome.expired, 'Mã đã hết hạn'),
+      (ReplynPairingOutcome.alreadyUsed, 'Mã đã được sử dụng'),
+      (ReplynPairingOutcome.unauthorized, 'Phiên Nova đã hết hạn'),
+      (ReplynPairingOutcome.noTalentProfile, 'Chưa có hồ sơ Freelancer'),
+    ]) {
+      testWidgets('${outcome.name} from Nova is explained', (tester) async {
         final h = _Harness();
+        h.pairing.outcome = outcome;
         await h.open(tester);
         await h.scan(tester, _codeA);
         await tester.tap(find.text('Xác nhận trên Nova'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Đóng'));
-        await tester.pumpAndSettle();
-        expect(find.text('HOST'), findsOneWidget);
-        expect(h.camera.disposed, isTrue);
-      },
-    );
+        expect(find.text(title), findsOneWidget);
+        expect(find.text(replynApprovedMessage), findsNothing);
+        expect(find.text('Quét mã khác'), findsOneWidget);
+      });
+    }
 
+    testWidgets('401 asks to sign in again, 403 explains the missing profile', (
+      tester,
+    ) async {
+      final h = _Harness();
+      h.pairing.outcome = ReplynPairingOutcome.unauthorized;
+      await h.open(tester);
+      await h.scan(tester, _codeA);
+      await tester.tap(find.text('Xác nhận trên Nova'));
+      await tester.pumpAndSettle();
+      expect(find.text('Phiên Nova đã hết hạn'), findsOneWidget);
+      expect(find.textContaining('đăng nhập lại'), findsOneWidget);
+      expect(find.text('Chưa có hồ sơ Freelancer'), findsNothing);
+
+      await tester.tap(find.text('Quét mã khác'));
+      await tester.pumpAndSettle();
+      h.pairing.outcome = ReplynPairingOutcome.noTalentProfile;
+      h.now = h.now.add(const Duration(seconds: 4));
+      await h.scan(tester, _codeB);
+      await tester.tap(find.text('Xác nhận trên Nova'));
+      await tester.pumpAndSettle();
+      expect(find.text('Chưa có hồ sơ Freelancer'), findsOneWidget);
+      expect(
+        find.text(
+          'Tài khoản Nova này chưa có hồ sơ Talent để đăng nhập Replyn.',
+        ),
+        findsOneWidget,
+      );
+      // Signing in again cannot fix a missing profile.
+      expect(find.textContaining('đăng nhập lại'), findsNothing);
+      expect(find.text('Phiên Nova đã hết hạn'), findsNothing);
+    });
+
+    testWidgets('a network error keeps the review open for a retry', (
+      tester,
+    ) async {
+      final h = _Harness();
+      h.pairing.outcome = ReplynPairingOutcome.networkError;
+      await h.open(tester);
+      await h.scan(tester, _codeA);
+      await tester.tap(find.text('Xác nhận trên Nova'));
+      await tester.pumpAndSettle();
+      expect(find.text(replynNetworkErrorMessage), findsOneWidget);
+      expect(find.text('Trần Thu Hà'), findsOneWidget);
+
+      h.pairing.outcome = ReplynPairingOutcome.approved;
+      await tester.tap(find.text('Xác nhận trên Nova'));
+      await tester.pumpAndSettle();
+      expect(h.pairing.confirmations, 2);
+      expect(find.text(replynApprovedMessage), findsOneWidget);
+    });
     testWidgets('confirm waits for the account to load', (tester) async {
       final h = _Harness(account: _FakeAccount(null));
       await h.open(tester);
@@ -658,8 +779,8 @@ void main() {
     ) async {
       final h = _Harness();
       await h.open(tester);
-      final exp = h.now.add(const Duration(seconds: 60));
-      await h.scan(tester, '$_codeA&exp=${exp.millisecondsSinceEpoch ~/ 1000}');
+      // The code expires 60 seconds after _start.
+      await h.scan(tester, _codeA);
       h.now = h.now.add(const Duration(minutes: 2));
       await tester.tap(find.text('Xác nhận trên Nova'));
       await tester.pumpAndSettle();
@@ -703,17 +824,112 @@ void main() {
     });
   });
 
-  test('the prototype pairing service reports no login', () async {
-    const service = PrototypeReplynPairingService();
-    final outcome = await service.confirm(
-      const ReplynPairingRequest(
-        action: ReplynPairingAction.login,
-        pairingSessionId: _idA,
-        displayOrigin: _host,
-        isPrototype: true,
-      ),
-      _talent,
+  group('ApiReplynPairingService', () {
+    final token = _randomSecret();
+    final request = ReplynPairingRequest(
+      action: ReplynPairingAction.login,
+      pairingId: _idA,
+      qrSecret: _secretA,
+      displayOrigin: _host,
+      expiresAt: _start.add(const Duration(seconds: 60)),
     );
-    expect(outcome, ReplynPairingOutcome.prototypeOnly);
+
+    ApiReplynPairingService service(
+      Future<http.Response> Function(http.Request request) respond, {
+      Future<String?> Function()? refresh,
+      List<http.Request>? sent,
+    }) => ApiReplynPairingService(
+      NovaApiClient(
+        config: NovaApiConfig('https://nova.test'),
+        readToken: () async => token,
+        refreshAccessToken: refresh,
+        transport: MockClient((request) {
+          sent?.add(request);
+          return respond(request);
+        }),
+      ),
+    );
+
+    test('sends the secret in the body with the stored session', () async {
+      final sent = <http.Request>[];
+      final outcome = await service(
+        (_) async => http.Response('{"status":"APPROVED"}', 200),
+        sent: sent,
+      ).confirm(request);
+      expect(outcome, ReplynPairingOutcome.approved);
+      expect(sent, hasLength(1));
+      final call = sent.single;
+      expect(call.method, 'POST');
+      expect(
+        call.url.toString(),
+        'https://nova.test/api/v1/mobile/replyn/pairings/$_idA/approve',
+      );
+      expect(call.url.query, isEmpty, reason: 'the secret is not in the URL');
+      expect(call.headers['Authorization'], 'Bearer $token');
+      expect(jsonDecode(call.body), {'qrSecret': _secretA});
+    });
+
+    test('maps every Nova answer to an outcome', () async {
+      for (final (status, expected) in const [
+        (410, ReplynPairingOutcome.expired),
+        (404, ReplynPairingOutcome.expired),
+        (409, ReplynPairingOutcome.alreadyUsed),
+        (401, ReplynPairingOutcome.unauthorized),
+        (403, ReplynPairingOutcome.noTalentProfile),
+        (400, ReplynPairingOutcome.networkError),
+        (500, ReplynPairingOutcome.networkError),
+        (503, ReplynPairingOutcome.networkError),
+      ]) {
+        final outcome = await service(
+          (_) async => http.Response('{"status":"X","message":"m"}', status),
+        ).confirm(request);
+        expect(outcome, expected, reason: '$status');
+      }
+      final offline = await service(
+        (_) async => throw http.ClientException('offline'),
+      ).confirm(request);
+      expect(offline, ReplynPairingOutcome.networkError);
+    });
+
+    test('renews an expired access token once', () async {
+      final renewed = _randomSecret();
+      final sent = <http.Request>[];
+      final outcome = await service(
+        (request) async => request.headers['Authorization'] == 'Bearer $renewed'
+            ? http.Response('{"status":"APPROVED"}', 200)
+            : http.Response('{"status":"UNAUTHORIZED"}', 401),
+        refresh: () async => renewed,
+        sent: sent,
+      ).confirm(request);
+      expect(outcome, ReplynPairingOutcome.approved);
+      expect(sent, hasLength(2));
+    });
+
+    test('without a live Nova session nothing is sent', () async {
+      expect(
+        await const ApiReplynPairingService(null).confirm(request),
+        ReplynPairingOutcome.unauthorized,
+      );
+    });
+
+    test('errors and the request never print the secret', () async {
+      expect(request.toString(), isNot(contains(_secretA)));
+      expect(request.toString(), isNot(contains(_idA)));
+      final client = NovaApiClient(
+        config: NovaApiConfig('https://nova.test'),
+        readToken: () async => token,
+        transport: MockClient(
+          (_) async => http.Response('{"status":"EXPIRED"}', 410),
+        ),
+      );
+      try {
+        await client.approveReplynPairing(_idA, _secretA);
+        fail('expected an error');
+      } on NovaApiException catch (error) {
+        expect(error.toString(), isNot(contains(_secretA)));
+        expect(error.toString(), isNot(contains(token)));
+        expect(error.statusCode, 410);
+      }
+    });
   });
 }

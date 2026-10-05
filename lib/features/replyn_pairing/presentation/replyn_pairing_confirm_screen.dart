@@ -7,10 +7,20 @@ import 'package:nivex_flutter/features/replyn_pairing/domain/replyn_pairing_serv
 /// How the confirmation step was left. A system back (null) counts as cancel.
 enum ReplynConfirmResult { cancelled, scanAnother, close }
 
-const replynPrototypeMessage =
-    'Đã đọc mã. Kết nối Replyn đang ở chế độ thử nghiệm.';
+const replynApprovedMessage =
+    'Đã xác nhận. Replyn đang đăng nhập trên trình duyệt.';
+const replynNetworkErrorMessage =
+    'Chưa kết nối được Nova. Kiểm tra mạng rồi thử lại.';
 
-enum _Step { review, confirming, prototypeDone, expired }
+enum _Step {
+  review,
+  confirming,
+  approved,
+  expired,
+  alreadyUsed,
+  unauthorized,
+  noTalentProfile,
+}
 
 class ReplynPairingConfirmScreen extends StatefulWidget {
   const ReplynPairingConfirmScreen({
@@ -34,25 +44,34 @@ class ReplynPairingConfirmScreen extends StatefulWidget {
 class _ReplynPairingConfirmScreenState
     extends State<ReplynPairingConfirmScreen> {
   _Step _step = _Step.review;
+  bool _networkError = false;
 
-  bool get _expired {
-    final expiresAt = widget.request.expiresAt;
-    return expiresAt != null &&
-        (widget.now ?? DateTime.now)().toUtc().isAfter(expiresAt);
-  }
+  bool get _expired =>
+      (widget.now ?? DateTime.now)().toUtc().isAfter(widget.request.expiresAt);
 
-  Future<void> _confirm(NovaTalentIdentity talent) async {
+  Future<void> _confirm() async {
+    // The step check also stops a second tap while the first is in flight.
     if (_step != _Step.review) return;
     if (_expired) {
       setState(() => _step = _Step.expired);
       return;
     }
-    setState(() => _step = _Step.confirming);
-    final outcome = await widget.pairingService.confirm(widget.request, talent);
+    setState(() {
+      _step = _Step.confirming;
+      _networkError = false;
+    });
+    final outcome = await widget.pairingService.confirm(widget.request);
     if (!mounted) return;
     setState(() {
+      _networkError = outcome == ReplynPairingOutcome.networkError;
       _step = switch (outcome) {
-        ReplynPairingOutcome.prototypeOnly => _Step.prototypeDone,
+        ReplynPairingOutcome.approved => _Step.approved,
+        ReplynPairingOutcome.expired => _Step.expired,
+        ReplynPairingOutcome.alreadyUsed => _Step.alreadyUsed,
+        ReplynPairingOutcome.unauthorized => _Step.unauthorized,
+        ReplynPairingOutcome.noTalentProfile => _Step.noTalentProfile,
+        // Nothing was approved, so the user may simply try again.
+        ReplynPairingOutcome.networkError => _Step.review,
       };
     });
   }
@@ -81,11 +100,36 @@ class _ReplynPairingConfirmScreenState
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: switch (_step) {
-              _Step.prototypeDone => _Outcome(
-                icon: Icons.info_outline_rounded,
-                color: theme.primary,
-                title: replynPrototypeMessage,
-                body: 'Replyn chưa được đăng nhập. Điện thoại không lưu phiên hay mã nào từ lần quét này.',
+              _Step.approved => _Outcome(
+                icon: Icons.check_circle_rounded,
+                color: theme.success,
+                title: replynApprovedMessage,
+                body: 'Bạn có thể quay lại trình duyệt. Điện thoại không lưu mã nào từ lần quét này.',
+                onScanAnother: () => _leave(ReplynConfirmResult.scanAnother),
+                onClose: () => _leave(ReplynConfirmResult.close),
+              ),
+              _Step.alreadyUsed => _Outcome(
+                icon: Icons.block_rounded,
+                color: theme.warning,
+                title: 'Mã đã được sử dụng',
+                body: 'Mỗi mã chỉ xác nhận được một lần. Hãy tạo mã mới trên Replyn nếu cần.',
+                onScanAnother: () => _leave(ReplynConfirmResult.scanAnother),
+                onClose: () => _leave(ReplynConfirmResult.close),
+              ),
+              _Step.unauthorized => _Outcome(
+                icon: Icons.lock_outline_rounded,
+                color: theme.danger,
+                title: 'Phiên Nova đã hết hạn',
+                body: 'Hãy đăng nhập lại Nova trên điện thoại rồi quét lại mã.',
+                onScanAnother: () => _leave(ReplynConfirmResult.scanAnother),
+                onClose: () => _leave(ReplynConfirmResult.close),
+              ),
+              // Signing in again does not help here, so there is no such hint.
+              _Step.noTalentProfile => _Outcome(
+                icon: Icons.person_off_outlined,
+                color: theme.warning,
+                title: 'Chưa có hồ sơ Freelancer',
+                body: 'Tài khoản Nova này chưa có hồ sơ Talent để đăng nhập Replyn.',
                 onScanAnother: () => _leave(ReplynConfirmResult.scanAnother),
                 onClose: () => _leave(ReplynConfirmResult.close),
               ),
@@ -103,6 +147,7 @@ class _ReplynPairingConfirmScreenState
                   request: widget.request,
                   source: widget.accountSource,
                   busy: _step == _Step.confirming,
+                  networkError: _networkError,
                   onConfirm: _confirm,
                   onCancel: () => _leave(ReplynConfirmResult.cancelled),
                 ),
@@ -120,6 +165,7 @@ class _Review extends StatelessWidget {
     required this.request,
     required this.source,
     required this.busy,
+    required this.networkError,
     required this.onConfirm,
     required this.onCancel,
   });
@@ -127,7 +173,8 @@ class _Review extends StatelessWidget {
   final ReplynPairingRequest request;
   final ReplynAccountSource source;
   final bool busy;
-  final ValueChanged<NovaTalentIdentity> onConfirm;
+  final bool networkError;
+  final VoidCallback onConfirm;
   final VoidCallback onCancel;
 
   @override
@@ -208,30 +255,35 @@ class _Review extends StatelessWidget {
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Icon(Icons.science_outlined, size: 16, color: theme.warning),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Kết nối Replyn đang ở chế độ thử nghiệm.',
-                style: TextStyle(
-                  color: theme.textSecondary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+        if (networkError) ...[
+          const SizedBox(height: 12),
+          Semantics(
+            liveRegion: true,
+            child: Row(
+              children: [
+                Icon(Icons.wifi_off_rounded, size: 16, color: theme.danger),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    replynNetworkErrorMessage,
+                    style: TextStyle(
+                      color: theme.danger,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
         const SizedBox(height: 24),
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: theme.primary,
             minimumSize: const Size.fromHeight(50),
           ),
-          onPressed: talent == null || busy ? null : () => onConfirm(talent),
+          onPressed: talent == null || busy ? null : onConfirm,
           child: busy
               ? const SizedBox(
                   width: 20,
@@ -294,7 +346,7 @@ class _Account extends StatelessWidget {
     final avatar = source.avatar;
     final details = [
       'Talent · Freelancer',
-      if (talent.profileId != null) 'Mã hồ sơ Nova ${talent.profileId}',
+
       if (talent.email != null) talent.email!,
     ];
     return Row(

@@ -9,7 +9,9 @@ import 'package:nivex_flutter/features/wallet/data/wallet_summary_controller.dar
 import 'package:nivex_flutter/app/theme/nivex_theme_extension.dart';
 import 'package:nivex_flutter/features/home/presentation/widgets/nivex_education_section.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
+import 'package:nivex_flutter/features/replyn_pairing/domain/replyn_pairing_service.dart';
 import 'package:nivex_flutter/features/replyn_pairing/presentation/replyn_scan_button.dart';
+import 'package:nivex_flutter/features/replyn_pairing/presentation/replyn_scanner_screen.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_logo.dart';
 import 'package:nivex_flutter/shared/widgets/nivex_page.dart';
 import 'package:nivex_flutter/shared/widgets/solana_mark.dart';
@@ -109,7 +111,11 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _HomeHero(
                 onNotifications: () => _showNotifications(context),
-                replynScannerBuilder: widget.replynScannerBuilder,
+                replynScannerBuilder:
+                    widget.replynScannerBuilder ??
+                    (_) => ReplynScannerScreen(
+                      pairingService: ApiReplynPairingService(widget.homeApi),
+                    ),
                 onProfile: widget.onProfile,
                 balanceVisible: _balanceVisible,
                 onToggleBalance: () {

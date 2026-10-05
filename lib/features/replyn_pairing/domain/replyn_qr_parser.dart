@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:nivex_flutter/features/replyn_pairing/domain/replyn_pairing_request.dart';
+import 'package:nivex_flutter/shared/constants/app_environment.dart';
 
 /// Why a scanned code was refused. The UI groups these into a few messages;
 /// tests assert the exact reason.
@@ -14,10 +15,13 @@ enum ReplynQrRejection {
   unexpectedPort,
   fragment,
   unsupportedAction,
-  missingSessionId,
-  invalidSessionId,
+  missingPairing,
+  invalidPairing,
+  missingSecret,
+  invalidSecret,
   unexpectedParameter,
   duplicateParameter,
+  missingExpiry,
   invalidExpiry,
   expired,
 }
@@ -46,41 +50,61 @@ class ReplynQrConfig {
     this.allowDevHosts = false,
   });
 
-  /// `REPLYN_ALLOWED_HOSTS` (comma separated) overrides the production host.
-  /// Local hosts need `REPLYN_ALLOW_DEV_HOSTS=true` and are never accepted in
-  /// a release build.
+  /// The production host is always allowed. A non-production build may add
+  /// exactly one preview host with `REPLYN_ALLOWED_HOSTS`. Local hosts need
+  /// `REPLYN_ALLOW_DEV_HOSTS=true` and are never accepted in a release build.
   factory ReplynQrConfig.fromEnvironment() {
-    const hosts = String.fromEnvironment(
-      'REPLYN_ALLOWED_HOSTS',
-      defaultValue: defaultProductionHost,
-    );
+    const extraHost = String.fromEnvironment('REPLYN_ALLOWED_HOSTS');
     const allowDev = bool.fromEnvironment('REPLYN_ALLOW_DEV_HOSTS');
-    return ReplynQrConfig(
-      allowedHosts: hosts
-          .split(',')
-          .map((host) => host.trim().toLowerCase())
-          .where((host) => host.isNotEmpty)
-          .toSet(),
+    return ReplynQrConfig.forBuild(
+      extraHost: extraHost,
+      environment: AppEnvironmentConfig.fromBuild(),
       allowDevHosts: allowDev && !kReleaseMode,
+    );
+  }
+
+  /// [extraHost] is ignored in production, and also when it is not exactly
+  /// one plain hostname (no list, wildcard, port or path), so a bad build
+  /// setting fails closed to the production host only.
+  factory ReplynQrConfig.forBuild({
+    required String extraHost,
+    required AppEnvironment environment,
+    bool allowDevHosts = false,
+  }) {
+    final extra = extraHost
+        .split(',')
+        .map((host) => host.trim().toLowerCase())
+        .where((host) => host.isNotEmpty && host != defaultProductionHost)
+        .toList();
+    final usable =
+        !environment.isProduction &&
+        extra.length == 1 &&
+        _hostname.hasMatch(extra.single);
+    return ReplynQrConfig(
+      allowedHosts: {defaultProductionHost, if (usable) extra.single},
+      allowDevHosts: allowDevHosts,
     );
   }
 
   static const defaultProductionHost = 'replyn-web.vercel.app';
   static const devHosts = {'localhost', '127.0.0.1', '10.0.2.2'};
+  static final _hostname = RegExp(
+    r'^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$',
+  );
 
   /// Exact hostnames; subdomains and look-alikes do not match.
   final Set<String> allowedHosts;
   final bool allowDevHosts;
 }
 
-/// Validates Replyn login QR codes. The supported format is the one Replyn's
-/// `/auth/nova` page shows today:
+/// Validates Replyn login QR codes. The only accepted format is the one
+/// Replyn's server creates:
 ///
 /// ```text
-/// https://<allowed-host>/auth/nova?demo-qr=<12 hex>[&exp=<unix seconds>][&action=login]
+/// https://<allowed-host>/auth/nova?pairing=<uuid>&secret=<43 base64url>&exp=<unix seconds>&action=login
 /// ```
 ///
-/// Anything else, including extra query parameters, is refused.
+/// Every parameter is required exactly once; anything else is refused.
 class ReplynQrParser {
   ReplynQrParser(this.config, {DateTime Function()? now})
     : _now = now ?? DateTime.now;
@@ -90,18 +114,31 @@ class ReplynQrParser {
 
   static const maxLength = 512;
   static const loginPath = '/auth/nova';
-  static const _sessionParam = 'demo-qr';
+  static const _pairingParam = 'pairing';
+  static const _secretParam = 'secret';
   static const _expiryParam = 'exp';
   static const _actionParam = 'action';
-  static const _allowedParams = {_sessionParam, _expiryParam, _actionParam};
-  static final _sessionId = RegExp(r'^[0-9a-f]{12}$');
+  static const _allowedParams = {
+    _pairingParam,
+    _secretParam,
+    _expiryParam,
+    _actionParam,
+  };
+  // Lowercase canonical RFC 4122 UUID, as Nova's backend prints it.
+  static final _pairingId = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+  );
+  // 32 random bytes in base64url without padding. The last character only
+  // carries 4 bits, so only 16 values are canonical.
+  static final _secret = RegExp(r'^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$');
   static final _digits = RegExp(r'^[0-9]{1,12}$');
   // Whitespace, control characters and backslashes have no place in the URL
   // and are a common way to make parsers disagree about the host.
   static final _forbiddenChars = RegExp(r'[\s\x00-\x1f\x7f\\]');
 
-  /// Codes may be shown up to this long before they expire...
-  static const maxLifetime = Duration(minutes: 10);
+  /// Replyn codes live 60 seconds; anything claiming to last much longer is
+  /// not one of them...
+  static const maxLifetime = Duration(minutes: 2);
 
   /// ...and this much clock drift between phone and server is tolerated.
   static const clockSkew = Duration(seconds: 30);
@@ -166,44 +203,51 @@ class ReplynQrParser {
       }
     }
 
-    final action = params[_actionParam]?.single;
-    if (action != null && action != 'login') {
+    if (params[_actionParam]?.single != 'login') {
       return const ReplynQrRejected(ReplynQrRejection.unsupportedAction);
     }
 
-    final sessionId = params[_sessionParam]?.single;
-    if (sessionId == null || sessionId.isEmpty) {
-      return const ReplynQrRejected(ReplynQrRejection.missingSessionId);
+    final pairingId = params[_pairingParam]?.single;
+    if (pairingId == null || pairingId.isEmpty) {
+      return const ReplynQrRejected(ReplynQrRejection.missingPairing);
     }
-    if (!_sessionId.hasMatch(sessionId)) {
-      return const ReplynQrRejected(ReplynQrRejection.invalidSessionId);
+    if (!_pairingId.hasMatch(pairingId)) {
+      return const ReplynQrRejected(ReplynQrRejection.invalidPairing);
     }
 
-    DateTime? expiresAt;
+    final secret = params[_secretParam]?.single;
+    if (secret == null || secret.isEmpty) {
+      return const ReplynQrRejected(ReplynQrRejection.missingSecret);
+    }
+    if (!_secret.hasMatch(secret)) {
+      return const ReplynQrRejected(ReplynQrRejection.invalidSecret);
+    }
+
     final exp = params[_expiryParam]?.single;
-    if (exp != null) {
-      if (!_digits.hasMatch(exp)) {
-        return const ReplynQrRejected(ReplynQrRejection.invalidExpiry);
-      }
-      expiresAt = DateTime.fromMillisecondsSinceEpoch(
-        int.parse(exp) * 1000,
-        isUtc: true,
-      );
-      final now = _now().toUtc();
-      if (expiresAt.isAfter(now.add(maxLifetime + clockSkew))) {
-        return const ReplynQrRejected(ReplynQrRejection.invalidExpiry);
-      }
-      if (now.isAfter(expiresAt.add(clockSkew))) {
-        return const ReplynQrRejected(ReplynQrRejection.expired);
-      }
+    if (exp == null || exp.isEmpty) {
+      return const ReplynQrRejected(ReplynQrRejection.missingExpiry);
+    }
+    if (!_digits.hasMatch(exp)) {
+      return const ReplynQrRejected(ReplynQrRejection.invalidExpiry);
+    }
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+      int.parse(exp) * 1000,
+      isUtc: true,
+    );
+    final now = _now().toUtc();
+    if (expiresAt.isAfter(now.add(maxLifetime + clockSkew))) {
+      return const ReplynQrRejected(ReplynQrRejection.invalidExpiry);
+    }
+    if (now.isAfter(expiresAt.add(clockSkew))) {
+      return const ReplynQrRejected(ReplynQrRejection.expired);
     }
 
     return ReplynQrAccepted(
       ReplynPairingRequest(
         action: ReplynPairingAction.login,
-        pairingSessionId: sessionId,
+        pairingId: pairingId,
+        qrSecret: secret,
         displayOrigin: uri.hasPort && isDevHost ? '$host:${uri.port}' : host,
-        isPrototype: true,
         expiresAt: expiresAt,
       ),
     );

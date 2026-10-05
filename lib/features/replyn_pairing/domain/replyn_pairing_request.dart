@@ -6,31 +6,31 @@ enum ReplynPairingAction { login }
 class ReplynPairingRequest {
   const ReplynPairingRequest({
     required this.action,
-    required this.pairingSessionId,
+    required this.pairingId,
+    required this.qrSecret,
     required this.displayOrigin,
-    required this.isPrototype,
-    this.expiresAt,
+    required this.expiresAt,
   });
 
   static const provider = 'REPLYN';
 
   final ReplynPairingAction action;
 
-  /// Identifies the browser session on Replyn that showed the code.
-  final String pairingSessionId;
+  /// The login challenge Replyn's server created (a UUID).
+  final String pairingId;
+
+  /// One-time secret from the QR code. It is sent only in the body of the
+  /// approve request to Nova and must never be logged, shown or stored.
+  final String qrSecret;
 
   /// Host the code came from, shown to the user (e.g. `replyn-web.vercel.app`).
   final String displayOrigin;
 
-  /// True for Replyn's current `demo-qr` codes, which no backend can approve.
-  final bool isPrototype;
+  /// When Replyn stops accepting the code (60 seconds after it was created).
+  final DateTime expiresAt;
 
-  /// Null when the code carries no expiry (Replyn's prototype expires it in
-  /// the browser only).
-  final DateTime? expiresAt;
-
-  // Keeps the session ID out of logs and error reports that print objects.
+  // Keeps the pairing ID and the QR secret out of logs and error reports that
+  // print objects.
   @override
-  String toString() =>
-      'ReplynPairingRequest($action, origin: $displayOrigin, prototype: $isPrototype)';
+  String toString() => 'ReplynPairingRequest($action, origin: $displayOrigin)';
 }
