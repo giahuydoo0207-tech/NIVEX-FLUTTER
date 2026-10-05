@@ -1081,6 +1081,19 @@ class NovaApiClient {
     _expect(response, 200);
   }
 
+  /// Approves a Replyn browser login for the signed-in Talent. The backend
+  /// takes the identity from the session; the QR secret travels only in the
+  /// request body, never in the URL or an exception.
+  Future<void> approveReplynPairing(String pairingId, String qrSecret) async {
+    final id = Uri.encodeComponent(pairingId);
+    final response = await _send(
+      'POST',
+      config.baseUri.resolve('/api/v1/mobile/replyn/pairings/$id/approve'),
+      json: {'qrSecret': qrSecret},
+    );
+    _expect(response, 200);
+  }
+
   static const _reactionTypes = {
     'LIKE',
     'LOVE',
