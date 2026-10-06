@@ -5,8 +5,10 @@ import 'package:nivex_flutter/features/replyn_pairing/domain/replyn_qr_parser.da
 import 'package:nivex_flutter/features/replyn_proposals/domain/replyn_proposal.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-String formatProposalAmount(double? value, String currency) {
-  if (value == null) return '—';
+/// '—' when the amount or its currency is unknown: money is never shown
+/// with a guessed unit.
+String formatProposalAmount(double? value, String? currency) {
+  if (value == null || currency == null || currency.isEmpty) return '—';
   final whole = value == value.roundToDouble();
   final text = whole ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
   final grouped = text.replaceAllMapped(
@@ -14,6 +16,13 @@ String formatProposalAmount(double? value, String currency) {
     (m) => '${m[1]}.',
   );
   return '$grouped $currency';
+}
+
+/// Money in a Replyn proposal is simulated; the card says so next to the
+/// amount, like the notice on the detail screen.
+String formatSimulatedProposalAmount(double? value, String? currency) {
+  final amount = formatProposalAmount(value, currency);
+  return amount == '—' ? amount : '$amount (mô phỏng)';
 }
 
 String formatProposalDate(DateTime? value) {
@@ -125,7 +134,7 @@ class ReplynProposalCard extends StatelessWidget {
               children: [
                 _Fact(
                   icon: Icons.account_balance_wallet_outlined,
-                  label: formatProposalAmount(
+                  label: formatSimulatedProposalAmount(
                     proposal.totalAmount,
                     proposal.currency,
                   ),
@@ -222,11 +231,11 @@ class _Fact extends StatelessWidget {
 
 /// Opens the accepted workspace. Replyn signs a Talent in with a QR code shown
 /// on another screen, so the sheet explains that path and offers the link.
+/// The host follows the same build configuration as the QR scanner, so a
+/// non-production build never sends people to production.
 Future<void> showOpenReplynSheet(BuildContext context, String workspaceId) {
-  final uri = replynWorkspaceUri(
-    ReplynQrConfig.defaultProductionHost,
-    workspaceId,
-  );
+  final host = ReplynQrConfig.fromEnvironment().primaryHost;
+  final uri = replynWorkspaceUri(host, workspaceId);
   return showModalBottomSheet<void>(
     context: context,
     useSafeArea: true,
@@ -246,7 +255,7 @@ Future<void> showOpenReplynSheet(BuildContext context, String workspaceId) {
             ),
             const SizedBox(height: 8),
             Text(
-              'Mở liên kết dưới đây trên máy tính, chọn “Mã QR”, rồi quét bằng biểu tượng quét QR cạnh chuông trong Nova. '
+              'Trên máy tính, mở $host → chọn “Mã QR” → quét bằng biểu tượng QR cạnh chuông trong Nova. '
               'Replyn sẽ mở đúng workspace của đề xuất này.',
               style: TextStyle(color: theme.textSecondary, height: 1.4),
             ),

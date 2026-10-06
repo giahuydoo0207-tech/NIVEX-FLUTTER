@@ -24,7 +24,12 @@ class ReplynProposalScreen extends StatefulWidget {
 }
 
 class _ReplynProposalScreenState extends State<ReplynProposalScreen> {
+  /// Set on the first tap, before any dialog opens, and cleared only when the
+  /// talent backs out or the request finishes, so a second tap does nothing.
   bool _busy = false;
+
+  /// The response is on its way to the backend.
+  bool _sending = false;
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +140,7 @@ class _ReplynProposalScreenState extends State<ReplynProposalScreen> {
                 children: [
                   _Row(
                     label: 'Ngân sách',
-                    value: formatProposalAmount(
+                    value: formatSimulatedProposalAmount(
                       proposal.totalAmount,
                       proposal.currency,
                     ),
@@ -246,7 +251,7 @@ class _ReplynProposalScreenState extends State<ReplynProposalScreen> {
           child: FilledButton(
             key: const Key('replyn-proposal-accept'),
             onPressed: _busy ? null : () => _accept(proposal),
-            child: Text(_busy ? 'Đang gửi…' : 'Chấp nhận đề xuất'),
+            child: Text(_sending ? 'Đang gửi…' : 'Chấp nhận đề xuất'),
           ),
         ),
       ],
@@ -254,6 +259,8 @@ class _ReplynProposalScreenState extends State<ReplynProposalScreen> {
   }
 
   Future<void> _accept(ReplynProposal proposal) async {
+    if (_busy) return;
+    setState(() => _busy = true);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -275,16 +282,26 @@ class _ReplynProposalScreenState extends State<ReplynProposalScreen> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (!mounted) return;
+    if (confirmed != true) {
+      setState(() => _busy = false);
+      return;
+    }
     await _respond(proposal, accept: true);
   }
 
   Future<void> _reject(ReplynProposal proposal) async {
+    if (_busy) return;
+    setState(() => _busy = true);
     final reason = await showDialog<String>(
       context: context,
       builder: (_) => const _RejectDialog(),
     );
-    if (reason == null || !mounted) return;
+    if (!mounted) return;
+    if (reason == null) {
+      setState(() => _busy = false);
+      return;
+    }
     await _respond(proposal, accept: false, reason: reason);
   }
 
@@ -293,15 +310,24 @@ class _ReplynProposalScreenState extends State<ReplynProposalScreen> {
     required bool accept,
     String? reason,
   }) async {
-    setState(() => _busy = true);
-    final error = await widget.controller.respondToProposal(
-      widget.applicationId,
-      proposal.id,
-      accept: accept,
-      reason: reason,
-    );
+    setState(() => _sending = true);
+    String? error;
+    try {
+      error = await widget.controller.respondToProposal(
+        widget.applicationId,
+        proposal.id,
+        accept: accept,
+        reason: reason,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _sending = false;
+        });
+      }
+    }
     if (!mounted) return;
-    setState(() => _busy = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

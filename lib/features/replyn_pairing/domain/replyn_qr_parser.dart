@@ -95,6 +95,13 @@ class ReplynQrConfig {
   /// Exact hostnames; subdomains and look-alikes do not match.
   final Set<String> allowedHosts;
   final bool allowDevHosts;
+
+  /// The Replyn web host this build sends people to: the preview host of a
+  /// non-production build when one is configured, otherwise production.
+  String get primaryHost => allowedHosts.firstWhere(
+    (host) => host != defaultProductionHost,
+    orElse: () => defaultProductionHost,
+  );
 }
 
 /// Validates Replyn login QR codes. The only accepted format is the one
