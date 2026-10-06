@@ -4,6 +4,7 @@ import 'package:nivex_flutter/features/jobs/data/application_controller.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_opportunity.dart';
 import 'package:nivex_flutter/features/profile/data/demo_freelancer_profile_controller.dart';
+import 'package:nivex_flutter/features/replyn_proposals/domain/replyn_proposal.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
 /// Jobs, applications and message threads backed by the shared Nova API.
@@ -25,6 +26,14 @@ class RemoteApplicationController extends ApplicationController {
   bool _isLoading = false;
   String? _errorMessage;
   Future<void>? _refreshInFlight;
+
+  /// Bumped by every load; only the newest load may write state, so a load
+  /// that started before an action cannot overwrite what the action returned.
+  int _loadGeneration = 0;
+
+  /// Proposals the backend returned from accept/reject, shown until a load
+  /// that started after the action brings fresh threads.
+  final Map<String, ReplynProposal> _proposalUpdates = {};
 
   @override
   bool get isLoading => _isLoading;
@@ -82,10 +91,21 @@ class RemoteApplicationController extends ApplicationController {
   }
 
   @override
-  Future<void> refresh() =>
-      _refreshInFlight ??= _load().whenComplete(() => _refreshInFlight = null);
+  Future<void> refresh() => _refreshInFlight ??= _startLoad();
 
-  Future<void> _load() async {
+  /// Starts a new load even when one is in flight; the older one is ignored.
+  Future<void> _forceRefresh() => _refreshInFlight = _startLoad();
+
+  Future<void> _startLoad() {
+    final generation = ++_loadGeneration;
+    late final Future<void> load;
+    load = _load(generation).whenComplete(() {
+      if (identical(_refreshInFlight, load)) _refreshInFlight = null;
+    });
+    return load;
+  }
+
+  Future<void> _load(int generation) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -94,15 +114,20 @@ class RemoteApplicationController extends ApplicationController {
         _api.myApplications(),
         _api.messageThreads(),
       ]);
+      if (generation != _loadGeneration) return;
       _jobs = results[0] as List<NovaJob>;
       _applications = results[1] as List<NovaJobApplication>;
       _threads = results[2] as List<NovaMessageThread>;
+      _proposalUpdates.clear();
       _errorMessage = null;
     } on NovaApiException catch (error) {
+      if (generation != _loadGeneration) return;
       _errorMessage = _message(error);
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -224,11 +249,16 @@ class RemoteApplicationController extends ApplicationController {
     final threadId = byId(applicationId)?.threadId;
     if (threadId == null) return 'Không tìm thấy cuộc trò chuyện.';
     try {
-      if (accept) {
-        await _api.acceptReplynProposal(threadId, proposalId);
-      } else {
-        await _api.rejectReplynProposal(threadId, proposalId, reason: reason);
-      }
+      final updated = accept
+          ? await _api.acceptReplynProposal(threadId, proposalId)
+          : await _api.rejectReplynProposal(
+              threadId,
+              proposalId,
+              reason: reason,
+            );
+      // Show the new status right away instead of waiting for the refresh.
+      _proposalUpdates[updated.id] = updated;
+      notifyListeners();
       return null;
     } on NovaApiException catch (error) {
       return switch (error.statusCode) {
@@ -240,7 +270,9 @@ class RemoteApplicationController extends ApplicationController {
       };
     } finally {
       // Both parties' cards follow the backend state, also after a refusal.
-      await refresh();
+      // A refresh started before the action could carry the old status, so
+      // this one never reuses it.
+      await _forceRefresh();
     }
   }
 
@@ -346,7 +378,7 @@ class RemoteApplicationController extends ApplicationController {
       ),
       threadId: thread?.id,
       threadStatus: thread?.requestStatus,
-      replynProposals: thread?.replynProposals ?? const [],
+      replynProposals: _proposalsOf(thread),
     );
   }
 
@@ -375,9 +407,15 @@ class RemoteApplicationController extends ApplicationController {
       ),
       threadId: thread.id,
       threadStatus: thread.requestStatus,
-      replynProposals: thread.replynProposals,
+      replynProposals: _proposalsOf(thread),
     );
   }
+
+  List<ReplynProposal> _proposalsOf(NovaMessageThread? thread) => [
+    for (final proposal
+        in thread?.replynProposals ?? const <ReplynProposal>[])
+      _proposalUpdates[proposal.id] ?? proposal,
+  ];
 
   List<JobApplicationMessage> _messages(
     NovaMessageThread? thread,

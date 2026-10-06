@@ -1,12 +1,19 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:nivex_flutter/app/theme/app_theme_mode.dart';
 import 'package:nivex_flutter/app/theme/nivex_theme.dart';
 import 'package:nivex_flutter/features/jobs/data/application_controller.dart';
+import 'package:nivex_flutter/features/jobs/data/remote_application_controller.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_application.dart';
 import 'package:nivex_flutter/features/jobs/domain/job_opportunity.dart';
 import 'package:nivex_flutter/features/jobs/presentation/application_thread_screen.dart';
 import 'package:nivex_flutter/features/replyn_proposals/domain/replyn_proposal.dart';
+import 'package:nivex_flutter/features/replyn_proposals/presentation/replyn_proposal_card.dart';
 import 'package:nivex_flutter/features/replyn_proposals/presentation/replyn_proposal_screen.dart';
 import 'package:nivex_flutter/shared/api/nova_api_client.dart';
 
@@ -41,11 +48,41 @@ Map<String, dynamic> _proposalJson({
   'workspaceId': workspaceId,
 };
 
+Map<String, Object?> _threadJson(String proposalStatus) => {
+  'id': _threadId,
+  'organizationName': 'Nova Labs',
+  'candidateName': 'Minh Anh',
+  'requestStatus': 'ACCEPTED',
+  'unreadForTalent': 0,
+  'updatedAt': '2026-10-05T03:00:00Z',
+  'messages': <Object>[],
+  'replynProposals': [
+    _proposalJson(
+      status: proposalStatus,
+      workspaceId: proposalStatus == 'ACCEPTED' ? _workspaceId : null,
+    ),
+  ],
+};
+
+http.Response _jsonResponse(Object body) =>
+    http.Response.bytes(utf8.encode(jsonEncode(body)), 200);
+
+/// Polls until [condition] holds; the fake backend answers asynchronously.
+Future<void> _until(bool Function() condition) async {
+  for (var i = 0; i < 200 && !condition(); i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+  expect(condition(), isTrue);
+}
+
 class _FakeController extends ApplicationController {
   _FakeController(this.proposal);
 
   ReplynProposal proposal;
   final calls = <String>[];
+
+  /// When set, the response waits for it, like a slow network.
+  Completer<void>? gate;
 
   JobApplication get _conversation => JobApplication(
     id: 'thread-$_threadId',
@@ -103,6 +140,8 @@ class _FakeController extends ApplicationController {
     String? reason,
   }) async {
     calls.add('${accept ? 'accept' : 'reject'}:$proposalId:${reason ?? ''}');
+    final pending = gate;
+    if (pending != null) await pending.future;
     proposal = ReplynProposal.tryParse(
       _proposalJson(
         status: accept ? 'ACCEPTED' : 'REJECTED',
@@ -248,5 +287,203 @@ void main() {
     expect(find.text('Đã từ chối'), findsOneWidget);
     expect(find.byKey(const Key('replyn-proposal-open-replyn')), findsNothing);
     expect(controller.proposal.workspaceId, isNull);
+  });
+
+  test('a proposal without a currency shows no guessed unit', () {
+    final proposal = ReplynProposal.tryParse({
+      ..._proposalJson(),
+      'currency': null,
+    })!;
+    expect(proposal.currency, isNull);
+    expect(formatProposalAmount(proposal.totalAmount, proposal.currency), '—');
+    expect(
+      formatSimulatedProposalAmount(proposal.totalAmount, proposal.currency),
+      '—',
+    );
+  });
+
+  testWidgets('the card marks the budget as simulated', (tester) async {
+    final controller = _FakeController(
+      ReplynProposal.tryParse(_proposalJson())!,
+    );
+    await tester.pumpWidget(
+      _app(
+        ApplicationThreadScreen(
+          applicationId: 'thread-$_threadId',
+          controller: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('2.500 USDC (mô phỏng)'), findsOneWidget);
+  });
+
+  testWidgets(
+    'a second tap while confirming or sending sends only one response',
+    (tester) async {
+      final controller = _FakeController(
+        ReplynProposal.tryParse(_proposalJson())!,
+      )..gate = Completer<void>();
+      await tester.pumpWidget(
+        _app(
+          ReplynProposalScreen(
+            controller: controller,
+            applicationId: 'thread-$_threadId',
+            proposalId: _proposalId,
+          ),
+        ),
+      );
+      final accept = find.byKey(const Key('replyn-proposal-accept'));
+      final reject = find.byKey(const Key('replyn-proposal-reject'));
+
+      // Double tap before the dialog is on screen: still one dialog.
+      await tester.tap(accept);
+      await tester.tap(accept, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text('Chấp nhận đề xuất?'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('replyn-proposal-accept-confirm')));
+      await tester.pumpAndSettle();
+
+      // The request is in flight: both buttons stay disabled.
+      expect(find.text('Đang gửi…'), findsOneWidget);
+      expect(tester.widget<FilledButton>(accept).onPressed, isNull);
+      expect(tester.widget<OutlinedButton>(reject).onPressed, isNull);
+      await tester.tap(accept, warnIfMissed: false);
+      await tester.tap(reject, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text('Chấp nhận đề xuất?'), findsNothing);
+      expect(find.text('Từ chối đề xuất?'), findsNothing);
+
+      controller.gate!.complete();
+      await tester.pumpAndSettle();
+      expect(controller.calls, ['accept:$_proposalId:']);
+      expect(find.text('Đã chấp nhận · Mở Replyn'), findsOneWidget);
+    },
+  );
+
+  testWidgets('cancelling the dialog lets the talent respond again', (
+    tester,
+  ) async {
+    final controller = _FakeController(
+      ReplynProposal.tryParse(_proposalJson())!,
+    );
+    await tester.pumpWidget(
+      _app(
+        ReplynProposalScreen(
+          controller: controller,
+          applicationId: 'thread-$_threadId',
+          proposalId: _proposalId,
+        ),
+      ),
+    );
+    final accept = find.byKey(const Key('replyn-proposal-accept'));
+    await tester.tap(accept);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(accept).onPressed, isNotNull);
+    expect(controller.calls, isEmpty);
+  });
+
+  group('RemoteApplicationController proposals', () {
+    late List<Completer<void>> heldThreadLoads;
+    late bool holdThreadLoads;
+    late String backendStatus;
+    late NovaApiClient client;
+
+    setUp(() {
+      heldThreadLoads = [];
+      holdThreadLoads = false;
+      backendStatus = 'PENDING';
+      client = NovaApiClient(
+        config: NovaApiConfig('https://example.test'),
+        readToken: () async => 'a' * 43,
+        transport: MockClient((request) async {
+          final path = request.url.path;
+          if (request.method == 'POST' &&
+              path ==
+                  '/api/v1/mobile/messages/$_threadId/replyn-proposals/$_proposalId/accept') {
+            backendStatus = 'ACCEPTED';
+            return _jsonResponse(
+              _proposalJson(status: 'ACCEPTED', workspaceId: _workspaceId),
+            );
+          }
+          if (path == '/api/v1/mobile/messages') {
+            // The answer reflects the backend when the request arrived.
+            final status = backendStatus;
+            if (holdThreadLoads) {
+              final hold = Completer<void>();
+              heldThreadLoads.add(hold);
+              await hold.future;
+            }
+            return _jsonResponse([_threadJson(status)]);
+          }
+          if (path == '/api/v1/jobs' ||
+              path == '/api/v1/mobile/applications') {
+            return _jsonResponse(<Object>[]);
+          }
+          return http.Response('', 404);
+        }),
+      );
+      addTearDown(client.close);
+    });
+
+    const conversationId = 'thread-$_threadId';
+
+    test('accepting shows the accepted proposal before the refresh returns',
+        () async {
+      final controller = RemoteApplicationController.of(client);
+      await controller.refresh();
+      ReplynProposal current() =>
+          controller.byId(conversationId)!.replynProposals.single;
+      expect(current().status, ReplynProposalStatus.pending);
+
+      holdThreadLoads = true;
+      final response = controller.respondToProposal(
+        conversationId,
+        _proposalId,
+        accept: true,
+      );
+      await _until(() => heldThreadLoads.isNotEmpty);
+
+      // The refresh is still waiting, yet the card already shows the result.
+      expect(controller.isLoading, isTrue);
+      expect(current().status, ReplynProposalStatus.accepted);
+      expect(current().workspaceId, _workspaceId);
+
+      heldThreadLoads.single.complete();
+      expect(await response, isNull);
+      expect(current().status, ReplynProposalStatus.accepted);
+      expect(controller.isLoading, isFalse);
+    });
+
+    test('a refresh started before accepting cannot bring back the old status',
+        () async {
+      final controller = RemoteApplicationController.of(client);
+      await controller.refresh();
+      ReplynProposal current() =>
+          controller.byId(conversationId)!.replynProposals.single;
+
+      holdThreadLoads = true;
+      final staleRefresh = controller.refresh();
+      await _until(() => heldThreadLoads.length == 1);
+
+      final response = controller.respondToProposal(
+        conversationId,
+        _proposalId,
+        accept: true,
+      );
+      await _until(() => heldThreadLoads.length == 2);
+
+      // The new refresh answers first, then the stale one (still PENDING).
+      heldThreadLoads[1].complete();
+      expect(await response, isNull);
+      heldThreadLoads[0].complete();
+      await staleRefresh;
+
+      expect(current().status, ReplynProposalStatus.accepted);
+      expect(controller.isLoading, isFalse);
+    });
   });
 }

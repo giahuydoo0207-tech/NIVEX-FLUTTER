@@ -81,9 +81,12 @@ class ReplynProposal {
       revisionLimit: json['revisionLimit'] is int
           ? json['revisionLimit'] as int
           : null,
-      currency: json['currency'] is String
-          ? json['currency'] as String
-          : 'USDC',
+      // No silent 'USDC' default: an amount without a known unit shows as '—'.
+      currency:
+          json['currency'] is String &&
+              (json['currency'] as String).trim().isNotEmpty
+          ? (json['currency'] as String).trim()
+          : null,
       totalAmount: _number(json['totalAmount']),
       startDate: _date(json['startDate']),
       deadline: _date(json['deadline']),
@@ -121,7 +124,7 @@ class ReplynProposal {
   final String scope;
   final List<String> deliverables;
   final int? revisionLimit;
-  final String currency;
+  final String? currency;
   final double? totalAmount;
   final DateTime? startDate;
   final DateTime? deadline;
